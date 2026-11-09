@@ -13,7 +13,8 @@ import { ESTADOS_DO_RETORNO, NOTAS, ROTULO_DO_TIPO, avisaNaHora, lerRetorno, typ
  * O beta com a equipe (docs/AJUDA.md §10): mandar a opinião sobre uma tela,
  * votar numa pergunta da ajuda, perguntar à equipe, relatar problema ou
  * sugestão — e, para os administradores, responder. O RLS de ajuda_retornos
- * confere de novo quem manda e quem vê.
+ * confere de novo quem manda e quem vê. O problema ("Achei um erro") é lido
+ * também pelo Claude, de hora em hora, só para leitura (§17).
  */
 
 type Resultado = { erro?: string; id?: string }
@@ -31,7 +32,9 @@ export async function enviarRetorno(bruto: Record<string, unknown>): Promise<Res
     const context = await requireWorkspace({ escola: true })
     const lido = lerRetorno(bruto)
     if (!lido.retorno) throw new Error(lido.erro)
-    const r = lido.retorno
+    // O commit no ar quem diz é o servidor, não o navegador: é com ele que o Claude acha o código
+    // que a pessoa estava usando (docs/AJUDA.md §17). Fora da Vercel fica sem (o undefined não vai ao banco).
+    const r = { ...lido.retorno, contexto: { ...lido.retorno.contexto, versao: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) } }
     const supabase = await createClient()
     const { data, error } = await supabase.from('ajuda_retornos')
       .insert({ ...r, workspace_id: context.workspace.id, autor_id: context.user.id })

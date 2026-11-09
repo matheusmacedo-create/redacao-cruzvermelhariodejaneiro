@@ -53,17 +53,17 @@ const SINO: PassoDoTour = {
 const AJUDA: PassoDoTour = {
   alvo: 'shell.ajuda',
   titulo: 'Ajuda em qualquer tela',
-  texto: 'O “?” mostra a ajuda da tela aberta: para que serve, o tour, “Como fazer” e “Dúvidas”. No fim, “Conte para a equipe” manda uma dúvida, um problema ou uma ideia; a resposta volta no sino.',
+  texto: 'O “?” mostra a ajuda da tela aberta: para que serve, o tour, “Como fazer” e “Dúvidas”. No fim, “Achei um erro” avisa de um erro, e “Conte para a equipe” manda uma dúvida ou uma ideia; a resposta volta no sino.',
   lado: 'bottom',
 }
 
 // O beta com a equipe (components/app/ajuda/beta.tsx): o botão do topo só
-// existe do tablet para cima; o mesmo formulário fica no fim do painel "?"
-// ("Conte para a equipe"), em qualquer aparelho, e o balão da ajuda diz isso.
+// existe do tablet para cima; no fim do painel "?", em qualquer aparelho, ficam
+// "Achei um erro" e "Conte para a equipe", e o balão da ajuda diz isso.
 const BETA: PassoDoTour = {
   alvo: 'shell.beta',
   titulo: 'Estamos em beta: conte tudo',
-  texto: '“Beta” manda para a equipe que está melhorando o Palácio um problema, uma ideia, uma dúvida ou um elogio, com a tela onde você está. A resposta volta no sino.',
+  texto: '“Beta” manda para a equipe que está melhorando o Palácio um erro, uma ideia, uma dúvida ou um elogio, com a tela onde você está. A resposta volta no sino.',
   lado: 'bottom',
   seAusente: 'pular',
 }
@@ -312,15 +312,27 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
     resumo: 'O Palácio Virtual está em beta com a equipe: estamos melhorando a ferramenta todos os dias, a partir do que vocês contam. Cada opinião, dúvida, problema ou ideia chega direto a quem está construindo o Palácio, com a tela e o aparelho de onde veio.',
     tarefas: [
       {
+        id: 'avisar-um-erro',
+        titulo: 'Avisar que achei um erro',
+        passos: [
+          'Na tela onde aconteceu, toque no “?”, no alto.',
+          'No fim do painel, toque em “Achei um erro”.',
+          'Em “O que aconteceu?”, conte com as suas palavras: o que você fez, o que esperava e o que apareceu.',
+          'Toque em “Enviar”.',
+        ],
+        exemplo: '“Em Pedidos de compra, no celular, toquei em Pedir propostas e o botão Enviar ficou escondido embaixo do teclado.” Junto vai sozinho: a tela, “Celular · 390×844 · Chrome no Android” e, se a tela deu erro, a mensagem técnica dele.',
+        dica: 'Se a tela inteira mostrar “Algo deu errado ao carregar esta página”, o aviso já está ali: toque em “Avisar sobre este erro”. Escrever o que estava fazendo é opcional.',
+      },
+      {
         id: 'contar-um-problema',
-        titulo: 'Contar um problema ou uma ideia',
+        titulo: 'Contar uma ideia, uma dúvida ou um elogio',
         passos: [
           'Na tela onde aconteceu, toque em “Beta”, no alto (ou abra o “?” e, no fim do painel, toque em “Conte para a equipe”).',
-          'Escolha “Algo deu errado”, “Tenho uma ideia”, “Tenho uma dúvida” ou “Gostei!”.',
-          'Conte com as suas palavras: o que você fez, o que esperava e o que aconteceu.',
+          'Escolha “Tenho uma ideia”, “Tenho uma dúvida” ou “Gostei!” (no “Beta” também dá para escolher “Achei um erro”).',
+          'Conte com as suas palavras o que você quer dizer.',
           'Se quiser, dê uma nota para a tela e toque em “Enviar”.',
         ],
-        exemplo: '“Algo deu errado”: “Em Pedidos de compra, no celular, toquei em Pedir propostas e o botão Enviar ficou escondido embaixo do teclado.” Junto vai sozinho: a tela, “Celular · 390×844 · Chrome no Android”.',
+        exemplo: '“Tenho uma ideia”: “Seria bom avisar o setor quando a compra chegar.” Junto vai sozinho: a tela e o aparelho, “Celular · 390×844 · Chrome no Android”.',
         dica: 'Não precisa de print nem de explicar o aparelho: a tela e o tamanho da janela vão juntos. Nada do que está digitado na tela é enviado.',
       },
       {
@@ -358,19 +370,25 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
       {
         id: 'quem-ve-o-que-eu-mando',
         pergunta: 'Quem vê o que eu mando pelo Beta?',
-        resposta: 'A administração do Palácio Virtual, que cuida das melhorias. As outras pessoas da equipe não veem o que você mandou; nas “Perguntas mais frequentes”, a Central mostra só quantas pessoas acharam uma resposta útil, nunca quem votou.',
+        resposta: 'A administração do Palácio Virtual, que cuida das melhorias. Os erros (“Achei um erro”) são lidos também pelo Claude, o assistente que cuida do código. As outras pessoas da equipe não veem o que você mandou; nas “Perguntas mais frequentes”, a Central mostra só quantas pessoas acharam uma resposta útil, nunca quem votou.',
         termos: ['privacidade', 'anônimo', 'quem lê', 'feedback'],
+      },
+      {
+        id: 'o-que-acontece-com-um-erro',
+        pergunta: 'O que acontece quando eu aviso um erro?',
+        resposta: 'A administração recebe um aviso no sino na hora. E, de hora em hora, o Claude, o assistente que cuida do código do Palácio, lê os erros novos, procura a causa e, quando é defeito do programa, prepara a correção.\n\nA correção só vai ao ar depois que alguém da administração confere e aprova. Quando estiver resolvido, a resposta chega no seu sino e fica em “Seus retornos do beta”, na Central de ajuda.',
+        termos: ['erro', 'bug', 'defeito', 'não funciona', 'travou', 'correção', 'claude', 'achei um erro'],
       },
       {
         id: 'o-que-acontece-depois',
         pergunta: 'O que acontece com o que eu mando?',
-        resposta: 'Problema, dúvida, ideia e nota ruim avisam a administração na hora. Cada retorno ganha uma situação (“Novo”, “Em análise”, “Resolvido” ou “Arquivado”) e, quando precisa, uma resposta, que chega no seu sino.\n\nOs retornos também viram prioridade: as telas com pior avaliação e as respostas da ajuda que não ajudaram vêm primeiro na fila de melhorias.',
+        resposta: 'Erro, dúvida, ideia e nota ruim avisam a administração na hora; o erro vai também para o Claude, que prepara a correção. Cada retorno ganha uma situação (“Novo”, “Em análise”, “Resolvido” ou “Arquivado”) e, quando precisa, uma resposta, que chega no seu sino.\n\nOs retornos também viram prioridade: as telas com pior avaliação e as respostas da ajuda que não ajudaram vêm primeiro na fila de melhorias.',
         termos: ['depois de enviar', 'resposta', 'melhoria', 'prazo'],
       },
       {
         id: 'nao-vejo-o-beta',
         pergunta: 'Não vejo o botão “Beta”. Onde ele está?',
-        resposta: 'No computador e no tablet, ele fica no alto, ao lado do sino. No celular o topo não tem espaço: abra o “?” e, no fim do painel, toque em “Conte para a equipe”. É o mesmo formulário, em qualquer aparelho.',
+        resposta: 'No computador e no tablet, ele fica no alto, ao lado do sino. No celular o topo não tem espaço: abra o “?” e, no fim do painel, toque em “Achei um erro” (para um erro) ou em “Conte para a equipe” (para uma dúvida, uma ideia ou um elogio).',
         termos: ['botão beta', 'celular', 'não aparece', 'opinião'],
       },
     ],
@@ -578,7 +596,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
         id: 'chamado-para-a-ti',
         titulo: 'Pedir ajuda à TI com um chamado',
         passos: [
-          'Toque em “Criar” → “Abrir chamado”, ou no link “Ainda com dúvida? Abra um chamado para a TI”, no pé do painel “?” (esse link já escolhe a TI).',
+          'Toque em “Criar” → “Abrir chamado”, ou no link “Computador, impressora ou internet? Chamado para a TI”, no pé do painel “?” (esse link já escolhe a TI).',
           'Se a equipe ainda não estiver escolhida, escolha “Tecnologia da Informação”.',
           'Em “Qual é o assunto?”, escolha o que mais combina.',
           'Preencha “Resumo” e “Descreva com detalhes”: o que tentou fazer, em que tela, e o que apareceu.',
@@ -632,7 +650,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
       {
         id: 'duvida-continua',
         pergunta: 'A ajuda não respondeu a minha dúvida. E agora?',
-        resposta: 'Se é sobre o trabalho, pergunte à equipe no Chat. Se algo não funciona, abra um chamado para a TI contando o que tentou fazer, em que tela e o que apareceu.\n\nA equipe da escola não abre chamados: para ela, o caminho é o Chat.',
+        resposta: 'Se é sobre o trabalho, pergunte à equipe no Chat. Se é um erro do Palácio (um botão que não responde, uma tela que não abre), abra o “?” e toque em “Achei um erro”, no fim do painel. Se é o computador, a impressora ou a internet, abra um chamado para a TI contando o que tentou fazer e o que apareceu.\n\nA equipe da escola não abre chamados: para ela, o caminho é o Chat (e o “Achei um erro”, para erro do Palácio).',
         termos: ['suporte', 'problema', 'erro', 'bug', 'ti'],
       },
     ],

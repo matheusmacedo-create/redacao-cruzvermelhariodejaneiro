@@ -269,7 +269,8 @@ export const SE_TRAVAR: { id: string; titulo: string; itens: ItemDoGuia[] } = {
     { texto: 'Toque no ponto de interrogação, no alto da tela: ele explica a tela em que você está, com o botão “Ouvir”.' },
     { texto: 'Não entendeu uma palavra? O glossário, na Central de ajuda, explica em poucas frases.' },
     { texto: 'Peça ajuda a alguém da equipe pelo Chat.' },
-    { texto: 'Algo não funciona? Toque em “Criar” e abra um chamado para a TI.', soDaRedacao: true },
+    { texto: 'Achou um erro no Palácio? No fim do ponto de interrogação, toque em “Achei um erro” e conte o que aconteceu. O aviso chega ao Claude, o assistente que cuida do Palácio, que prepara a correção.' },
+    { texto: 'Computador, impressora ou internet com problema? Toque em “Criar” e abra um chamado para a TI.', soDaRedacao: true },
     { texto: 'No fim do ponto de interrogação, em “Conte para a equipe”, você manda a sua dúvida, e a resposta chega no sino.' },
   ],
 }
