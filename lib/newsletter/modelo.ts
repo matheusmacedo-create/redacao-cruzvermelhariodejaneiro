@@ -151,15 +151,26 @@ export function emailDeConfirmacao(dados: {
  * do corpo, não em letra miúda. Entregar o arquivo e inscrever em silêncio seria o tipo de truque que este projeto não
  * faz.
  *
- * O rodapé troca de frase: quem recebe esta mensagem ainda não confirmou nada, só pediu a lista.
+ * O rodapé troca de frase: esta mensagem não é uma edição da newsletter, é a resposta a um pedido feito no site.
+ *
+ * `jaInscrito`: a pessoa já está na lista e pediu o material (decisao.ts, `entregar`). Não há o que confirmar: o
+ * botão vai direto ao arquivo e a mensagem diz isso no lugar da explicação da confirmação. O rodapé é o mesmo das
+ * duas: a mensagem saiu porque pediram o material com aquele endereço, esteja ele na lista ou não.
  */
 export function emailDoMaterial(dados: {
   material: Material
-  /** O link de confirmação, já com o material (termina no arquivo). */
+  /** O link de confirmação, já com o material (termina no arquivo). Com `jaInscrito`, o próprio arquivo. */
   urlBaixar: string
   urlDeSaida: string
+  jaInscrito?: boolean
 }): Modelo {
   const m = dados.material
+  const oQueOBotaoFaz = dados.jaInscrito
+    ? 'Você já recebe as nossas notícias, então não há nada a confirmar: o botão abre a lista direto.'
+    : 'Ao tocar no botão, você baixa a lista e confirma o seu e-mail: passa a receber também as notícias, campanhas e informações sobre cursos da Cruz Vermelha do Rio de Janeiro. Dá para sair quando quiser, pelo link no fim de cada mensagem.'
+  const seNaoFoiVoce = dados.jaInscrito
+    ? 'Pode ignorar esta mensagem: nada muda na sua inscrição.'
+    : 'Então não faça nada: sem o toque no botão, nada mais é enviado e o pedido expira sozinho.'
 
   const miolo = `
       <p style="margin:0 0 4px;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;color:${VERMELHO};">Você pediu, aqui está</p>
@@ -167,11 +178,11 @@ export function emailDoMaterial(dados: {
       <p style="margin:0 0 16px;">Olá!</p>
       <p style="margin:0 0 16px;">Você pediu ${escapar(m.nome)} no nosso site. ${escapar(m.email.descricao)}</p>
       ${botao(dados.urlBaixar, m.email.botao)}
-      <p style="margin:0 0 16px;">Ao tocar no botão, você baixa a lista e confirma o seu e-mail: passa a receber também as notícias, campanhas e informações sobre cursos da Cruz Vermelha do Rio de Janeiro. Dá para sair quando quiser, pelo link no fim de cada mensagem.</p>
+      <p style="margin:0 0 16px;">${escapar(oQueOBotaoFaz)}</p>
       <p style="margin:0 0 16px;font-size:14px;color:${SUAVE};">Quer entender cada item da lista? Veja o <a href="${escapar(m.guia)}" style="color:${VERMELHO};font-weight:bold;">${escapar(m.rotuloDoGuia)}</a>, no nosso site.</p>
       <p style="margin:0 0 16px;font-size:14px;color:${SUAVE};">Se o botão não funcionar, copie e cole este endereço no navegador:<br>
         <span style="word-break:break-all;color:${SUAVE};">${escapar(dados.urlBaixar)}</span></p>
-      <p style="margin:0;font-size:14px;color:${SUAVE};"><strong>Não foi você?</strong> Então não faça nada: sem o toque no botão, nada mais é enviado e o pedido expira sozinho.</p>`
+      <p style="margin:0;font-size:14px;color:${SUAVE};"><strong>Não foi você?</strong> ${escapar(seNaoFoiVoce)}</p>`
 
   const texto = [
     m.email.titulo.toUpperCase(),
@@ -183,16 +194,21 @@ export function emailDoMaterial(dados: {
     `${m.email.botao}:`,
     dados.urlBaixar,
     '',
-    'Ao abrir esse endereço, você baixa a lista e confirma o seu e-mail: passa a',
-    'receber também as notícias, campanhas e informações sobre cursos da Cruz',
-    'Vermelha do Rio de Janeiro. Dá para sair quando quiser, pelo link no fim de',
-    'cada mensagem.',
+    ...(dados.jaInscrito
+      ? ['Você já recebe as nossas notícias, então não há nada a confirmar: o endereço', 'acima abre a lista direto.']
+      : [
+          'Ao abrir esse endereço, você baixa a lista e confirma o seu e-mail: passa a',
+          'receber também as notícias, campanhas e informações sobre cursos da Cruz',
+          'Vermelha do Rio de Janeiro. Dá para sair quando quiser, pelo link no fim de',
+          'cada mensagem.',
+        ]),
     '',
     `Quer entender cada item da lista? Veja o ${m.rotuloDoGuia}:`,
     m.guia,
     '',
-    'Não foi você? Então não faça nada: sem abrir o endereço acima, nada mais é',
-    'enviado e o pedido expira sozinho.',
+    ...(dados.jaInscrito
+      ? ['Não foi você? Pode ignorar esta mensagem: nada muda na sua inscrição.']
+      : ['Não foi você? Então não faça nada: sem abrir o endereço acima, nada mais é', 'enviado e o pedido expira sozinho.']),
     '',
     '--',
     'Cruz Vermelha Brasileira — Filial do Estado do Rio de Janeiro',

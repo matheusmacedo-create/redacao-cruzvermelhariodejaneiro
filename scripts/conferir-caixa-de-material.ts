@@ -9,6 +9,8 @@
  * - a página de qualquer outra matéria sai sem nada da caixa;
  * - o id do material só aceita o que está cadastrado;
  * - a mensagem diz que o botão baixa E confirma, e leva o link de saída;
+ * - quem já está na lista: recebe a lista (uma vez por dia), numa mensagem sem confirmação, e o formulário da home
+ *   continua sem mandar nada a quem já confirmou (lib/newsletter/decisao.ts);
  * - a trava do arquivo: sem o PDF respondendo no site, a página sai sem a caixa.
  */
 import { montarPaginaDoArtigo } from '../lib/site/artigo-html'
@@ -21,6 +23,9 @@ import { KIT_DE_EMERGENCIA, materialPorId, todosOsMateriais } from '../lib/newsl
 import { emailDoMaterial } from '../lib/newsletter/modelo'
 import { esquecerMateriaisConferidos, materialNoAr } from '../lib/site/material-no-ar'
 import { TEXTO_DO_CONSENTIMENTO } from '../lib/newsletter/inscricao'
+import {
+  decidirInscricao, HORAS_ENTRE_ENTREGAS, LIMITE_POR_IP, MINUTOS_ENTRE_CONVITES, type Decisao, type InscritoExistente,
+} from '../lib/newsletter/decisao'
 
 let falhas = 0
 const ok = (cond: boolean, msg: string) => { if (!cond) { falhas++; console.error('✗', msg) } else console.log('✓', msg) }
@@ -97,6 +102,54 @@ ok(msg.html.includes('porque pediram a lista do kit de emergência no nosso site
 ok(msg.html.includes(`href="${kit.guia}"`) && msg.texto.includes(kit.guia), 'a mensagem aponta o guia do site')
 ok(msg.html.includes('Não foi você?') && msg.texto.includes('Não foi você?'), 'e diz o que fazer a quem não pediu')
 ok(msg.texto.includes(urlBaixar), 'a versão em texto tem o endereço de baixar por extenso')
+
+// ---------------------------------------------------------------- quem já está na lista
+// O caso que motivou a regra (09/11/2026): um inscrito antigo pediu a lista, a caixa disse "vai para o seu e-mail" e
+// nada saiu. A decisão é pura, então cada caminho dela é conferido aqui, com relógio fixo.
+const AGORA = Date.parse('2026-11-09T22:44:21Z')
+const HORA = 3600_000
+const ha = (ms: number) => new Date(AGORA - ms).toISOString()
+const linha = (estado: NonNullable<InscritoExistente>['estado'], updated_at: string | null): InscritoExistente => ({ id: 'inscrito-1', estado, updated_at })
+const decide = (existente: InscritoExistente, extra: { pedeMaterial?: boolean; inscricoesDoIpNaHora?: number } = {}): Decisao =>
+  decidirInscricao({ existente, inscricoesDoIpNaHora: 0, agora: AGORA, ...extra })
+const igual = (a: Decisao, b: Decisao) => JSON.stringify(a) === JSON.stringify(b)
+const antigo = linha('confirmado', ha(70 * 24 * HORA))
+
+ok(igual(decide(antigo, { pedeMaterial: true }), { acao: 'entregar', inscrito: 'inscrito-1' }), 'inscrito antigo que pede a lista: recebe a lista')
+ok(igual(decide(antigo), { acao: 'silenciar', porque: 'ja-confirmado' }) && igual(decide(antigo, { pedeMaterial: false }), { acao: 'silenciar', porque: 'ja-confirmado' }),
+  'o formulário da home continua sem mandar nada a quem já confirmou')
+ok(igual(decide(linha('confirmado', ha(HORAS_ENTRE_ENTREGAS * HORA - 60_000)), { pedeMaterial: true }), { acao: 'silenciar', porque: 'entrega-recente' })
+  && igual(decide(linha('confirmado', ha(0)), { pedeMaterial: true }), { acao: 'silenciar', porque: 'entrega-recente' }),
+  `pediu de novo antes de ${HORAS_ENTRE_ENTREGAS} horas: nada é enviado (nem um minuto antes, nem no mesmo instante)`)
+ok(igual(decide(linha('confirmado', ha(HORAS_ENTRE_ENTREGAS * HORA)), { pedeMaterial: true }), { acao: 'entregar', inscrito: 'inscrito-1' }),
+  `completadas as ${HORAS_ENTRE_ENTREGAS} horas, recebe de novo`)
+ok(HORAS_ENTRE_ENTREGAS * 60 > MINUTOS_ENTRE_CONVITES, 'a janela de quem já está na lista é mais longa que a do convite de quem não está')
+ok(igual(decide(antigo, { pedeMaterial: true, inscricoesDoIpNaHora: LIMITE_POR_IP }), { acao: 'silenciar', porque: 'limite-de-ip' }),
+  'o limite por IP continua vindo antes de tudo, também para quem já está na lista')
+ok(igual(decide(linha('confirmado', null), { pedeMaterial: true }), { acao: 'entregar', inscrito: 'inscrito-1' })
+  && igual(decide(linha('confirmado', 'data-quebrada'), { pedeMaterial: true }), { acao: 'entregar', inscrito: 'inscrito-1' }),
+  'linha sem hora (ou com hora ilegível) não trava a entrega: quem decide de verdade é a marca no banco')
+ok(igual(decide(null, { pedeMaterial: true }), { acao: 'gravar', atualizar: null }) && igual(decide(null), { acao: 'gravar', atualizar: null }),
+  'quem não está na lista entra como sempre, com ou sem material')
+ok(igual(decide(linha('pendente', ha(5 * 60_000)), { pedeMaterial: true }), { acao: 'silenciar', porque: 'convite-recente' })
+  && igual(decide(linha('pendente', ha((MINUTOS_ENTRE_CONVITES + 1) * 60_000)), { pedeMaterial: true }), { acao: 'gravar', atualizar: 'inscrito-1' }),
+  `pendente: o convite (que é a mensagem da lista) não se repete em menos de ${MINUTOS_ENTRE_CONVITES} minutos, e depois sai de novo`)
+ok(igual(decide(linha('descadastrado', ha(HORA)), { pedeMaterial: true }), { acao: 'gravar', atualizar: 'inscrito-1' })
+  && igual(decide(linha('invalido', ha(HORA)), { pedeMaterial: true }), { acao: 'gravar', atualizar: 'inscrito-1' }),
+  'quem saiu da lista não recebe a entrega direta: volta a pendente e só entra de novo confirmando')
+
+// A mensagem de quem já está na lista: o botão é o arquivo, e nada nela fala em confirmar.
+const msgInscrito = emailDoMaterial({ material: kit, urlBaixar: kit.arquivo, urlDeSaida, jaInscrito: true })
+ok(msgInscrito.assunto === msg.assunto && msgInscrito.html.includes(`href="${kit.arquivo}"`) && msgInscrito.html.includes('>Baixar a lista em PDF</a>') && msgInscrito.texto.includes(kit.arquivo),
+  'para quem já está na lista, o mesmo assunto e o mesmo botão, que abre o arquivo direto')
+ok(!msgInscrito.html.includes('newsletter/confirmar') && !msgInscrito.texto.includes('newsletter/confirmar'), 'sem link de confirmação: não há o que confirmar')
+ok([msgInscrito.html, msgInscrito.texto].every((t) => !t.includes('confirma o seu e-mail') && !t.includes('expira') && t.includes('não há nada a confirmar')),
+  'a mensagem diz que não há nada a confirmar, e não promete o que só vale para o convite (HTML e texto)')
+ok([msgInscrito.html, msgInscrito.texto].every((t) => t.includes('Não foi você?') && t.includes('nada muda na sua inscrição')), 'e diz a quem não pediu que nada muda na inscrição')
+ok(msgInscrito.html.includes('porque pediram a lista do kit de emergência no nosso site') && msgInscrito.html.includes(`href="${urlDeSaida}"`) && msgInscrito.texto.includes(`Sair da lista: ${urlDeSaida}`),
+  'o rodapé diz que a mensagem veio de um pedido no site, e o link de saída vai nas duas versões')
+ok(msgInscrito.html.includes(`href="${kit.guia}"`) && msgInscrito.texto.includes(kit.guia), 'o guia do site continua na mensagem')
+ok(msg.html !== msgInscrito.html && msg.html.includes('você baixa a lista e confirma o seu e-mail') && !msg.html.includes('não há nada a confirmar'), 'e a mensagem de quem ainda não confirmou não mudou')
 
 // ---------------------------------------------------------------- a trava do arquivo
 const semArquivo = montarPaginaDoArtigo({ ...base, slug: 'plano-familiar-de-emergencia-no-rio', semCaixaDeMaterial: true })

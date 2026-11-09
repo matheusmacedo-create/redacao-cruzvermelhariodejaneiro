@@ -134,8 +134,9 @@ export const CSS_DA_CAIXA_DE_MATERIAL = `.news-material{margin:40px 0 0;padding:
 
 /**
  * O script da caixa: melhoria progressiva sobre o formulário comum. Envia em JSON para a rota (como o formulário da
- * home), mostra o recado que a rota devolve, some com o formulário e mostra o link do guia: quem já está na lista não
- * recebe outra mensagem (lib/newsletter/materiais.ts), e é por ali que essa pessoa chega ao arquivo.
+ * home), mostra o recado que a rota devolve, some com o formulário e mostra o link do guia: é por ali que chega ao
+ * arquivo quem pediu de novo no mesmo dia (quem já está na lista recebe uma entrega por dia, lib/newsletter/materiais.ts)
+ * e quem ficou sem a mensagem porque o e-mail não saiu.
  *
  * Medição: com o pedido aceito, o evento do material (`kit_pedir`) vai ao GA4 pelo gtag que a página já carrega, com
  * `origem` = "materia" e `tipo` = a variante da caixa; a matéria é a página do evento. Sem gtag, nada é enviado.
