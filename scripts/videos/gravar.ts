@@ -24,7 +24,8 @@
  *  - PALACIO_URL (opcional): padrão https://palacio.cruzvermelhariodejaneiro.org.
  */
 import { createHash } from 'node:crypto'
-import { copyFileSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { createServer, type Server } from 'node:http'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { guiaDaArea } from '../../lib/ajuda'
@@ -56,6 +57,29 @@ const BASE = (process.env.PALACIO_URL || 'https://palacio.cruzvermelhariodejanei
 const RAIZ = path.resolve('.videos')
 const CATALOGO = path.resolve('lib/ajuda/videos.json')
 const LEGENDAS = path.resolve('public/tutoriais')
+
+/**
+ * O palco dos vídeos de cenas (scripts/videos/cenas), servido só durante a gravação: /cenas/* daquela pasta e
+ * /images/* de public/images (o selo e a logo). Nada além dessas duas pastas, e só em 127.0.0.1.
+ */
+let servidorDoPalco: Server | null = null
+function servirOPalco(): Promise<{ endereco: string }> {
+  const pastas: Record<string, string> = { cenas: path.resolve('scripts/videos/cenas'), images: path.resolve('public/images') }
+  const tipos: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml' }
+  return new Promise((resolver) => {
+    servidorDoPalco = createServer((req, res) => {
+      const [, pasta, ...resto] = decodeURIComponent((req.url ?? '/').split('?')[0]).split('/')
+      const base = pastas[pasta]
+      const arquivo = base ? path.resolve(base, resto.join('/')) : ''
+      if (!base || !arquivo.startsWith(base + path.sep) || !existsSync(arquivo)) { res.writeHead(404).end(); return }
+      res.writeHead(200, { 'content-type': tipos[path.extname(arquivo)] ?? 'application/octet-stream' }).end(readFileSync(arquivo))
+    })
+    servidorDoPalco.listen(0, '127.0.0.1', () => {
+      const endereco = servidorDoPalco!.address()
+      resolver({ endereco: `http://127.0.0.1:${typeof endereco === 'object' && endereco ? endereco.port : 0}` })
+    })
+  })
+}
 
 function credenciais(arquivo: string | undefined) {
   const doArquivo = arquivo
@@ -138,7 +162,9 @@ async function main() {
     await entrar(pagina, conta)
     const robo = new RoboDoPalacio(pagina, BASE, celular)
     await conferirEspaco(robo, pagina)
-    await robo.ir(roteiro.inicio)
+    // O vídeo de cenas (inicio "cena:<id>") abre o palco servido aqui mesmo; os outros, a rota do Palácio.
+    const palco = roteiro.inicio.startsWith('cena:') ? await servirOPalco() : null
+    await robo.ir(palco ? `${palco.endereco}/cenas/palco.html?v=${roteiro.inicio.slice(5)}&parado` : roteiro.inicio)
 
     // 3. A gravação: imagens da tela pelo DevTools (nítidas, e só quando algo muda).
     const cdp = await contexto.newCDPSession(pagina)
@@ -163,6 +189,7 @@ async function main() {
     const noVideo: FalaNoVideo[] = [{ fala: falas[0], inicio: agora() }]
     await robo.esperar((falas[0].duracao + 0.5) * 1000)
     await robo.tirarCartao()
+    if (palco) await robo.semCursor()
 
     for (let i = 0; i < roteiro.passos.length; i++) {
       const passo = roteiro.passos[i]
@@ -226,6 +253,7 @@ async function main() {
     console.log(`Falta subir ao site: .videos/saida/${video} e .videos/saida/${capa} → ${ENDERECO_DOS_VIDEOS}`)
   } finally {
     await navegador.close()
+    servidorDoPalco?.close()
   }
 }
 

@@ -26,6 +26,8 @@ export interface Robo {
   /** Contorna o alvo com o destaque vermelho (some no próximo destaque ou em `apagar`). */
   destacar(alvo: string): Promise<void>
   apagar(): Promise<void>
+  /** No palco dos vídeos de explicação (scripts/videos/cenas): mostra a cena n, a partir de 0. */
+  cena(n: number): Promise<void>
   esperar(ms: number): Promise<void>
 }
 
@@ -58,7 +60,10 @@ export type Roteiro = {
   explica?: string
   /** O título do cartão de abertura (o da tarefa, de preferência). */
   titulo: string
-  /** A rota em que a gravação começa. */
+  /**
+   * A rota em que a gravação começa. Com "cena:<id>", o vídeo é de cenas animadas (números, gráficos, o mapa dos
+   * setores, citações com fonte): o gravador serve scripts/videos/cenas e abre palco.html?v=<id> (docs/AJUDA.md §18).
+   */
   inicio: string
   /** A fala do cartão de abertura. */
   abertura: string

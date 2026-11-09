@@ -186,41 +186,30 @@ export const ROTEIROS: Roteiro[] = [
   // ---------------------------------------------------------------- os vídeos de explicação (docs/AJUDA.md §18)
   // Gravados sobre a página "Segurança do Palácio" (/seguranca), com `explica`: o texto da página que cada um conta.
   {
+    // Vídeo de cenas (inicio "cena:…"): números, gráficos, o mapa dos setores e fontes de fora (§18). Celular primeiro.
     id: 'seguranca-por-que-existe',
     area: '/seguranca',
     tarefa: 'por-que-existe',
     explica: textoExplicadoPeloVideo('seguranca-por-que-existe')!,
     titulo: 'Por que o Palácio existe',
-    inicio: '/seguranca',
-    abertura: 'Por que a filial criou o Palácio Virtual, e qual é o objetivo.',
+    inicio: 'cena:seguranca-por-que-existe',
+    abertura: 'Por que a filial criou o Palácio Virtual? Veja, com dados, o que está em jogo.',
     passos: [
-      {
-        fala: 'O Palácio nasceu para levar a Cruz Vermelha do Rio de Janeiro para o digital: um lugar só para o trabalho da filial, ligado ao site, ao WhatsApp e às redes sociais.',
-        acao: async (r) => { await r.esperar(1000); await r.rolar('#por-que-existe p:has-text("nasceu para levar")'); await r.destacar('#por-que-existe p:has-text("nasceu para levar")') },
-      },
-      {
-        fala: 'Um objetivo importante é o Google Ad Grants: o Google doa anúncios gratuitos na pesquisa a organizações sem fins lucrativos, de até dez mil dólares por mês.',
-        acao: async (r) => { await r.destacar('#por-que-existe p:has-text("Google Ad Grants")') },
-      },
-      {
-        fala: 'Os anúncios levam as pessoas ao site da filial, para virar voluntário, doar e conhecer o trabalho da Cruz Vermelha.',
-        pausa: 700,
-      },
-      {
-        fala: 'Mas o Google exige uma organização séria: um site seguro, os resultados medidos e as regras do programa seguidas. O Palácio ajuda em tudo isso.',
-        acao: async (r) => { await r.rolar('#por-que-existe p:has-text("o Google exige")'); await r.destacar('#por-que-existe p:has-text("o Google exige")') },
-      },
-      {
-        fala: 'É também uma aposta: quando os caminhos de sempre ficam difíceis, o digital pode ajudar a reconstruir e fortalecer a filial.',
-        acao: async (r) => { await r.destacar('#por-que-existe p:has-text("uma aposta")') },
-      },
-      {
-        fala: 'Por isso a segurança é tão importante: para receber apoio, a filial precisa mostrar que cuida bem dos dados e presta contas.',
-        acao: async (r) => { await r.rolar('#por-que-existe p:has-text("Por isso a segurança")'); await r.destacar('#por-que-existe p:has-text("Por isso a segurança")') },
-        pausa: 900,
-      },
+      { fala: 'A Cruz Vermelha Brasileira nasceu aqui, no Rio de Janeiro, em 1908. Há mais de cem anos, ela se adapta para continuar servindo.', acao: async (r) => { await r.cena(0) } },
+      { fala: 'E o mundo mudou de novo. Hoje, quase tudo passa pelo celular.', acao: async (r) => { await r.cena(1) } },
+      { fala: 'Entre as pessoas com sessenta anos ou mais, três em cada quatro já usam a internet. Em 2019, eram menos da metade.', acao: async (r) => { await r.cena(2) } },
+      { fala: 'As organizações sociais também foram. Oitenta por cento já estão nas redes sociais. Mas só quarenta e seis por cento têm site, e vinte e nove por cento recebem doações pela internet. Quem se organiza primeiro, se destaca.', acao: async (r) => { await r.cena(3) } },
+      { fala: 'E é o próprio Movimento da Cruz Vermelha que pede. A Estratégia 2030 da Federação Internacional quer todas as filiais conectadas digitalmente.', acao: async (r) => { await r.cena(4) } },
+      { fala: 'Existe uma porta aberta: o Google Ad Grants. São até dez mil dólares por mês em anúncios gratuitos no Google, para levar voluntários e doadores ao site. Mais de cento e quinze mil organizações no mundo já usam.', acao: async (r) => { await r.cena(5) } },
+      { fala: 'Mas o Google exige organização: site próprio e seguro, conteúdo de verdade, resultados medidos todo mês e as regras seguidas. É exatamente isso que o Palácio faz.', acao: async (r) => { await r.cena(6) } },
+      { fala: 'E confiança se conquista mostrando. Oitenta e três por cento buscam informações antes de doar, e só trinta por cento acham a maioria das ONGs confiável.', acao: async (r) => { await r.cena(7) } },
+      { fala: 'No papel, a informação se perde, demora para circular, e ninguém confere depois. No Palácio, tudo fica registrado e chega na hora a quem precisa.', acao: async (r) => { await r.cena(8) } },
+      { fala: 'O Palácio liga os doze setores da filial. Cada um faz a sua parte, e todo mundo sabe o que está acontecendo.', acao: async (r) => { await r.cena(9) } },
+      { fala: 'E sabe quem mais faz trabalho voluntário no Brasil? As pessoas com cinquenta anos ou mais. A experiência de vocês é o coração da filial.', acao: async (r) => { await r.cena(10) } },
+      { fala: 'O Palácio já está funcionando. Em menos de três meses: cento e cinquenta e três candidatos a voluntário, oitenta e oito publicações no ar e cento e setenta e sete arquivos organizados.', acao: async (r) => { await r.cena(11) } },
+      { fala: 'Onze pessoas da equipe já estão no Palácio. Falta você. Vamos reconstruir a filial juntos.', acao: async (r) => { await r.cena(12) }, pausa: 1200 },
     ],
-    fechamento: 'Na página Segurança do Palácio, você vê como os seus dados são protegidos.',
+    fechamento: 'Quer ler com calma? A página Segurança do Palácio explica tudo, com o botão Ouvir.',
   },
   {
     id: 'seguranca-cada-setor',

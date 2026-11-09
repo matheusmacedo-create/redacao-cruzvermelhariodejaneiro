@@ -1385,3 +1385,31 @@ fictícios) e o de fechamento aponta para a página.
 
 Gravados sobre o preview do PR da página (`PALACIO_URL`), porque ela ainda não estava no ar.
 
+**Vídeos de cenas (09/11/2026, pedido depois da primeira rodada).** "Achei muito tipo só lendo: faltou gráficos,
+dados, organogramas, conteúdo externo que valide a nossa visão. Não é só falar o que somos, é mostrar com dados [...]
+Precisamos convencer os velhos a acreditar na gente." E: "A sede está carente de computadores: a maioria usa o
+sistema no próprio celular, e é um público 50+."
+
+Por isso os vídeos de explicação passaram a ser **cenas animadas**, e não a página rolando. O palco fica em
+`scripts/videos/cenas/` (`palco.html`, `palco.css`, `palco.js`), e cada vídeo tem o arquivo de cenas dele
+(`<id>.js`, com `window.CENAS`). O roteiro começa em `inicio: 'cena:<id>'`: o gravador serve a pasta só durante a
+gravação, em 127.0.0.1, e cada passo chama `r.cena(n)`. Os tipos de cena são:
+
+- `capa`;
+- `numero`, um número grande que conta até o valor, com a fonte;
+- `numeros`, os números do próprio Palácio;
+- `barras`, um gráfico;
+- `citacao`, uma frase de fora, com quem disse;
+- `lista`;
+- `comparacao`, como "No papel" e "No Palácio";
+- `rede`, o Palácio ligando os 12 setores: em círculo no computador e em grade no celular;
+- `chamada`, o fechamento.
+
+**As regras das cenas:**
+
+- **celular primeiro**: a versão em pé é a principal. Poucas palavras por cena, número grande, letra que se lê
+  num celular pequeno;
+- **todo dado tem fonte na tela**, de preferência a primária (Cetic.br, IBGE, IFRC, Google, a lei no Planalto). O
+  número do Palácio sai do banco, só como total, sem dado de pessoa, e com o período;
+- nada de número arredondado para cima nem de comparação que a fonte não faz.
+
