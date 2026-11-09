@@ -51,6 +51,11 @@ export type Roteiro = {
   /** A área da ajuda (o href do guia, como '/aprovacoes') e o id da tarefa que o vídeo mostra. */
   area: string
   tarefa: string
+  /**
+   * Vídeo de explicação de uma página (docs/AJUDA.md §18), e não de uma tarefa: o texto da página que ele explica.
+   * Com ele, `area` é a rota da página ('/seguranca'), `tarefa` é o id da parte, e a impressão do vídeo vem deste texto.
+   */
+  explica?: string
   /** O título do cartão de abertura (o da tarefa, de preferência). */
   titulo: string
   /** A rota em que a gravação começa. */

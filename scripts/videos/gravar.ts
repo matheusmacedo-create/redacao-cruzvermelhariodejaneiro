@@ -29,6 +29,7 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import { guiaDaArea } from '../../lib/ajuda'
 import { ENDERECO_DOS_VIDEOS, impressaoDaTarefa, type VarianteGravada, type VideoGravado } from '../../lib/ajuda/videos'
+import { codigoDoTexto } from '../../lib/ajuda/ouvir'
 import { montarVideo, type FalaNoVideo, type Quadro } from './montar'
 import { RoboDoPalacio, scriptDaTela, type PaginaPw } from './robo'
 import { ROTEIROS } from './roteiros'
@@ -95,8 +96,9 @@ async function main() {
     console.error(`Use: npx tsx scripts/videos/gravar.ts <id> [--ensaio] [--credenciais=arquivo.env]\nVídeos: ${ROTEIROS.map((r) => r.id).join(', ')}`)
     process.exit(1)
   }
-  const tarefa = guiaDaArea(roteiro.area)?.tarefas.find((t) => t.id === roteiro.tarefa)
-  if (!tarefa) throw new Error(`A tarefa ${roteiro.area}#${roteiro.tarefa} não existe na ajuda.`)
+  // Vídeo de explicação de uma página (`explica`, §18) não tem tarefa: a impressão vem do texto da página.
+  const tarefa = roteiro.explica ? null : guiaDaArea(roteiro.area)?.tarefas.find((t) => t.id === roteiro.tarefa)
+  if (!roteiro.explica && !tarefa) throw new Error(`A tarefa ${roteiro.area}#${roteiro.tarefa} não existe na ajuda.`)
   const conta = credenciais(args.find((a) => a.startsWith('--credenciais='))?.split('=')[1])
   if (celular && !ensaio && !(JSON.parse(readFileSync(CATALOGO, 'utf8')) as Record<string, unknown>)[roteiro.id]) {
     throw new Error(`Grave primeiro a versão de computador de ${roteiro.id}: a de celular entra no mesmo item do catálogo.`)
@@ -148,7 +150,11 @@ async function main() {
       quadros.push({ arquivo, t: q.metadata.timestamp ?? Date.now() / 1000 })
       cdp.send('Page.screencastFrameAck', { sessionId: q.sessionId }).catch(() => undefined)
     })
-    await robo.cartao('Palácio Virtual · Como fazer', roteiro.titulo, 'O passo a passo da ajuda, na tela de verdade, com dados fictícios.')
+    // O vídeo de explicação de uma página (§18) não é passo a passo nem usa dados fictícios: o cartão diz o que ele é.
+    const abertura = roteiro.explica
+      ? { etiqueta: 'Palácio Virtual · Por dentro', texto: 'Explicado com calma, com o texto da página “Segurança do Palácio”.' }
+      : { etiqueta: 'Palácio Virtual · Como fazer', texto: 'O passo a passo da ajuda, na tela de verdade, com dados fictícios.' }
+    await robo.cartao(abertura.etiqueta, roteiro.titulo, abertura.texto)
     const tela = celular ? { largura: 1080, altura: 1920 } : { largura: 1920, altura: 1080 }
     await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 90, maxWidth: tela.largura, maxHeight: tela.altura, everyNthFrame: 1 })
     await robo.esperar(500)
@@ -177,7 +183,10 @@ async function main() {
     }
 
     await robo.apagar()
-    await robo.cartao('Palácio Virtual · Ajuda', 'Ficou alguma dúvida?', 'Toque em ? no alto de qualquer tela: o passo a passo, o “Ouvir” e os vídeos estão lá.')
+    const fechamento = roteiro.explica
+      ? { etiqueta: 'Palácio Virtual · Por dentro', titulo: 'Quer ler com calma?', texto: 'A página “Segurança do Palácio” tem tudo isto, com o “Ouvir” e a versão para imprimir.' }
+      : { etiqueta: 'Palácio Virtual · Ajuda', titulo: 'Ficou alguma dúvida?', texto: 'Toque em ? no alto de qualquer tela: o passo a passo, o “Ouvir” e os vídeos estão lá.' }
+    await robo.cartao(fechamento.etiqueta, fechamento.titulo, fechamento.texto)
     await robo.esperar(400)
     const ultima = falas[falas.length - 1]
     noVideo.push({ fala: ultima, inicio: agora() })
@@ -204,13 +213,13 @@ async function main() {
     copyFileSync(pronto.vtt, path.join(LEGENDAS, legenda))
     const catalogo = JSON.parse(readFileSync(CATALOGO, 'utf8')) as Record<string, VideoGravado>
     const variante: VarianteGravada = {
-      duracao: Number(pronto.duracao.toFixed(1)), gravadoEm: hojeNaFilial(), impressao: await impressaoDaTarefa(tarefa), video, capa, legenda,
+      duracao: Number(pronto.duracao.toFixed(1)), gravadoEm: hojeNaFilial(), impressao: tarefa ? await impressaoDaTarefa(tarefa) : await codigoDoTexto(roteiro.explica ?? ''), video, capa, legenda,
     }
     // Uma versão regravada não apaga a outra: a de celular mora dentro do item da de computador.
     const atual = catalogo[roteiro.id]
     catalogo[roteiro.id] = celular
       ? { ...atual, celular: variante }
-      : { ...atual, titulo: tarefa.titulo, area: roteiro.area, tarefa: roteiro.tarefa, ...variante }
+      : { ...atual, titulo: tarefa?.titulo ?? roteiro.titulo, area: roteiro.area, tarefa: roteiro.tarefa, ...variante }
     const ordenado = Object.fromEntries(Object.keys(catalogo).sort().map((k) => [k, catalogo[k]]))
     writeFileSync(CATALOGO, `${JSON.stringify(ordenado, null, 2)}\n`)
     console.log(`Catálogo: lib/ajuda/videos.json e public/tutoriais/${legenda} atualizados.`)

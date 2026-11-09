@@ -7,12 +7,15 @@ import {
 } from 'lucide-react'
 import { BrandMark } from '@/components/app/brand-mark'
 import { Ouvir } from '@/components/ajuda/ouvir'
+import { CartaoDoVideo } from '@/components/ajuda/cartao-do-video'
 import { BotaoDeImprimir } from '@/components/comecar/partes'
 import { textoDaParte, type ParteDoGuia } from '@/lib/ajuda/comecar'
 import {
-  CODIGO_ABERTO, CONSTRUIDO, EM_POUCAS_PALAVRAS, GOVERNANCA, IA_NO_PALACIO, NAO_FAZ_TUDO, PERGUNTAS_DA_SEGURANCA, POR_QUE, QUEM_VE, SE_DESCONFIAR,
-  TRANCAS, TRANSPARENCIA, textoDaListaDaSeguranca, textoDasPerguntas, textoDoNaoFazTudo, type IconeDaSeguranca, type ItemDaSeguranca,
+  CODIGO_ABERTO, CONSTRUIDO, EM_POUCAS_PALAVRAS, GOVERNANCA, IA_NO_PALACIO, NAO_FAZ_TUDO, PERGUNTAS_DA_SEGURANCA, POR_QUE, POR_QUE_EXISTE, CADA_SETOR, QUEM_VE, SE_DESCONFIAR,
+  TRANCAS, TRANSPARENCIA, VIDEOS_DA_SEGURANCA, textoDaListaDaSeguranca, textoDasPerguntas, textoDoNaoFazTudo, type IconeDaSeguranca,
+  type ItemDaSeguranca,
 } from '@/lib/ajuda/seguranca'
+import { videoDaAjuda } from '@/lib/ajuda/videos'
 import { textoCorrido } from '@/lib/ajuda/ouvir'
 import { DOMINIO_DO_PALACIO } from '@/lib/dominio'
 import { ehEquipeDaEscola } from '@/lib/permissoes'
@@ -21,7 +24,7 @@ import { cn } from '@/lib/utils'
 
 export const metadata: Metadata = {
   title: 'Segurança do Palácio — Palácio Virtual',
-  description: 'Como o Palácio Virtual da Cruz Vermelha RJ protege os dados da filial e das pessoas, e como ele é construído, com o Claude.',
+  description: 'Por que o Palácio Virtual da Cruz Vermelha RJ existe, como ele protege os dados da filial e das pessoas, e como é construído, com o Claude.',
 }
 
 const ICONES: Record<IconeDaSeguranca, LucideIcon> = {
@@ -47,9 +50,11 @@ export default async function SegurancaPage() {
   const context = await obterWorkspace({ escola: true }).catch(() => null)
   const escola = context ? ehEquipeDaEscola(context.role) : false
   const partes: { id: string; titulo: string }[] = [
-    EM_POUCAS_PALAVRAS, POR_QUE, TRANCAS, QUEM_VE, CONSTRUIDO, NAO_FAZ_TUDO, GOVERNANCA, ...(context ? [TRANSPARENCIA] : []), IA_NO_PALACIO,
+    POR_QUE_EXISTE, CADA_SETOR, EM_POUCAS_PALAVRAS, POR_QUE, TRANCAS, QUEM_VE, CONSTRUIDO, NAO_FAZ_TUDO, GOVERNANCA, ...(context ? [TRANSPARENCIA] : []), IA_NO_PALACIO,
     { id: 'perguntas', titulo: 'Perguntas que a equipe faz' }, SE_DESCONFIAR,
   ]
+  // Os vídeos curtos (§18), só os já gravados; o da transparência, só com login, como a parte dele.
+  const videos = VIDEOS_DA_SEGURANCA.filter((v) => (!v.soComLogin || context) && videoDaAjuda(v.id))
 
   return (
     <main className="min-h-dvh bg-background text-foreground">
@@ -58,7 +63,7 @@ export default async function SegurancaPage() {
           <BrandMark selo className="w-60 items-start sm:w-72" />
           <div>
             <h1 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl">Segurança do Palácio</h1>
-            <p className={cn(texto, 'mt-3 text-muted-foreground')}>Como o Palácio protege os seus dados, e como ele é construído, explicado com calma. Em cada parte, o botão “Ouvir” lê o texto em voz alta.</p>
+            <p className={cn(texto, 'mt-3 text-muted-foreground')}>Por que o Palácio existe, por que cada setor é importante, como ele protege os seus dados e como é construído, explicado com calma. Em cada parte, o botão “Ouvir” lê o texto em voz alta.</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row print:hidden">
             {context
@@ -78,7 +83,23 @@ export default async function SegurancaPage() {
               ))}
             </ol>
           </nav>
+          {videos.length > 0 && (
+            <section aria-labelledby="titulo-videos" className="flex flex-col gap-4 print:hidden" data-seguranca-videos>
+              <h2 id="titulo-videos" className="text-xl font-bold sm:text-2xl">Prefere ver em vídeo?</h2>
+              <ol className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {videos.map((v, i) => <li key={v.id}><CartaoDoVideo id={v.id} numero={i + 1} onde="Segurança" grande /></li>)}
+              </ol>
+            </section>
+          )}
         </header>
+
+        <Parte parte={POR_QUE_EXISTE}>
+          {POR_QUE_EXISTE.frases.map((f) => <p key={f} className={texto}>{f}</p>)}
+        </Parte>
+
+        <Parte parte={CADA_SETOR}>
+          {CADA_SETOR.frases.map((f) => <p key={f} className={texto}>{f}</p>)}
+        </Parte>
 
         <Parte parte={EM_POUCAS_PALAVRAS}>
           <ul className="flex flex-col gap-4" data-seguranca-resumo>
@@ -106,7 +127,7 @@ export default async function SegurancaPage() {
           {QUEM_VE.frases.map((f) => <p key={f} className={texto}>{f}</p>)}
           <dl className="flex flex-col divide-y-2 divide-border rounded-2xl border-2 border-border bg-card" data-seguranca-quem-ve>
             {QUEM_VE.itens.map((i) => (
-              <div key={i.id} className="flex flex-col gap-1 px-5 py-4 print:break-inside-avoid">
+              <div key={i.id} className="flex flex-col gap-1 px-5 py-4 print:break-inside-avoid" data-item={i.id}>
                 <dt className="text-xl font-bold">{i.titulo}</dt>
                 <dd className={texto}>{i.texto}</dd>
               </div>
@@ -133,7 +154,7 @@ export default async function SegurancaPage() {
 
         <Parte parte={GOVERNANCA} ouvir={textoCorrido([textoDaParte(GOVERNANCA), ...CODIGO_ABERTO.frases])}>
           {GOVERNANCA.frases.map((f) => <p key={f} className={texto}>{f}</p>)}
-          <ol className="flex flex-col gap-4">
+          <ol className="flex flex-col gap-4" data-seguranca-passos>
             {(GOVERNANCA.passos ?? []).map((p, i) => (
               <li key={p} className="flex items-start gap-4">
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground" aria-hidden="true">{i + 1}</span>
@@ -141,7 +162,7 @@ export default async function SegurancaPage() {
               </li>
             ))}
           </ol>
-          <div className="flex flex-col gap-3 rounded-2xl bg-muted/70 p-5">
+          <div className="flex flex-col gap-3 rounded-2xl bg-muted/70 p-5" data-seguranca-codigo>
             {CODIGO_ABERTO.frases.map((f) => <p key={f} className={texto}>{f}</p>)}
             <a href={CODIGO_ABERTO.link} target="_blank" rel="noreferrer" className={cn(botaoSecundario, 'self-start print:hidden')}><Code className="size-5" aria-hidden="true" />Ver o código do Palácio</a>
             <p className="hidden break-all text-base print:block">{CODIGO_ABERTO.link}</p>

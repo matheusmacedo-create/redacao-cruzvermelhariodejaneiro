@@ -28,6 +28,7 @@ import { GLOSSARIO, GUIAS, MAIS_PERGUNTADAS, SO_DA_REDACAO, TOPICOS_GERAIS, alvo
 import { resumoEDetalhe } from '../lib/ajuda/texto'
 import { textoDaTarefa } from '../lib/ajuda/ouvir'
 import { COISAS_DE_TODOS, COISAS_DO_SETOR, SETORES_DO_GUIA, VIDEOS_PARA_COMECAR, textosDoGuia } from '../lib/ajuda/comecar'
+import { VIDEOS_DA_SEGURANCA, textoExplicadoPeloVideo } from '../lib/ajuda/seguranca'
 import catalogoDosVideos from '../lib/ajuda/videos.json'
 import { GUIAS_DO_MEMBRO, BOAS_VINDAS_DO_MEMBRO, TOPICOS_DO_MEMBRO } from '../lib/ajuda/membro'
 import { TODOS_OS_GRUPOS, areaDoCaminho } from '../lib/navegacao'
@@ -154,17 +155,24 @@ for (const guia of GUIAS) {
   for (const t of guia.tarefas) if (t.video && !VIDEOS[t.video]) erros.push(`${guia.href}#${t.id}: o vídeo "${t.video}" não está em lib/ajuda/videos.json`)
 }
 for (const [id, v] of Object.entries(VIDEOS)) {
-  const tarefa = GUIAS.find((g) => g.href === v.area)?.tarefas.find((t) => t.id === v.tarefa)
-  if (!tarefa) { erros.push(`vídeo ${id}: a tarefa ${v.area}#${v.tarefa} não existe`); continue }
-  if (tarefa.video !== id) erros.push(`vídeo ${id}: a tarefa ${v.area}#${v.tarefa} não aponta para ele (campo "video")`)
+  // Vídeo de explicação de uma página (§18): sem tarefa; a impressão vem do texto da página que ele explica.
+  const explicado = v.area === '/seguranca' ? textoExplicadoPeloVideo(id) : null
+  if (v.area === '/seguranca' && (!explicado || !VIDEOS_DA_SEGURANCA.some((x) => x.id === id && x.parte === v.tarefa))) {
+    erros.push(`vídeo ${id}: não está em VIDEOS_DA_SEGURANCA (lib/ajuda/seguranca.ts) com a parte "${v.tarefa}"`)
+    continue
+  }
+  const tarefa = explicado ? null : GUIAS.find((g) => g.href === v.area)?.tarefas.find((t) => t.id === v.tarefa)
+  if (!explicado && !tarefa) { erros.push(`vídeo ${id}: a tarefa ${v.area}#${v.tarefa} não existe`); continue }
+  if (tarefa && tarefa.video !== id) erros.push(`vídeo ${id}: a tarefa ${v.area}#${v.tarefa} não aponta para ele (campo "video")`)
+  const textoDeReferencia = explicado ?? textoDaTarefa(tarefa!)
   // A de computador é o próprio item; a de celular, o campo `celular` (o nome dos arquivos leva "-celular").
   const versoes: [string, Variante, string][] = [['computador', v, `${id}-`], ...(v.celular ? [['celular', v.celular, `${id}-celular-`] as [string, Variante, string]] : [])]
   for (const [nome, versao, prefixo] of versoes) {
     if (!existsSync(join(raiz, 'public', 'tutoriais', versao.legenda))) erros.push(`vídeo ${id} (${nome}): falta a legenda public/tutoriais/${versao.legenda}`)
     const padrao = new RegExp(`^${prefixo}[0-9a-f]{8}\\.(mp4|jpg)$`)
     if (!padrao.test(versao.video) || !padrao.test(versao.capa)) erros.push(`vídeo ${id} (${nome}): nome de arquivo fora do padrão (${prefixo}<versão>.mp4 e .jpg)`)
-    if (codigoDoTexto(textoDaTarefa(tarefa)) !== versao.impressao) {
-      avisos.push(`vídeo ${id} (${nome}): o passo a passo de ${v.area}#${v.tarefa} mudou depois da gravação; confira o roteiro e regrave (npx tsx scripts/videos/gravar.ts ${id}${nome === 'celular' ? ' --celular' : ''})`)
+    if (codigoDoTexto(textoDeReferencia) !== versao.impressao) {
+      avisos.push(`vídeo ${id} (${nome}): ${explicado ? `o texto da página ${v.area} que ele explica` : `o passo a passo de ${v.area}#${v.tarefa}`} mudou depois da gravação; confira o roteiro e regrave (npx tsx scripts/videos/gravar.ts ${id}${nome === 'celular' ? ' --celular' : ''})`)
     }
   }
 }

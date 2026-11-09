@@ -1,4 +1,5 @@
 import type { Roteiro } from './tipos'
+import { textoExplicadoPeloVideo } from '../../lib/ajuda/seguranca'
 
 /**
  * Os roteiros dos vídeos da ajuda (docs/AJUDA.md §14). Cada um conta, em voz, a tarefa da ajuda escrita
@@ -181,5 +182,200 @@ export const ROTEIROS: Roteiro[] = [
       },
     ],
     fechamento: FECHAMENTO,
+  },
+  // ---------------------------------------------------------------- os vídeos de explicação (docs/AJUDA.md §18)
+  // Gravados sobre a página "Segurança do Palácio" (/seguranca), com `explica`: o texto da página que cada um conta.
+  {
+    id: 'seguranca-por-que-existe',
+    area: '/seguranca',
+    tarefa: 'por-que-existe',
+    explica: textoExplicadoPeloVideo('seguranca-por-que-existe')!,
+    titulo: 'Por que o Palácio existe',
+    inicio: '/seguranca',
+    abertura: 'Por que a filial criou o Palácio Virtual, e qual é o objetivo.',
+    passos: [
+      {
+        fala: 'O Palácio nasceu para levar a Cruz Vermelha do Rio de Janeiro para o digital: um lugar só para o trabalho da filial, ligado ao site, ao WhatsApp e às redes sociais.',
+        acao: async (r) => { await r.esperar(1000); await r.rolar('#por-que-existe p:has-text("nasceu para levar")'); await r.destacar('#por-que-existe p:has-text("nasceu para levar")') },
+      },
+      {
+        fala: 'Um objetivo importante é o Google Ad Grants: o Google doa anúncios gratuitos na pesquisa a organizações sem fins lucrativos, de até dez mil dólares por mês.',
+        acao: async (r) => { await r.destacar('#por-que-existe p:has-text("Google Ad Grants")') },
+      },
+      {
+        fala: 'Os anúncios levam as pessoas ao site da filial, para virar voluntário, doar e conhecer o trabalho da Cruz Vermelha.',
+        pausa: 700,
+      },
+      {
+        fala: 'Mas o Google exige uma organização séria: um site seguro, os resultados medidos e as regras do programa seguidas. O Palácio ajuda em tudo isso.',
+        acao: async (r) => { await r.rolar('#por-que-existe p:has-text("o Google exige")'); await r.destacar('#por-que-existe p:has-text("o Google exige")') },
+      },
+      {
+        fala: 'É também uma aposta: quando os caminhos de sempre ficam difíceis, o digital pode ajudar a reconstruir e fortalecer a filial.',
+        acao: async (r) => { await r.destacar('#por-que-existe p:has-text("uma aposta")') },
+      },
+      {
+        fala: 'Por isso a segurança é tão importante: para receber apoio, a filial precisa mostrar que cuida bem dos dados e presta contas.',
+        acao: async (r) => { await r.rolar('#por-que-existe p:has-text("Por isso a segurança")'); await r.destacar('#por-que-existe p:has-text("Por isso a segurança")') },
+        pausa: 900,
+      },
+    ],
+    fechamento: 'Na página Segurança do Palácio, você vê como os seus dados são protegidos.',
+  },
+  {
+    id: 'seguranca-cada-setor',
+    area: '/seguranca',
+    tarefa: 'cada-setor',
+    explica: textoExplicadoPeloVideo('seguranca-cada-setor')!,
+    titulo: 'Por que cada setor é importante',
+    inicio: '/seguranca',
+    abertura: 'O Palácio é rápido e completo. Mas quem faz a Cruz Vermelha acontecer são as pessoas. Veja por que cada setor é importante.',
+    passos: [
+      {
+        fala: 'Com o Claude, dá para construir muito rápido. Mas o Palácio não trabalha sozinho: quem faz a Cruz Vermelha acontecer são as pessoas, no dia a dia.',
+        acao: async (r) => { await r.esperar(1000); await r.rolar('#cada-setor p:has-text("não trabalha sozinho")'); await r.destacar('#cada-setor p:has-text("não trabalha sozinho")') },
+      },
+      {
+        fala: 'Cada setor sabe o que só ele sabe e faz o que só ele faz. Sem cada um deles, a filial para.',
+        acao: async (r) => { await r.destacar('#cada-setor p:has-text("Cada setor sabe")') },
+      },
+      {
+        fala: 'O Palácio existe para facilitar a conversa entre as pessoas e entre os setores. Quando a informação chega a quem precisa, a filial cresce.',
+        acao: async (r) => { await r.rolar('#cada-setor p:has-text("facilitar a conversa")'); await r.destacar('#cada-setor p:has-text("facilitar a conversa")') },
+      },
+      {
+        fala: 'Não dá mais para fazer tudo no papel, como antes: o papel se perde, demora para circular e não deixa ninguém conferir depois.',
+        acao: async (r) => { await r.destacar('#cada-setor p:has-text("tudo no papel")') },
+      },
+      {
+        fala: 'Por isso, tudo é registrado desde o início, com clareza: quem pediu, quem aprovou e o que foi feito. E o que é público fica à vista de todos.',
+        acao: async (r) => { await r.rolar('#cada-setor p:has-text("registrado desde o início")'); await r.destacar('#cada-setor p:has-text("registrado desde o início")') },
+      },
+      {
+        fala: 'É assim que a filial ganha força: cada setor fazendo a sua parte, e todo mundo sabendo o que está acontecendo.',
+        acao: async (r) => { await r.destacar('#cada-setor p:has-text("ganha força")') },
+        pausa: 900,
+      },
+    ],
+    fechamento: 'O guia para começar mostra o que o seu setor faz no Palácio.',
+  },
+  {
+    id: 'seguranca-as-trancas',
+    area: '/seguranca',
+    tarefa: 'trancas',
+    explica: textoExplicadoPeloVideo('seguranca-as-trancas')!,
+    titulo: 'Seus dados estão seguros?',
+    inicio: '/seguranca',
+    abertura: 'Seus dados estão seguros no Palácio? Veja, com calma, as trancas que protegem a filial.',
+    passos: [
+      {
+        fala: 'O Palácio guarda dados de pessoas: nomes, telefones, documentos. Por isso, ele segue as regras de segurança que as empresas sérias seguem.',
+        acao: async (r) => { await r.esperar(1200); await r.rolar('[data-seguranca-resumo]'); await r.destacar('[data-seguranca-resumo]') },
+      },
+      {
+        fala: 'A primeira tranca é a sua senha. Ela fica guardada embaralhada, e nem a administração consegue ver. Se você esquecer, ela só pode criar uma senha nova.',
+        acao: async (r) => { await r.apagar(); await r.rolar('[data-item="senha"]'); await r.destacar('[data-item="senha"]') },
+      },
+      {
+        fala: 'Depois, um porteiro em cada sala: a cada informação aberta, o banco de dados confere quem está pedindo. Cada pessoa vê só o que o trabalho dela pede.',
+        acao: async (r) => { await r.destacar('[data-item="porteiro"]') },
+      },
+      {
+        fala: 'Cinco senhas erradas em quinze minutos, e a conta tranca por um tempo. Assim, ninguém fica tentando adivinhar.',
+        acao: async (r) => { await r.rolar('[data-item="bloqueio"]'); await r.destacar('[data-item="bloqueio"]') },
+      },
+      {
+        fala: 'Se alguém entrar na sua conta de um aparelho novo, você recebe um aviso no e-mail e no WhatsApp.',
+        acao: async (r) => { await r.rolar('[data-item="aviso"]'); await r.destacar('[data-item="aviso"]') },
+      },
+      {
+        fala: 'E o Palácio anota cada entrada num livro que só a administração lê. Até quem consulta esse livro fica anotado.',
+        acao: async (r) => { await r.rolar('[data-item="livro"]'); await r.destacar('[data-item="livro"]') },
+      },
+      {
+        fala: 'Todo dia, uma cópia de segurança vai para outro lugar, com uma trava que impede apagar.',
+        acao: async (r) => { await r.rolar('[data-item="copia"]'); await r.destacar('[data-item="copia"]') },
+      },
+      {
+        fala: 'E quem cuida do sistema? Tem a chave técnica, como o síndico tem a da casa de máquinas. Por isso existem as travas: a senha que ninguém vê e o livro que anota tudo.',
+        acao: async (r) => { await r.apagar(); await r.rolar('[data-item="administracao"]'); await r.destacar('[data-item="administracao"]') },
+        pausa: 900,
+      },
+    ],
+    fechamento: 'A página Segurança do Palácio explica tudo isso com calma, com o botão Ouvir.',
+  },
+  {
+    id: 'seguranca-como-construimos',
+    area: '/seguranca',
+    tarefa: 'nao-faz-tudo',
+    explica: textoExplicadoPeloVideo('seguranca-como-construimos')!,
+    titulo: 'Como o Palácio é construído, com o Claude',
+    inicio: '/seguranca',
+    abertura: 'Como o Palácio é construído, e por que o Claude, a inteligência artificial, não faz tudo o que pedem a ele.',
+    passos: [
+      {
+        fala: 'O Palácio não foi comprado pronto. Ele é construído aqui, sob medida para a filial, por uma pequena equipe liderada pelo Matheus, com a ajuda do Claude.',
+        acao: async (r) => { await r.esperar(1000); await r.rolar('#construido p:has-text("não foi comprado pronto")'); await r.destacar('#construido p:has-text("não foi comprado pronto")') },
+      },
+      {
+        fala: 'Pense numa obra: o Matheus é o engenheiro responsável, e o Claude, um mestre de obras muito rápido. Nenhuma parte nova é inaugurada sem o engenheiro aprovar.',
+        acao: async (r) => { await r.destacar('#construido p:has-text("Pense numa obra")') },
+      },
+      {
+        fala: 'As chaves do Palácio ficam num cofre, e as regras proíbem o Claude de pedir, ler ou escrever essas chaves. Tudo o que ele faz fica registrado.',
+        acao: async (r) => { await r.rolar('#construido p:has-text("As chaves do Palácio")'); await r.destacar('#construido p:has-text("As chaves do Palácio")') },
+      },
+      {
+        fala: 'O Claude não faz tudo o que pedem. Ele segue as regras escritas do projeto, as boas práticas do mercado e as regras da empresa que o fez, que proíbem vigiar pessoas ou tirar dados delas.',
+        acao: async (r) => { await r.apagar(); await r.rolar('[data-seguranca-regras]'); await r.destacar('[data-seguranca-regras]') },
+      },
+      {
+        fala: 'Um exemplo de verdade: pediram um começo sem senha. O Claude deixou tudo simples, mas manteve duas travas: a coordenação aprova o e-mail, e a administração convida para o Palácio.',
+        acao: async (r) => { await r.apagar(); await r.rolar('[data-seguranca-exemplo] >> nth=0'); await r.destacar('[data-seguranca-exemplo] >> nth=0') },
+      },
+      {
+        fala: 'Toda mudança segue o mesmo caminho: é preparada à parte, conferida por verificações automáticas, testada numa versão de teste, e só entra no ar com a aprovação do responsável.',
+        acao: async (r) => { await r.apagar(); await r.rolar('[data-seguranca-passos]'); await r.destacar('[data-seguranca-passos]') },
+      },
+      {
+        fala: 'E o código do Palácio é aberto. Se existisse uma porta escondida para tirar dados, ela estaria à vista de todos.',
+        acao: async (r) => { await r.apagar(); await r.rolar('[data-seguranca-codigo]'); await r.destacar('[data-seguranca-codigo]') },
+        pausa: 900,
+      },
+    ],
+    fechamento: 'Ficou alguma dúvida? A página Segurança do Palácio explica tudo, com calma.',
+  },
+  {
+    id: 'seguranca-transparencia',
+    area: '/seguranca',
+    tarefa: 'transparencia',
+    explica: textoExplicadoPeloVideo('seguranca-transparencia')!,
+    titulo: 'O registro que ninguém apaga',
+    inicio: '/seguranca',
+    abertura: 'A trilha pública e o portal da transparência: por que existem, como funcionam e para que servem.',
+    passos: [
+      {
+        fala: 'Uma instituição que cuida de pessoas e recebe recursos precisa prestar contas. E a lei das parcerias com o poder público pede que elas fiquem públicas.',
+        acao: async (r) => { await r.esperar(1000); await r.rolar('#transparencia p:has-text("Por quê")'); await r.destacar('#transparencia p:has-text("Por quê")') },
+      },
+      {
+        fala: 'Por isso, cada documento oficial da filial ganha um código de conferência. Com ele, qualquer pessoa confere se o documento é o original.',
+        acao: async (r) => { await r.destacar('#transparencia p:has-text("O que é")') },
+      },
+      {
+        fala: 'Todo dia, os registros do dia são lacrados juntos, como um envelope com lacre de cera. E uma prova do lacre vai para serviços de fora da filial.',
+        acao: async (r) => { await r.rolar('#transparencia p:has-text("Como funciona")'); await r.destacar('#transparencia p:has-text("Como funciona")') },
+      },
+      {
+        fala: 'Se alguém mudar um registro antigo escondido, o lacre não fecha mais. Isso vale para todo mundo, inclusive para a administração e para o Claude.',
+        acao: async (r) => { await r.rolar('#transparencia p:has-text("Isso vale para todo mundo")'); await r.destacar('#transparencia p:has-text("Isso vale para todo mundo")') },
+      },
+      {
+        fala: 'A trilha e o portal ainda não estão abertos ao público: a abertura é uma decisão da administração.',
+        acao: async (r) => { await r.apagar(); await r.rolar('#transparencia p:has-text("ainda não estão abertos")'); await r.destacar('#transparencia p:has-text("ainda não estão abertos")') },
+        pausa: 900,
+      },
+    ],
+    fechamento: 'Ficou alguma dúvida? A página Segurança do Palácio explica tudo, com calma.',
   },
 ]

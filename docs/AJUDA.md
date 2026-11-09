@@ -1325,7 +1325,7 @@ Chegam até ela:
 - a Central de ajuda, em "Comece por aqui", pelo cartão "Segurança do Palácio";
 - a ajuda geral, pelo tópico "Segurança e privacidade" (respostas curtas, achadas pela busca, pelo ⌘K e pelo "?").
 
-**As partes.** Em poucas palavras; por que tanta segurança; as trancas; quem pode ver o quê; como o Palácio é
+**As partes.** Por que o Palácio existe; por que cada setor é importante; em poucas palavras; por que tanta segurança; as trancas; quem pode ver o quê; como o Palácio é
 construído, com o Claude; por que o Claude não faz tudo o que pedem; como uma mudança chega ao Palácio (a governança
 digital); a trilha pública e o portal da transparência (só com login); a inteligência artificial dentro do Palácio;
 as perguntas que a equipe faz; e o que fazer se desconfiar de alguma coisa.
@@ -1339,6 +1339,8 @@ consulta, o código aberto, o registro de cada mudança e a LGPD.
 
 | Na página | No sistema |
 | --- | --- |
+| Por que cada setor é importante: as pessoas no centro, a conversa entre os setores, o registro no lugar do papel | Pedido do Matheus (09/11/2026); o registro de quem pediu, aprovou e fez (pautas, aprovações, chamados, compras e ofícios) e a trilha pública |
+| Por que existe: o digital, o Google Ad Grants e a aposta de reconstruir a filial | Pedido do Matheus (09/11/2026); a conta do Ad Grants e as campanhas que o Palácio cria pausadas, dentro das regras do programa, com as conversões do GA4 (ARQUITETURA §7.29d) |
 | Ninguém vê a senha; a administração só cria uma nova | Senha guardada pelo Supabase Auth com bcrypt; "Redefinir senha" gera uma temporária, trocada no primeiro acesso (`trocar_senha`) |
 | Mínimo de letras e números, sem o nome; trocar encerra as outras sessões | `SENHA_MINIMO` e `problemaDaSenha` (`lib/usuarios/senha.ts`), `components/auth/trocar-senha-form.tsx` |
 | Um porteiro em cada sala, em todas as tabelas | RLS ligado em todas as tabelas do schema `public` (207 de 207 em 09/11/2026); ARQUITETURA §6 |
@@ -1364,6 +1366,11 @@ logado. Na abertura, é só tirar a condição em `app/seguranca/page.tsx`.
 **Quando algo aqui mudar** (uma trava nova, a verificação em duas etapas obrigatória, o banco em outra região), mude
 `lib/ajuda/seguranca.ts` e esta tabela no mesmo PR. Os números (tamanho da senha, tentativas) já vêm das regras.
 
-**Os vídeos.** A página é também o roteiro dos vídeos curtos sobre segurança, governança digital e transparência
-(pedido de 09/11/2026), no mesmo jeito dos vídeos da ajuda (§14).
+**Os vídeos.** A página é também o roteiro de cinco vídeos curtos (pedido de 09/11/2026), gravados sobre ela mesma no
+jeito dos vídeos da ajuda (§14): por que o Palácio existe, por que cada setor é importante, as trancas, como o Palácio é
+construído (a governança digital) e a transparência (só com login, como a parte dela). São vídeos de explicação, e não de tarefa: no roteiro
+(`scripts/videos/roteiros.ts`), `explica` traz o texto da página que o vídeo conta (`textoExplicadoPeloVideo`), e a
+impressão vem dele. No catálogo, `area` é `/seguranca` e `tarefa` é o id da parte. A conferência avisa quando esse
+texto muda depois da gravação. A página mostra, em "Prefere ver em vídeo?", só os vídeos que já estão no catálogo
+(`VIDEOS_DA_SEGURANCA`).
 
