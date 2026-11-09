@@ -254,15 +254,15 @@ const NEWSLETTER: GuiaDaArea = {
 
 const IMPRENSA: GuiaDaArea = {
   href: '/imprensa',
-  paraQueServe: 'O banco de contatos da filial: jornalistas, veículos e qualquer contato relevante, com a situação de cada e-mail. Daqui saem campanhas por e-mail, como um release, e a tela mostra quem abriu, quem clicou e quem saiu da lista. Com a Hunter.io ligada, dá para achar e verificar e-mails pelo site do veículo.',
+  paraQueServe: 'O banco de contatos da filial: jornalistas, veículos e qualquer contato relevante, com a situação de cada e-mail. Daqui saem campanhas por e-mail, como um release, na hora ou com dia e hora marcados, e a tela mostra quem abriu, quem clicou, quem saiu da lista e que endereço devolveu a mensagem. Com a Hunter.io ligada, dá para achar e verificar e-mails pelo site do veículo.',
   quemUsa: 'Toda a equipe vê o banco, cadastra, edita e importa contatos, usa a Hunter.io (quando ligada) e vê todas as campanhas. Criar e enviar campanhas é para administradores e editores. Remover um contato: administradores e quem o cadastrou.',
   naPratica: {
     titulo: 'O release da campanha chega aos jornalistas certos',
     passos: [
       'A Carla importa a planilha com 80 contatos de imprensa do Rio.',
       'O Palácio verifica os e-mails e marca os inválidos, que ficam de fora das campanhas.',
-      'Ela monta a campanha “Release: campanha do agasalho” e envia para os contatos de saúde e cidade.',
-      'No dia seguinte, vê quem abriu e manda um lembrete só para quem não abriu.',
+      'Ela monta a campanha “Release: campanha do agasalho”, manda um teste para o próprio e-mail e agenda para a manhã seguinte, para os contatos de saúde e cidade.',
+      'Dois dias depois, vê quem abriu e manda um lembrete só para quem não abriu.',
     ],
     resultado: 'O release vai para quem importa, e você sabe quem leu.',
   },
@@ -291,6 +291,12 @@ const IMPRENSA: GuiaDaArea = {
       alvo: 'imprensa.tabela',
       titulo: 'Marque e aja',
       texto: 'Marque contatos na primeira coluna para enviar uma campanha (administradores e editores) ou remover. A coluna “Leitura” mostra quantos envios cada pessoa abriu.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'imprensa.fila',
+      titulo: 'Na fila de envio',
+      texto: 'Na aba “Campanhas”, este quadro mostra o que ainda vai sair: a campanha em envio, com o andamento, e as agendadas, com a hora e o botão “Cancelar agendamento”.',
       seAusente: 'pular',
     },
   ],
@@ -376,9 +382,47 @@ const IMPRENSA: GuiaDaArea = {
         'Em “Destinatários”, escolha a lista e o segmento, como “Engajados (abriram o último envio)”. O número ao lado diz quantas pessoas vão receber.',
         'Escreva o “Assunto” e a “Mensagem”. {nome} vira o primeiro nome de cada contato; linha em branco separa parágrafos.',
         'Para medir cliques, preencha “Link” e “Texto do link”.',
+        'Em “Quando enviar”, deixe “Agora”.',
         'Toque em “Enviar para …” e confirme. O botão só habilita com assunto, mensagem e ao menos uma pessoa que pode receber.',
       ],
-      dica: 'Quer revisar com calma? “Salvar rascunho” guarda a campanha em “Campanhas” → “Rascunhos”. Depois de enviada, não dá para desfazer.',
+      dica: 'Até 300 contatos, a tela espera o envio terminar e mostra o resultado. Acima disso, a campanha aparece em “Na fila de envio”, na aba “Campanhas”, com o andamento. Quer revisar com calma? “Salvar rascunho” guarda a campanha em “Campanhas” → “Rascunhos”. Depois de enviada, não dá para desfazer.',
+    },
+    {
+      id: 'enviar-teste',
+      titulo: 'Mandar um teste para o seu e-mail',
+      quem: 'Administradores e editores',
+      passos: [
+        'Abra a campanha (nova ou um rascunho) e escreva o “Assunto” e a “Mensagem”.',
+        'Toque em “Enviar teste para mim”.',
+        'Abra o e-mail da sua conta: a mensagem chega com “[Teste]” no começo do assunto, como os contatos vão receber.',
+        'Ajuste o texto, se precisar, e mande outro teste antes de enviar de verdade.',
+      ],
+      dica: 'O teste não conta como envio e não aparece na lista de campanhas. O link “Sair da lista” do teste não tira ninguém da lista.',
+    },
+    {
+      id: 'agendar-campanha',
+      titulo: 'Agendar uma campanha',
+      exemplo: 'A Carla escreve o release à tarde e agenda para as 9h do dia seguinte.',
+      quem: 'Administradores e editores',
+      passos: [
+        'Monte a campanha como sempre: destinatários, “Assunto” e “Mensagem”.',
+        'Em “Quando enviar”, toque em “Agendar”.',
+        'Em “Dia e hora”, escolha quando ela sai. O horário é o de Brasília.',
+        'Toque em “Agendar para …” e confira a data na pergunta de confirmação.',
+        'Na aba “Campanhas”, a campanha fica em “Na fila de envio” até a hora marcada.',
+      ],
+      dica: 'O agendamento vai até 90 dias à frente. Quem sair da lista ou tiver o e-mail devolvido até a hora marcada fica de fora sozinho.',
+    },
+    {
+      id: 'cancelar-agendamento',
+      titulo: 'Cancelar uma campanha agendada',
+      quem: 'Administradores e editores',
+      passos: [
+        'Na aba “Campanhas”, ache a campanha em “Na fila de envio”.',
+        'Toque em “Cancelar agendamento” e confirme.',
+        'A campanha volta para “Rascunhos”, com o texto como estava. Para enviar depois, abra o rascunho e escolha os destinatários de novo.',
+      ],
+      dica: 'Só dá para cancelar enquanto a campanha espera. Depois que começou a sair, não há como desfazer.',
     },
     {
       id: 'continuar-rascunho',
@@ -411,7 +455,7 @@ const IMPRENSA: GuiaDaArea = {
       passos: [
         'Na aba “Campanhas”, toque no assunto da campanha (ou na seta do fim da linha).',
         'Em “Mensagem”, releia o que saiu.',
-        'Em “Destinatários”, veja cada pessoa com “abriu”, “clicou”, “não abriu”, “falhou”, “saiu” ou “sem confirmação” (a mensagem foi preparada, mas a saída não foi confirmada).',
+        'Em “Destinatários”, veja cada pessoa com “abriu”, “clicou”, “não abriu”, “devolveu” (o endereço recusou a mensagem), “denunciou spam”, “ficou de fora” (não podia receber na hora do envio), “falhou” ou “saiu”. Enquanto a campanha espera ou está saindo, aparecem “na fila” e “enviando”.',
       ],
       dica: 'O seletor de período no alto muda as taxas do painel (“Taxa de abertura”, “Taxa de cliques” e as outras), não a lista de campanhas.',
     },
@@ -432,7 +476,7 @@ const IMPRENSA: GuiaDaArea = {
       passos: [
         'Na aba “Contatos”, use a busca e os filtros para chegar ao grupo que você quer.',
         'Toque em “Baixar CSV”.',
-        'Abra o arquivo no Excel ou no Google Planilhas: ele traz nome, veículo, cargo, e-mail, situação, confiança, telefone, tags, notas, envios, aberturas, envios seguidos sem abrir e a data de saída da lista.',
+        'Abra o arquivo no Excel ou no Google Planilhas: ele traz nome, veículo, cargo, e-mail, situação, confiança, telefone, tags, notas, envios, aberturas, envios seguidos sem abrir, a data de saída da lista e a data em que o e-mail devolveu.',
       ],
       dica: 'O arquivo leva todos os contatos do filtro, mesmo quando a tabela mostra só os 300 primeiros.',
     },
@@ -447,7 +491,7 @@ const IMPRENSA: GuiaDaArea = {
     {
       id: 'quem-fica-de-fora',
       pergunta: 'Por que alguns contatos não entram na campanha?',
-      resposta: 'Contato sem e-mail, com e-mail “Inválido” ou que saiu da lista fica de fora sempre, e isso é conferido de novo na hora de enviar. Quando você marca contatos, a barra de seleção mostra quantos “podem receber”.',
+      resposta: 'Contato sem e-mail, com e-mail “Inválido” ou devolvido, ou que saiu da lista fica de fora sempre, e isso é conferido de novo na hora de enviar. Quando você marca contatos, a barra de seleção mostra quantos “podem receber”.\n\nNa campanha agendada, a conferência vale na hora marcada: quem deixou de poder receber durante a espera aparece como “ficou de fora” entre os destinatários.',
       termos: ['Nenhum dos contatos selecionados pode receber', 'podem receber', 'de fora', 'não recebeu'],
     },
     {
@@ -489,8 +533,8 @@ const IMPRENSA: GuiaDaArea = {
     {
       id: 'situacao-da-campanha',
       pergunta: 'O que significam “Enviada”, “Parcial” e “Falhou” numa campanha?',
-      resposta: '“Enviada”: todas as mensagens saíram; “Parcial”: parte saiu e parte não; “Falhou”: nenhuma saiu; “Rascunho”: ainda não foi enviada. A aba “Com falha” junta as parciais e as que falharam.\n\n“Enviando” aparece durante o envio. Se a campanha continuar assim depois de alguns minutos, o envio parou no meio: abra a campanha e veja quem ficou “sem confirmação”.',
-      termos: ['status da campanha', 'parcial', 'falhou', 'erro no envio', 'enviando', 'travada'],
+      resposta: '“Agendada”: espera a hora marcada; “Enviando”: as mensagens estão saindo, e a campanha aparece em “Na fila de envio” com o andamento; “Enviada”: todas saíram; “Parcial”: parte saiu e parte não; “Falhou”: nenhuma saiu; “Rascunho”: ainda não foi enviada. A aba “Com falha” junta as parciais e as que falharam.\n\nSe uma campanha antiga continuar em “Enviando”, o envio parou no meio: abra a campanha e veja quem ficou “sem confirmação”.',
+      termos: ['status da campanha', 'parcial', 'falhou', 'erro no envio', 'enviando', 'travada', 'agendada', 'na fila'],
     },
     {
       id: 'busca-desligada',
@@ -507,8 +551,8 @@ const IMPRENSA: GuiaDaArea = {
     {
       id: 'limite-por-campanha',
       pergunta: 'Tem limite de destinatários por campanha?',
-      resposta: 'Sim, 1.000 contatos por campanha. Com mais do que isso, o botão de envio não habilita e a tela pede uma lista ou um segmento menor. Para alcançar mais gente, divida o envio em mais de uma campanha.',
-      termos: ['No máximo 1000 por campanha', 'teto', 'limite'],
+      resposta: 'Sim, 5.000 contatos por campanha. Com mais do que isso, o botão de envio não habilita e a tela pede uma lista ou um segmento menor. Para alcançar mais gente, divida o envio em mais de uma campanha.\n\nLista grande demais costuma ser sinal de mensagem pouco dirigida: quem recebe pauta fora do seu assunto tende a marcar como spam.',
+      termos: ['No máximo 5000 por campanha', 'No máximo 5000 contatos por campanha.', 'teto', 'limite'],
     },
     {
       id: 'enviados-no-mes',
@@ -525,8 +569,32 @@ const IMPRENSA: GuiaDaArea = {
     {
       id: 'desfazer-envio',
       pergunta: 'Dá para cancelar uma campanha depois de enviada?',
-      resposta: 'Não. A tela pede confirmação antes de enviar justamente por isso. Para revisar com calma ou pedir a opinião de alguém, use “Salvar rascunho” e envie depois.',
-      termos: ['cancelar', 'desfazer', 'voltar atrás'],
+      resposta: 'Depois de enviada, não. A tela pede confirmação antes de enviar justamente por isso. Para revisar com calma ou pedir a opinião de alguém, use “Salvar rascunho” ou “Enviar teste para mim”.\n\nCampanha agendada dá para cancelar até a hora marcada: na aba “Campanhas”, em “Na fila de envio”, toque em “Cancelar agendamento”.',
+      termos: ['cancelar', 'desfazer', 'voltar atrás', 'Esta campanha já começou a sair ou não está mais agendada.'],
+    },
+    {
+      id: 'devolveu',
+      pergunta: 'O que quer dizer “Devolveu em …: não recebe mais”?',
+      resposta: 'O servidor de e-mail da pessoa recusou a mensagem em definitivo: o endereço não existe mais ou foi desativado. O contato passa a “Inválido” e fica de fora de todas as campanhas. Se o mesmo endereço estiver na newsletter, sai de lá também.\n\nCaixa cheia ou servidor fora do ar não contam: aquela mensagem pode não chegar, mas o contato continua valendo para o próximo envio. Se a devolução foi engano, um administrador tira o endereço da lista de supressão no painel do Resend, e o contato volta a “Não verificado”.',
+      termos: ['devolução', 'devolvido', 'bounce', 'e-mail voltou', 'endereço não existe', 'supressão'],
+    },
+    {
+      id: 'denunciou-spam',
+      pergunta: 'O que acontece quando alguém marca a campanha como spam?',
+      resposta: 'A pessoa sai da lista, como se tivesse tocado em “Sair da lista”, e aparece como “denunciou spam” entre os destinatários da campanha.\n\nNem todo programa de e-mail avisa quando isso acontece. O Gmail não avisa, então o número real costuma ser maior que o da tela.',
+      termos: ['spam', 'denúncia', 'denunciou', 'lixo eletrônico', 'reclamação'],
+    },
+    {
+      id: 'aviso-de-entrega',
+      pergunta: 'O que é o aviso amarelo de devoluções ou de denúncias no painel?',
+      resposta: 'Ele aparece quando, no período escolhido, mais de 4% das mensagens foram devolvidas ou mais de 0,3% foram marcadas como spam, com pelo menos 50 envios. Acima disso, os serviços de e-mail passam a desconfiar do remetente e as próximas mensagens tendem a cair no spam, inclusive a newsletter.\n\nAntes do próximo envio, verifique os e-mails da lista e mande só para quem cobre o assunto.',
+      termos: ['Devoluções em', 'Denúncias de spam em', 'devolvidas', 'reputação', 'caiu no spam'],
+    },
+    {
+      id: 'horario-do-agendamento',
+      pergunta: 'A campanha agendada sai exatamente na hora marcada?',
+      resposta: 'Sai no minuto marcado ou logo depois: o Palácio confere a fila de minuto em minuto. Campanha grande leva alguns minutos para terminar, e a aba “Campanhas” mostra o andamento.\n\nO horário do campo “Dia e hora” é sempre o de Brasília, mesmo que o seu aparelho esteja em outro fuso.',
+      termos: ['Esse horário já passou ou está em cima da hora. Para enviar já, escolha "Agora".', 'O agendamento vai até 90 dias à frente.', 'agendar', 'hora marcada', 'fuso', 'atrasou'],
     },
   ],
   relacionadas: ['/newsletter', '/correio', '/configuracoes'],

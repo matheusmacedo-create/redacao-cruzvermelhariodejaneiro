@@ -97,7 +97,7 @@ async function avisarFalha(status: number, mensagem?: string | null) {
   } catch { /* o alerta é melhor esforço: o erro do envio segue para quem chamou */ }
 }
 
-async function chamar<T>(caminho: string, corpo: unknown, timeoutMs = 20_000): Promise<T> {
+async function chamar<T>(caminho: string, corpo: unknown, timeoutMs = 20_000, cabecalhos: Record<string, string> = {}): Promise<T> {
   const chave = chaveDoResend()
   const controle = new AbortController()
   const relogio = setTimeout(() => controle.abort(), timeoutMs)
@@ -106,7 +106,7 @@ async function chamar<T>(caminho: string, corpo: unknown, timeoutMs = 20_000): P
   try {
     res = await fetch(`${BASE}${caminho}`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${chave}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${chave}`, 'Content-Type': 'application/json', ...cabecalhos },
       body: JSON.stringify(corpo),
       signal: controle.signal,
     })
@@ -204,14 +204,26 @@ export async function enviarEmail(m: Mensagem): Promise<{ id: string }> {
  * Uma chamada por destinatário faria uma remessa de mil pessoas virar mil
  * chamadas HTTP — que não cabem no tempo de uma função da Vercel e ainda
  * esbarram no limite de requisições do Resend.
+ *
+ * chaveDeIdempotencia: com ela, repetir EXATAMENTE o mesmo pedido em até 24 h
+ * não envia de novo — o Resend devolve a resposta da primeira vez. É o que
+ * torna seguro tentar outra vez depois de um tempo esgotado, quando não dá
+ * para saber se o lote saiu. O pedido repetido precisa ser idêntico; com a
+ * mesma chave e outro conteúdo, o Resend recusa (409).
  */
-export async function enviarLote(mensagens: Mensagem[]): Promise<{ enviados: number }> {
-  if (!mensagens.length) return { enviados: 0 }
+export async function enviarLote(mensagens: Mensagem[], opcoes: { chaveDeIdempotencia?: string } = {}): Promise<{ enviados: number; ids: string[] }> {
+  if (!mensagens.length) return { enviados: 0, ids: [] }
   if (mensagens.length > TAMANHO_DO_LOTE) {
     throw new EmailError(`Lote de ${mensagens.length} mensagens excede o limite de ${TAMANHO_DO_LOTE} do Resend.`, 0)
   }
-  const dados = await chamar<{ data?: unknown[] }>('/emails/batch', mensagens.map(corpoDaMensagem))
-  return { enviados: dados.data?.length ?? mensagens.length }
+  const dados = await chamar<{ data?: { id?: string }[] }>(
+    '/emails/batch', mensagens.map(corpoDaMensagem), 20_000,
+    opcoes.chaveDeIdempotencia ? { 'Idempotency-Key': opcoes.chaveDeIdempotencia } : {},
+  )
+  // O Resend devolve um id por mensagem, na ordem do pedido: é por ele que o
+  // webhook de entrega e devolução acha o destinatário depois.
+  const ids = mensagens.map((_, i) => dados.data?.[i]?.id ?? '')
+  return { enviados: dados.data?.length ?? mensagens.length, ids }
 }
 
 /** Divide uma lista em lotes do tamanho que o Resend aceita. */

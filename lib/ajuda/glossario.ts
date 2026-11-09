@@ -239,6 +239,14 @@ const TERMOS: Termo[] = [
     termos: ['comunicado à imprensa', 'press release', 'campanha de imprensa'],
   },
   {
+    id: 'devolucao-de-email',
+    termo: 'Devolução (de e-mail)',
+    definicao: 'Quando o servidor de quem recebe recusa a mensagem em definitivo, porque o endereço não existe mais ou foi desativado. Em “Imprensa e contatos”, o contato passa a “Inválido”, ganha o aviso “Devolveu em …” e fica de fora das campanhas; na newsletter, o endereço sai da lista de envio.',
+    areas: ['/imprensa', '/newsletter'],
+    termos: ['devolvido', 'bounce', 'e-mail voltou', 'endereço inválido', 'supressão'],
+    veja: ['release'],
+  },
+  {
     id: 'oficio',
     termo: 'Ofício',
     definicao: 'Um documento oficial da filial. Você escreve, escolhe quem assina e emite: na emissão, ele ganha o número do ano (001/2026, 002/2026…) e o texto congela. A numeração recomeça a cada ano, e quem recebe o ofício confere a autenticidade numa página pública.',

@@ -191,12 +191,13 @@ function Contatos({ contatos, hunterDisponivel, envioDisponivel, podeDisparar, e
   }
 
   function baixarCsv() {
-    const cabecalho = ['Nome', 'Veículo/organização', 'Cargo', 'E-mail', 'Situação', 'Confiança', 'Telefone', 'Tags', 'Notas', 'Envios', 'Aberturas', 'Envios seguidos sem abrir', 'Saiu da lista em']
+    const cabecalho = ['Nome', 'Veículo/organização', 'Cargo', 'E-mail', 'Situação', 'Confiança', 'Telefone', 'Tags', 'Notas', 'Envios', 'Aberturas', 'Envios seguidos sem abrir', 'Saiu da lista em', 'Devolveu em']
     const corpo = filtrados.map((c) => [
       c.nome, c.veiculo, c.cargo, c.email ?? '', STATUS_INFO[c.emailStatus].rotulo,
       c.confianca !== null ? `${c.confianca}%` : '', c.telefone, c.tags.join(', '), c.notas,
       String(c.totalEnvios), String(c.totalAberturas), String(c.enviosSemAbertura),
       c.descadastradoEm ? quandoLegivel.format(new Date(c.descadastradoEm)) : '',
+      c.devolvidoEm ? quandoLegivel.format(new Date(c.devolvidoEm)) : '',
     ].map(celula).join(';'))
     // BOM na frente: sem ele o Excel em português abre o acento errado.
     const csv = `﻿${[cabecalho.map(celula).join(';'), ...corpo].join('\r\n')}`
@@ -426,6 +427,11 @@ function LinhaDoContato({ contato, hunterDisponivel, selecionado, onSelecionar, 
                 <BadgeDeStatus status={contato.emailStatus} />
                 {contato.confianca !== null && <span className="text-[11px] text-muted-foreground">{contato.confianca}%</span>}
               </span>
+              {contato.devolvidoEm && (
+                <span className="text-[11px] text-destructive" title={contato.motivoDaDevolucao || undefined}>
+                  Devolveu em {quandoLegivel.format(new Date(contato.devolvidoEm))}: não recebe mais
+                </span>
+              )}
             </div>
           )
           : <span className="text-xs text-muted-foreground">sem e-mail</span>}
