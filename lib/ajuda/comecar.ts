@@ -272,6 +272,87 @@ export const E_SEGURO: ParteDoGuia = {
   ],
 }
 
+// ------------------------------------------------------------------ o assistente (as janelas do começo)
+
+/**
+ * O assistente do guia (docs/AJUDA.md §16, "O assistente"): janelas em sequência, uma pergunta de cada vez, que
+ * entendem quem está chegando e terminam no caminho da pessoa. Celular primeiro, para o público 50+. Os vídeos são os
+ * de explicação (§18) e os de começo do setor; só aparecem os que estão no catálogo.
+ */
+export type OpcaoDoAssistente = { id: string; rotulo: string; detalhe?: string }
+export type JanelaDoAssistente = { titulo: string; frases: string[]; video?: string; dica?: string }
+
+export const ASSISTENTE = {
+  boasVindas: {
+    titulo: 'Bem-vindo ao Palácio Virtual',
+    frases: ['Em poucos passos, vamos descobrir o seu caminho. Uma pergunta de cada vez, sem pressa.'],
+    video: 'seguranca-por-que-existe',
+  } satisfies JanelaDoAssistente,
+  boasVindasLogado: {
+    titulo: 'Você já está no Palácio',
+    frases: ['Veja o seu caminho e os vídeos do seu setor.'],
+  } satisfies JanelaDoAssistente,
+  quem: {
+    titulo: 'Quem é você?',
+    frases: ['Escolha o que mais combina com você.'],
+    opcoes: [
+      { id: 'setor', rotulo: 'Trabalho num setor da filial', detalhe: 'Equipe, coordenação ou voluntário de um setor' },
+      { id: 'voluntario', rotulo: 'Quero ser voluntário', detalhe: 'Ainda não faço parte da filial' },
+      { id: 'conhecer', rotulo: 'Só quero conhecer', detalhe: 'Ver o que é o Palácio e se ele é seguro' },
+    ] satisfies OpcaoDoAssistente[],
+  },
+  voluntario: {
+    titulo: 'Que bom que você quer ajudar!',
+    frases: ['A inscrição de voluntário é feita pela internet, em poucos minutos.', 'Ela chega ao setor de Voluntariado da filial.'],
+  } satisfies JanelaDoAssistente,
+  conhecer: {
+    titulo: 'O Palácio por dentro',
+    frases: ['O Palácio é o lugar de trabalho da filial: cada setor registra, aprova e acompanha o que faz.', 'Veja como ele protege os dados das pessoas.'],
+    video: 'seguranca-as-trancas',
+  } satisfies JanelaDoAssistente,
+  setor: {
+    titulo: 'Qual é o seu setor?',
+    frases: ['Assim, mostramos só o que é do seu trabalho.'],
+    video: 'seguranca-cada-setor',
+  } satisfies JanelaDoAssistente,
+  email: {
+    titulo: 'Você já tem o e-mail da Cruz Vermelha?',
+    frases: ['É o e-mail que termina em @cruzvermelhariodejaneiro.org.'],
+  } satisfies JanelaDoAssistente,
+  pedirEmail: {
+    titulo: 'Peça o seu e-mail pelo WhatsApp',
+    frases: [
+      'Toque no botão: o WhatsApp do Palácio abre com a frase pronta. É só enviar e responder às perguntas, uma de cada vez.',
+      'A coordenação do seu setor aprova, e o e-mail e a senha chegam ali mesmo, no WhatsApp.',
+    ],
+    dica: 'Tenha à mão o seu CEP e o telefone de alguém da família. Se preferir, peça a alguém da coordenação para fazer junto com você.',
+  } satisfies JanelaDoAssistente,
+  acesso: {
+    titulo: 'Você já entra no Palácio?',
+    frases: ['Com o seu usuário e a sua senha.'],
+  } satisfies JanelaDoAssistente,
+  convite: {
+    titulo: 'Peça o seu acesso',
+    frases: [
+      'Peça à coordenação do seu setor. A administração cria o seu acesso e manda um convite, com um link para criar a sua senha.',
+      'O link vale por 3 dias e funciona uma vez só.',
+    ],
+    video: 'seguranca-as-trancas',
+  } satisfies JanelaDoAssistente,
+  caminho: {
+    titulo: 'O seu caminho',
+    frases: ['Um passo de cada vez. Volte aqui quando quiser.'],
+  } satisfies JanelaDoAssistente,
+}
+
+/** Os vídeos que o assistente usa (a conferência acusa o que não estiver no catálogo). */
+export const VIDEOS_DO_ASSISTENTE = [ASSISTENTE.boasVindas.video, ASSISTENTE.conhecer.video, ASSISTENTE.setor.video, ASSISTENTE.convite.video]
+
+/** O texto do "Ouvir" de uma janela do assistente. */
+export function textoDaJanela(j: { titulo: string; frases: string[]; dica?: string }): string {
+  return textoCorrido([j.titulo, ...j.frases, j.dica])
+}
+
 export const SE_TRAVAR: { id: string; titulo: string; itens: ItemDoGuia[] } = {
   id: 'se-travar',
   titulo: 'Se você travar',
