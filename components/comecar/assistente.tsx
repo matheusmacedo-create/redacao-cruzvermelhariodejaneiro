@@ -60,9 +60,13 @@ export function AssistenteDoComeco({ logado, setorDoEndereco }: {
   const [email, setEmail] = useState<Resposta>(logado ? 'sim' : null)
   const [acesso, setAcesso] = useState<Resposta>(logado ? 'sim' : null)
   const setor = setorPeloSlug(setorSlug)
+  // Se o setor já veio no link. Fica como estava ao abrir: escolher o setor aqui também põe ?setor= no endereço, e o
+  // "Passo 3 de 6" não pode virar "Passo 2 de 4" no meio do caminho.
+  const [setorVeioNoLink] = useState(Boolean(setorDoEndereco))
+  const popup = useRef<HTMLDivElement>(null)
 
   // O caminho de cada um, para o "Passo 2 de 5" (as janelas de resposta contam como a pergunta delas).
-  const trilha: Passo[] = logado ? ['inicio', 'caminho'] : setorDoEndereco ? ['inicio', 'email', 'acesso', 'caminho'] : ['inicio', 'quem', 'setor', 'email', 'acesso', 'caminho']
+  const trilha: Passo[] = logado ? ['inicio', 'caminho'] : setorVeioNoLink ? ['inicio', 'email', 'acesso', 'caminho'] : ['inicio', 'quem', 'setor', 'email', 'acesso', 'caminho']
   const naTrilha: Partial<Record<Passo, Passo>> = { 'pedir-email': 'email', convite: 'acesso', voluntario: 'quem', conhecer: 'quem' }
   const posicao = Math.max(0, trilha.indexOf(naTrilha[passo] ?? passo))
 
@@ -91,7 +95,10 @@ export function AssistenteDoComeco({ logado, setorDoEndereco }: {
       <Dialog.Root open={aberto} onOpenChange={(abrir) => (abrir ? setEscolhaDeAbrir(true) : fechar())}>
         <Dialog.Portal>
           <Dialog.Backdrop className="fixed inset-0 z-50 bg-foreground/40 transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none" />
+          {/* O foco vai para a própria janela (o título é lido), e não para o "fechar": nada de anel vermelho no X. */}
           <Dialog.Popup
+            ref={popup}
+            initialFocus={popup}
             data-assistente
             data-passo={passo}
             className="fixed inset-0 z-50 flex flex-col bg-background text-foreground outline-none transition-[opacity,transform] duration-200 data-[ending-style]:translate-y-4 data-[ending-style]:opacity-0 data-[starting-style]:translate-y-4 data-[starting-style]:opacity-0 motion-reduce:transition-none sm:inset-auto sm:left-1/2 sm:top-1/2 sm:max-h-[calc(100dvh-3rem)] sm:w-[min(36rem,calc(100%-2rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-3xl sm:shadow-2xl sm:data-[ending-style]:-translate-y-[48%] sm:data-[starting-style]:-translate-y-[48%]"
@@ -110,7 +117,7 @@ export function AssistenteDoComeco({ logado, setorDoEndereco }: {
               {passo === 'inicio' && (
                 <Janela janela={logado ? { ...ASSISTENTE.boasVindasLogado, titulo: logado.nome ? `Olá, ${logado.nome}! ${ASSISTENTE.boasVindasLogado.titulo}` : ASSISTENTE.boasVindasLogado.titulo } : ASSISTENTE.boasVindas}>
                   <Acoes>
-                    <button type="button" className={botaoPrincipal} onClick={() => ir(logado ? 'caminho' : setorDoEndereco ? 'email' : 'quem')} data-assistente-comecar>
+                    <button type="button" className={botaoPrincipal} onClick={() => ir(logado ? 'caminho' : setorVeioNoLink ? 'email' : 'quem')} data-assistente-comecar>
                       {logado ? 'Ver o meu caminho' : 'Começar'}<ArrowRight className="size-5" aria-hidden="true" />
                     </button>
                     <button type="button" className={botaoSecundario} onClick={() => fechar()}>Ver o guia inteiro</button>
@@ -218,7 +225,7 @@ export function AssistenteDoComeco({ logado, setorDoEndereco }: {
                       {!logado && acesso === 'sim' && <Link href="/" className="font-semibold text-primary underline underline-offset-4">Entrar agora</Link>}
                     </Etapa>
                     <Etapa feito={false} titulo={setor ? `O que dá para fazer em ${setor.nome}` : 'O que dá para fazer'}>
-                      <button type="button" onClick={() => irPara('fazer')} className="font-semibold text-primary underline underline-offset-4">Ver agora</button>
+                      <button type="button" onClick={() => irPara('fazer')} className="self-start font-semibold text-primary underline underline-offset-4">Ver agora</button>
                     </Etapa>
                   </ol>
                   {videosParaOSetor(setor).length > 0 && (
