@@ -29,6 +29,7 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import { guiaDaArea } from '../../lib/ajuda'
 import { ENDERECO_DOS_VIDEOS, impressaoDaTarefa, type VarianteGravada, type VideoGravado } from '../../lib/ajuda/videos'
+import { codigoDoTexto } from '../../lib/ajuda/ouvir'
 import { montarVideo, type FalaNoVideo, type Quadro } from './montar'
 import { RoboDoPalacio, scriptDaTela, type PaginaPw } from './robo'
 import { ROTEIROS } from './roteiros'
@@ -95,8 +96,9 @@ async function main() {
     console.error(`Use: npx tsx scripts/videos/gravar.ts <id> [--ensaio] [--credenciais=arquivo.env]\nVídeos: ${ROTEIROS.map((r) => r.id).join(', ')}`)
     process.exit(1)
   }
-  const tarefa = guiaDaArea(roteiro.area)?.tarefas.find((t) => t.id === roteiro.tarefa)
-  if (!tarefa) throw new Error(`A tarefa ${roteiro.area}#${roteiro.tarefa} não existe na ajuda.`)
+  // Vídeo de explicação de uma página (`explica`, §18) não tem tarefa: a impressão vem do texto da página.
+  const tarefa = roteiro.explica ? null : guiaDaArea(roteiro.area)?.tarefas.find((t) => t.id === roteiro.tarefa)
+  if (!roteiro.explica && !tarefa) throw new Error(`A tarefa ${roteiro.area}#${roteiro.tarefa} não existe na ajuda.`)
   const conta = credenciais(args.find((a) => a.startsWith('--credenciais='))?.split('=')[1])
   if (celular && !ensaio && !(JSON.parse(readFileSync(CATALOGO, 'utf8')) as Record<string, unknown>)[roteiro.id]) {
     throw new Error(`Grave primeiro a versão de computador de ${roteiro.id}: a de celular entra no mesmo item do catálogo.`)
@@ -204,13 +206,13 @@ async function main() {
     copyFileSync(pronto.vtt, path.join(LEGENDAS, legenda))
     const catalogo = JSON.parse(readFileSync(CATALOGO, 'utf8')) as Record<string, VideoGravado>
     const variante: VarianteGravada = {
-      duracao: Number(pronto.duracao.toFixed(1)), gravadoEm: hojeNaFilial(), impressao: await impressaoDaTarefa(tarefa), video, capa, legenda,
+      duracao: Number(pronto.duracao.toFixed(1)), gravadoEm: hojeNaFilial(), impressao: tarefa ? await impressaoDaTarefa(tarefa) : await codigoDoTexto(roteiro.explica ?? ''), video, capa, legenda,
     }
     // Uma versão regravada não apaga a outra: a de celular mora dentro do item da de computador.
     const atual = catalogo[roteiro.id]
     catalogo[roteiro.id] = celular
       ? { ...atual, celular: variante }
-      : { ...atual, titulo: tarefa.titulo, area: roteiro.area, tarefa: roteiro.tarefa, ...variante }
+      : { ...atual, titulo: tarefa?.titulo ?? roteiro.titulo, area: roteiro.area, tarefa: roteiro.tarefa, ...variante }
     const ordenado = Object.fromEntries(Object.keys(catalogo).sort().map((k) => [k, catalogo[k]]))
     writeFileSync(CATALOGO, `${JSON.stringify(ordenado, null, 2)}\n`)
     console.log(`Catálogo: lib/ajuda/videos.json e public/tutoriais/${legenda} atualizados.`)

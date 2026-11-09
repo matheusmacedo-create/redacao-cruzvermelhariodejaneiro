@@ -1,11 +1,11 @@
 import { textoCorrido } from './ouvir'
-import type { ParteDoGuia } from './comecar'
+import { textoDaParte, type ParteDoGuia } from './comecar'
 import { SENHA_MINIMO } from '../usuarios/senha'
 import { JANELA_MIN, LIMITE_POR_CONTA } from '../acessos/regras'
 import { REPOSITORIO } from '../versao'
 
 /**
- * A segurança do Palácio explicada com calma (docs/AJUDA.md §18): o texto da página aberta /seguranca, para a
+ * Por que o Palácio existe e a segurança dele, explicados com calma (docs/AJUDA.md §18): o texto da página aberta /seguranca, para a
  * equipe da filial, boa parte com mais de 60 anos, que tinha medo de que quem constrói o Palácio (o Matheus e o
  * Claude) pudesse tirar os dados das pessoas. Mesmo cuidado do guia para começar (lib/ajuda/comecar.ts): frases
  * curtas, uma ideia por frase, comparação com a vida real e o "Ouvir" em cada parte.
@@ -28,6 +28,23 @@ export type ItemDaSeguranca = { id: string; icone: IconeDaSeguranca; titulo: str
 
 /** Uma lista com introdução: as trancas, quem vê o quê, as regras do Claude. */
 export type ListaDaSeguranca = { id: string; titulo: string; frases: string[]; itens: ItemDaSeguranca[] }
+
+/**
+ * Por que o Palácio existe (pedido de 09/11/2026): o digital, o Google Ad Grants (ARQUITETURA §7.29d: a conta da filial,
+ * as campanhas que o Palácio cria pausadas, dentro das regras do programa, e as conversões do GA4) e a aposta de
+ * reconstruir a filial. Vem primeiro na página: a segurança existe por causa deste objetivo.
+ */
+export const POR_QUE_EXISTE: ParteDoGuia = {
+  id: 'por-que-existe',
+  titulo: 'Por que o Palácio existe',
+  frases: [
+    'O Palácio nasceu para levar a Cruz Vermelha do Rio de Janeiro para o digital: um lugar só para o trabalho da filial, ligado ao site, ao WhatsApp e às redes sociais.',
+    'Um objetivo importante é o Google Ad Grants, um programa em que o Google doa anúncios gratuitos na pesquisa a organizações sem fins lucrativos, de até 10 mil dólares por mês. Os anúncios levam as pessoas ao site da filial, para virar voluntário, doar e conhecer o trabalho da Cruz Vermelha.',
+    'Para usar essa doação, o Google exige uma organização séria e bem cuidada: um site seguro e com conteúdo de verdade, os resultados medidos e as regras do programa seguidas. O Palácio ajuda em tudo isso.',
+    'É também uma aposta. Quando os caminhos de sempre ficam difíceis, com pouco dinheiro e pouca gente, o digital pode ajudar a reconstruir e fortalecer a filial.',
+    'Por isso a segurança é tão importante: para receber apoio do Google, de parceiros e da sociedade, a filial precisa mostrar que cuida bem dos dados e presta contas.',
+  ],
+}
 
 export const EM_POUCAS_PALAVRAS: ParteDoGuia = {
   id: 'em-poucas-palavras',
@@ -255,6 +272,28 @@ export const PERGUNTAS_DA_SEGURANCA: { id: string; pergunta: string; resposta: s
   },
 ]
 
+// ------------------------------------------------------------------ os vídeos de explicação
+
+/**
+ * Os vídeos curtos da página (docs/AJUDA.md §18), gravados sobre ela mesma (scripts/videos/roteiros.ts, com
+ * `explica`). O da transparência só aparece com login, como a parte dele.
+ */
+export const VIDEOS_DA_SEGURANCA: { id: string; parte: string; soComLogin?: true }[] = [
+  { id: 'seguranca-por-que-existe', parte: 'por-que-existe' },
+  { id: 'seguranca-as-trancas', parte: 'trancas' },
+  { id: 'seguranca-como-construimos', parte: 'nao-faz-tudo' },
+  { id: 'seguranca-transparencia', parte: 'transparencia', soComLogin: true },
+]
+
+/** O texto que cada vídeo explica: a impressão dele vem daqui, e a conferência avisa quando o texto muda depois. */
+export function textoExplicadoPeloVideo(id: string): string | null {
+  if (id === 'seguranca-por-que-existe') return textoDaParte(POR_QUE_EXISTE)
+  if (id === 'seguranca-as-trancas') return textoCorrido([textoDaParte(EM_POUCAS_PALAVRAS), textoDaListaDaSeguranca(TRANCAS), textoDaListaDaSeguranca(QUEM_VE)])
+  if (id === 'seguranca-como-construimos') return textoCorrido([textoDaParte(CONSTRUIDO), textoDoNaoFazTudo(), textoDaParte(GOVERNANCA), ...CODIGO_ABERTO.frases])
+  if (id === 'seguranca-transparencia') return textoDaParte(TRANSPARENCIA)
+  return null
+}
+
 // ------------------------------------------------------------------ o texto do "Ouvir" de cada parte
 
 /** Uma lista inteira (trancas, quem vê, as regras), na ordem da tela. */
@@ -274,7 +313,7 @@ export function textoDasPerguntas(): string {
 /** Todos os textos da página, para a conferência (scripts/conferir-ajuda.ts). */
 export function textosDaSeguranca(): string[] {
   return [
-    ...[EM_POUCAS_PALAVRAS, POR_QUE, CONSTRUIDO, GOVERNANCA, TRANSPARENCIA, IA_NO_PALACIO, SE_DESCONFIAR].flatMap((p) => [p.titulo, ...p.frases, ...(p.passos ?? [])]),
+    ...[POR_QUE_EXISTE, EM_POUCAS_PALAVRAS, POR_QUE, CONSTRUIDO, GOVERNANCA, TRANSPARENCIA, IA_NO_PALACIO, SE_DESCONFIAR].flatMap((p) => [p.titulo, ...p.frases, ...(p.passos ?? [])]),
     ...[TRANCAS, QUEM_VE, NAO_FAZ_TUDO].flatMap((l) => [l.titulo, ...l.frases, ...l.itens.flatMap((i) => [i.titulo, i.texto])]),
     ...NAO_FAZ_TUDO.exemplos.flatMap((e) => [e.titulo, ...e.frases]),
     ...CODIGO_ABERTO.frases,
