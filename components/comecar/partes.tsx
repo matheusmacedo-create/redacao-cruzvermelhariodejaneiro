@@ -61,10 +61,10 @@ export function EscolhaDoGuia({ id, pergunta, sim, nao, rotuloDoSim = 'Sim, já 
 }
 
 /** "Imprimir este guia": a janela de impressão do navegador, que também salva em PDF. */
-export function BotaoDeImprimir({ className }: { className?: string }) {
+export function BotaoDeImprimir({ className, rotulo = 'Imprimir este guia' }: { className?: string; rotulo?: string }) {
   return (
     <button type="button" onClick={() => window.print()} className={cn('inline-flex min-h-14 items-center justify-center gap-2 rounded-xl border-2 border-border bg-card px-5 text-lg font-semibold text-foreground outline-none hover:border-primary/50 focus-visible:ring-4 focus-visible:ring-ring/40 print:hidden', className)}>
-      <Printer className="size-6" aria-hidden="true" />Imprimir este guia
+      <Printer className="size-6" aria-hidden="true" />{rotulo}
     </button>
   )
 }

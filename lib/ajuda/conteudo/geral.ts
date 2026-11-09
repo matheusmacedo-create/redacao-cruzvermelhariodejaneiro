@@ -483,6 +483,51 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
     ],
   },
   {
+    // A página aberta /seguranca (lib/ajuda/seguranca.ts, docs/AJUDA.md §18) explica tudo com calma; aqui ficam as
+    // respostas curtas, para a busca, o ⌘K e o painel "?" acharem.
+    id: 'seguranca',
+    titulo: 'Segurança e privacidade',
+    resumo: 'Como o Palácio protege os seus dados, quem pode ver o quê e como ele é construído, com o Claude. A página “Segurança do Palácio” explica tudo com calma, com o botão “Ouvir”.',
+    tarefas: [
+      {
+        id: 'ver-a-pagina-de-seguranca',
+        titulo: 'Ler a página “Segurança do Palácio”',
+        passos: [
+          'Na tela de entrada, toque em “Seus dados estão seguros?”. Ou, na Central de ajuda, em “Comece por aqui”, toque em “Segurança do Palácio”.',
+          'Em cada parte, toque em “Ouvir” para escutar o texto em voz alta.',
+          'Para levar no papel, toque em “Imprimir esta página”.',
+        ],
+        dica: 'A página é aberta: dá para mandar o endereço a quem ainda não tem acesso.',
+      },
+    ],
+    perguntas: [
+      {
+        id: 'meus-dados-estao-seguros',
+        pergunta: 'Os meus dados estão seguros no Palácio?',
+        resposta: 'Estão protegidos com as regras que as empresas sérias seguem: cada pessoa vê só o que o trabalho dela pede, ninguém vê a sua senha, a conta tranca depois de muitas senhas erradas, você recebe aviso quando alguém entra de um aparelho novo e há uma cópia de segurança todo dia.\n\nA página “Segurança do Palácio” explica cada trava com calma.',
+        termos: ['segurança', 'privacidade', 'dados', 'lgpd', 'proteção', 'roubo de dados', 'vazamento'],
+      },
+      {
+        id: 'alguem-ve-a-minha-senha',
+        pergunta: 'Alguém consegue ver a minha senha?',
+        resposta: 'Não, nem a administração. A senha fica guardada embaralhada, de um jeito que não tem como desfazer. Se você esquecer, a administração só consegue criar uma senha nova, e você troca no primeiro acesso.\n\nPor isso, ninguém da filial precisa da sua senha. Se alguém pedir, não passe.',
+        termos: ['senha', 'administração', 'golpe', 'pediram minha senha'],
+      },
+      {
+        id: 'o-claude-ve-os-meus-dados',
+        pergunta: 'O Claude, a inteligência artificial, pode ver ou tirar os meus dados?',
+        resposta: 'O Claude ajuda a construir o Palácio, mas não age sozinho: ele só trabalha quando alguém da equipe que constrói o Palácio abre uma sessão de trabalho, e cada passo fica registrado. Ele segue regras escritas que proíbem tirar dados das pessoas, e o que ele constrói só entra no ar depois que o responsável confere e aprova.\n\nA página “Segurança do Palácio” conta, com exemplos de verdade, por que ele não faz tudo o que pedem a ele.',
+        termos: ['claude', 'inteligência artificial', 'ia', 'robô', 'quem constrói', 'roubar dados'],
+      },
+      {
+        id: 'aviso-de-novo-acesso',
+        pergunta: 'Recebi um aviso de “Novo acesso à sua conta” e não fui eu. E agora?',
+        resposta: 'Troque a senha agora, em “Meu perfil”: ao trocar, as outras sessões abertas são encerradas. Depois, avise a administração. Se ainda não usa, ligue a verificação em duas etapas, também em “Meu perfil”.',
+        termos: ['novo acesso', 'aparelho novo', 'invasão', 'não fui eu', 'conta invadida'],
+      },
+    ],
+  },
+  {
     id: 'navegar',
     titulo: 'Como se achar',
     resumo: 'O menu, a busca, o botão “Criar”, o caminho no alto da tela e as notificações — o que é igual em todas as telas.',

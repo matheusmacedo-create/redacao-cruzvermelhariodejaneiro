@@ -262,6 +262,16 @@ export function videosParaOSetor(setor: SetorDoGuia | null): string[] {
   return VIDEOS_PARA_COMECAR.filter((v) => !v.setores || (setor !== null && v.setores.includes(setor.nome))).map((v) => v.id)
 }
 
+/** Antes de "Se você travar": a ponte para a página "Segurança do Palácio" (/seguranca, docs/AJUDA.md §18). */
+export const E_SEGURO: ParteDoGuia = {
+  id: 'e-seguro',
+  titulo: 'Seus dados estão seguros?',
+  frases: [
+    'Sim. Cada pessoa vê só o que o trabalho dela pede, e ninguém vê a sua senha, nem a administração.',
+    'A página “Segurança do Palácio” explica, com calma, as trancas do sistema e como ele é construído.',
+  ],
+}
+
 export const SE_TRAVAR: { id: string; titulo: string; itens: ItemDoGuia[] } = {
   id: 'se-travar',
   titulo: 'Se você travar',
