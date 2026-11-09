@@ -46,6 +46,23 @@ export const POR_QUE_EXISTE: ParteDoGuia = {
   ],
 }
 
+/**
+ * As pessoas no centro (pedido de 09/11/2026): mesmo construindo rápido, a filial depende de cada setor no dia a dia.
+ * O Palácio facilita a conversa entre as pessoas, e o que antes ficava no papel passa a ser registrado e claro.
+ */
+export const CADA_SETOR: ParteDoGuia = {
+  id: 'cada-setor',
+  titulo: 'Por que cada setor é importante',
+  frases: [
+    'Com o Claude, dá para construir muito rápido, e de forma completa. Mas o Palácio não trabalha sozinho: quem faz a Cruz Vermelha acontecer são as pessoas, no dia a dia.',
+    'Cada setor sabe o que só ele sabe e faz o que só ele faz: quem atende, quem ensina, quem cuida dos voluntários, das contas e dos documentos. Sem cada um deles, a filial para.',
+    'O Palácio existe para facilitar a conversa entre as pessoas e entre os setores. Quando a informação chega a quem precisa, sem se perder, a filial cresce.',
+    'Não dá mais para fazer como antes, tudo no papel: o papel se perde, demora para circular e não deixa ninguém conferir depois.',
+    'Por isso, tudo é registrado desde o início, com clareza: quem pediu, quem aprovou e o que foi feito. E o que é público fica à vista de todos.',
+    'É assim que a filial ganha força: cada setor fazendo a sua parte, e todo mundo sabendo o que está acontecendo.',
+  ],
+}
+
 export const EM_POUCAS_PALAVRAS: ParteDoGuia = {
   id: 'em-poucas-palavras',
   titulo: 'Em poucas palavras',
@@ -280,6 +297,7 @@ export const PERGUNTAS_DA_SEGURANCA: { id: string; pergunta: string; resposta: s
  */
 export const VIDEOS_DA_SEGURANCA: { id: string; parte: string; soComLogin?: true }[] = [
   { id: 'seguranca-por-que-existe', parte: 'por-que-existe' },
+  { id: 'seguranca-cada-setor', parte: 'cada-setor' },
   { id: 'seguranca-as-trancas', parte: 'trancas' },
   { id: 'seguranca-como-construimos', parte: 'nao-faz-tudo' },
   { id: 'seguranca-transparencia', parte: 'transparencia', soComLogin: true },
@@ -288,6 +306,7 @@ export const VIDEOS_DA_SEGURANCA: { id: string; parte: string; soComLogin?: true
 /** O texto que cada vídeo explica: a impressão dele vem daqui, e a conferência avisa quando o texto muda depois. */
 export function textoExplicadoPeloVideo(id: string): string | null {
   if (id === 'seguranca-por-que-existe') return textoDaParte(POR_QUE_EXISTE)
+  if (id === 'seguranca-cada-setor') return textoDaParte(CADA_SETOR)
   if (id === 'seguranca-as-trancas') return textoCorrido([textoDaParte(EM_POUCAS_PALAVRAS), textoDaListaDaSeguranca(TRANCAS), textoDaListaDaSeguranca(QUEM_VE)])
   if (id === 'seguranca-como-construimos') return textoCorrido([textoDaParte(CONSTRUIDO), textoDoNaoFazTudo(), textoDaParte(GOVERNANCA), ...CODIGO_ABERTO.frases])
   if (id === 'seguranca-transparencia') return textoDaParte(TRANSPARENCIA)
@@ -313,7 +332,7 @@ export function textoDasPerguntas(): string {
 /** Todos os textos da página, para a conferência (scripts/conferir-ajuda.ts). */
 export function textosDaSeguranca(): string[] {
   return [
-    ...[POR_QUE_EXISTE, EM_POUCAS_PALAVRAS, POR_QUE, CONSTRUIDO, GOVERNANCA, TRANSPARENCIA, IA_NO_PALACIO, SE_DESCONFIAR].flatMap((p) => [p.titulo, ...p.frases, ...(p.passos ?? [])]),
+    ...[POR_QUE_EXISTE, CADA_SETOR, EM_POUCAS_PALAVRAS, POR_QUE, CONSTRUIDO, GOVERNANCA, TRANSPARENCIA, IA_NO_PALACIO, SE_DESCONFIAR].flatMap((p) => [p.titulo, ...p.frases, ...(p.passos ?? [])]),
     ...[TRANCAS, QUEM_VE, NAO_FAZ_TUDO].flatMap((l) => [l.titulo, ...l.frases, ...l.itens.flatMap((i) => [i.titulo, i.texto])]),
     ...NAO_FAZ_TUDO.exemplos.flatMap((e) => [e.titulo, ...e.frases]),
     ...CODIGO_ABERTO.frases,

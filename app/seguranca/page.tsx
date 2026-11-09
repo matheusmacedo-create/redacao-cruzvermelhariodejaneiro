@@ -11,7 +11,7 @@ import { CartaoDoVideo } from '@/components/ajuda/cartao-do-video'
 import { BotaoDeImprimir } from '@/components/comecar/partes'
 import { textoDaParte, type ParteDoGuia } from '@/lib/ajuda/comecar'
 import {
-  CODIGO_ABERTO, CONSTRUIDO, EM_POUCAS_PALAVRAS, GOVERNANCA, IA_NO_PALACIO, NAO_FAZ_TUDO, PERGUNTAS_DA_SEGURANCA, POR_QUE, POR_QUE_EXISTE, QUEM_VE, SE_DESCONFIAR,
+  CODIGO_ABERTO, CONSTRUIDO, EM_POUCAS_PALAVRAS, GOVERNANCA, IA_NO_PALACIO, NAO_FAZ_TUDO, PERGUNTAS_DA_SEGURANCA, POR_QUE, POR_QUE_EXISTE, CADA_SETOR, QUEM_VE, SE_DESCONFIAR,
   TRANCAS, TRANSPARENCIA, VIDEOS_DA_SEGURANCA, textoDaListaDaSeguranca, textoDasPerguntas, textoDoNaoFazTudo, type IconeDaSeguranca,
   type ItemDaSeguranca,
 } from '@/lib/ajuda/seguranca'
@@ -50,7 +50,7 @@ export default async function SegurancaPage() {
   const context = await obterWorkspace({ escola: true }).catch(() => null)
   const escola = context ? ehEquipeDaEscola(context.role) : false
   const partes: { id: string; titulo: string }[] = [
-    POR_QUE_EXISTE, EM_POUCAS_PALAVRAS, POR_QUE, TRANCAS, QUEM_VE, CONSTRUIDO, NAO_FAZ_TUDO, GOVERNANCA, ...(context ? [TRANSPARENCIA] : []), IA_NO_PALACIO,
+    POR_QUE_EXISTE, CADA_SETOR, EM_POUCAS_PALAVRAS, POR_QUE, TRANCAS, QUEM_VE, CONSTRUIDO, NAO_FAZ_TUDO, GOVERNANCA, ...(context ? [TRANSPARENCIA] : []), IA_NO_PALACIO,
     { id: 'perguntas', titulo: 'Perguntas que a equipe faz' }, SE_DESCONFIAR,
   ]
   // Os vídeos curtos (§18), só os já gravados; o da transparência, só com login, como a parte dele.
@@ -63,7 +63,7 @@ export default async function SegurancaPage() {
           <BrandMark selo className="w-60 items-start sm:w-72" />
           <div>
             <h1 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl">Segurança do Palácio</h1>
-            <p className={cn(texto, 'mt-3 text-muted-foreground')}>Por que o Palácio existe, como ele protege os seus dados e como é construído, explicado com calma. Em cada parte, o botão “Ouvir” lê o texto em voz alta.</p>
+            <p className={cn(texto, 'mt-3 text-muted-foreground')}>Por que o Palácio existe, por que cada setor é importante, como ele protege os seus dados e como é construído, explicado com calma. Em cada parte, o botão “Ouvir” lê o texto em voz alta.</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row print:hidden">
             {context
@@ -95,6 +95,10 @@ export default async function SegurancaPage() {
 
         <Parte parte={POR_QUE_EXISTE}>
           {POR_QUE_EXISTE.frases.map((f) => <p key={f} className={texto}>{f}</p>)}
+        </Parte>
+
+        <Parte parte={CADA_SETOR}>
+          {CADA_SETOR.frases.map((f) => <p key={f} className={texto}>{f}</p>)}
         </Parte>
 
         <Parte parte={EM_POUCAS_PALAVRAS}>

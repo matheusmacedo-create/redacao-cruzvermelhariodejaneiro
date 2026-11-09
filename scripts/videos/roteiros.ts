@@ -223,6 +223,43 @@ export const ROTEIROS: Roteiro[] = [
     fechamento: 'Na página Segurança do Palácio, você vê como os seus dados são protegidos.',
   },
   {
+    id: 'seguranca-cada-setor',
+    area: '/seguranca',
+    tarefa: 'cada-setor',
+    explica: textoExplicadoPeloVideo('seguranca-cada-setor')!,
+    titulo: 'Por que cada setor é importante',
+    inicio: '/seguranca',
+    abertura: 'O Palácio é rápido e completo. Mas quem faz a Cruz Vermelha acontecer são as pessoas. Veja por que cada setor é importante.',
+    passos: [
+      {
+        fala: 'Com o Claude, dá para construir muito rápido. Mas o Palácio não trabalha sozinho: quem faz a Cruz Vermelha acontecer são as pessoas, no dia a dia.',
+        acao: async (r) => { await r.esperar(1000); await r.rolar('#cada-setor p:has-text("não trabalha sozinho")'); await r.destacar('#cada-setor p:has-text("não trabalha sozinho")') },
+      },
+      {
+        fala: 'Cada setor sabe o que só ele sabe e faz o que só ele faz. Sem cada um deles, a filial para.',
+        acao: async (r) => { await r.destacar('#cada-setor p:has-text("Cada setor sabe")') },
+      },
+      {
+        fala: 'O Palácio existe para facilitar a conversa entre as pessoas e entre os setores. Quando a informação chega a quem precisa, a filial cresce.',
+        acao: async (r) => { await r.rolar('#cada-setor p:has-text("facilitar a conversa")'); await r.destacar('#cada-setor p:has-text("facilitar a conversa")') },
+      },
+      {
+        fala: 'Não dá mais para fazer tudo no papel, como antes: o papel se perde, demora para circular e não deixa ninguém conferir depois.',
+        acao: async (r) => { await r.destacar('#cada-setor p:has-text("tudo no papel")') },
+      },
+      {
+        fala: 'Por isso, tudo é registrado desde o início, com clareza: quem pediu, quem aprovou e o que foi feito. E o que é público fica à vista de todos.',
+        acao: async (r) => { await r.rolar('#cada-setor p:has-text("registrado desde o início")'); await r.destacar('#cada-setor p:has-text("registrado desde o início")') },
+      },
+      {
+        fala: 'É assim que a filial ganha força: cada setor fazendo a sua parte, e todo mundo sabendo o que está acontecendo.',
+        acao: async (r) => { await r.destacar('#cada-setor p:has-text("ganha força")') },
+        pausa: 900,
+      },
+    ],
+    fechamento: 'O guia para começar mostra o que o seu setor faz no Palácio.',
+  },
+  {
     id: 'seguranca-as-trancas',
     area: '/seguranca',
     tarefa: 'trancas',

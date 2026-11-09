@@ -508,6 +508,12 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
         termos: ['por que', 'objetivo', 'google ad grants', 'google grants', 'anúncios', 'digital', 'reconstruir', 'para que serve o palácio'],
       },
       {
+        id: 'por-que-cada-setor',
+        pergunta: 'Se o Palácio faz tanta coisa, ainda precisa de cada setor?',
+        resposta: 'Precisa. O Palácio é construído rápido, mas não trabalha sozinho: quem faz a Cruz Vermelha acontecer são as pessoas de cada setor, no dia a dia. Ele existe para facilitar a conversa entre elas, para que a informação chegue a quem precisa sem se perder.\n\nO que antes ficava no papel passa a ser registrado desde o início, com clareza: quem pediu, quem aprovou e o que foi feito. É assim que a filial ganha força.',
+        termos: ['setor', 'pessoas', 'papel', 'substituir', 'tecnologia substitui', 'por que registrar'],
+      },
+      {
         id: 'meus-dados-estao-seguros',
         pergunta: 'Os meus dados estão seguros no Palácio?',
         resposta: 'Estão protegidos com as regras que as empresas sérias seguem: cada pessoa vê só o que o trabalho dela pede, ninguém vê a sua senha, a conta tranca depois de muitas senhas erradas, você recebe aviso quando alguém entra de um aparelho novo e há uma cópia de segurança todo dia.\n\nA página “Segurança do Palácio” explica cada trava com calma.',
