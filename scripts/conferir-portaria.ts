@@ -9,7 +9,7 @@
  * Sai com código 1 se algo estiver errado.
  */
 import {
-  crachaPendente, diaEmSaoPaulo, entrouEmOutroDia, ehTokenDaEntrada, fotoDaVisita, haQuanto, lerVisitante, linkDaEntrada, quemVisita,
+  crachaPendente, diaDoHistorico, diaEmSaoPaulo, entrouEmOutroDia, ehTokenDaEntrada, fotoDaVisita, haQuanto, lerVisitante, linkDaEntrada, quemVisita,
   situacaoDaVisita, urlDaFotoDoVisitante, caminhoDaFotoDoVisitante, numerosDeCracha, prefixoDoCracha, folhasDeCrachas, formatoDoCracha, crachasPorFolha,
   lerRespostaDaVisita, respostaClaraDaVisita, linkDaVisita, parametrosParaVisitante, SITUACAO_PARA_VISITANTE, avisoParaPortaria, situacaoDaResposta,
 } from '../lib/portaria/regras'
@@ -44,6 +44,12 @@ igual(crachaPendente({ cracha_numero: null, cracha_devolvido_em: null, saida_em:
 
 // 02:30 UTC de 27/09 ainda é 26/09 em Brasília.
 igual(diaEmSaoPaulo('2026-09-27T02:30:00Z'), '2026-09-26', 'dia no fuso de Brasília')
+igual(diaDoHistorico('2026-09-20', '2026-09-27'), '2026-09-20', 'histórico: dia válido passa')
+igual(diaDoHistorico('2026-09-28', '2026-09-27'), '2026-09-27', 'histórico: dia futuro volta para hoje')
+igual(diaDoHistorico(undefined, '2026-09-27'), '2026-09-27', 'histórico: sem dia, hoje')
+igual(diaDoHistorico('ontem', '2026-09-27'), '2026-09-27', 'histórico: formato errado, hoje')
+for (const ruim of ['2026-13-01', '2026-00-10', '2026-02-30', '2026-02-32', '2026-09-00']) igual(diaDoHistorico(ruim, '2026-11-09'), '2026-11-09', `histórico: ${ruim} não existe, hoje (antes derrubava a tela)`)
+igual(diaDoHistorico('2024-02-29', '2026-11-09'), '2024-02-29', 'histórico: 29/02 de ano bissexto vale')
 igual(entrouEmOutroDia({ entrada_em: '2026-09-26T20:00:00Z', saida_em: null }, '2026-09-27'), true, 'esqueceram a saída de ontem')
 igual(entrouEmOutroDia({ entrada_em: '2026-09-27T12:00:00Z', saida_em: null }, '2026-09-27'), false, 'entrou hoje')
 

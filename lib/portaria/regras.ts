@@ -56,6 +56,18 @@ export const crachaPendente = (v: Pick<Visita, 'cracha_numero' | 'cracha_devolvi
 const FUSO = 'America/Sao_Paulo'
 /** "2026-09-27" no horário de Brasília. */
 export const diaEmSaoPaulo = (iso: string | Date) => new Intl.DateTimeFormat('en-CA', { timeZone: FUSO }).format(new Date(iso))
+/**
+ * O dia pedido no Histórico (`?dia=AAAA-MM-DD`), ou `hoje` se não servir: o formato certo, uma data que existe
+ * no calendário (2026-13-45 casa com o formato mas não é data) e que não seja futura.
+ */
+export function diaDoHistorico(dia: string | undefined, hoje: string): string {
+  if (!dia || !/^\d{4}-\d{2}-\d{2}$/.test(dia) || dia > hoje) return hoje
+  const [a, m, d] = dia.split('-').map(Number)
+  const data = new Date(Date.UTC(a, m - 1, d))
+  const existe = data.getUTCFullYear() === a && data.getUTCMonth() === m - 1 && data.getUTCDate() === d
+  return existe ? dia : hoje
+}
+
 /** "14:05". */
 export const hora = (iso: string) => new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO, hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
 /** "27/09 14:05". */
