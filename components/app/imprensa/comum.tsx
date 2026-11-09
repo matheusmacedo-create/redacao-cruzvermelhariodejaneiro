@@ -17,7 +17,7 @@ export const quandoLegivel = new Intl.DateTimeFormat('pt-BR', {
 })
 
 export const podeReceber = (c: ContatoDeImprensa) =>
-  !motivoDeFora({ email: c.email, emailStatus: c.emailStatus, descadastradoEm: c.descadastradoEm })
+  !motivoDeFora({ email: c.email, emailStatus: c.emailStatus, descadastradoEm: c.descadastradoEm, devolvidoEm: c.devolvidoEm })
 
 /** Os segmentos por leitura — os mesmos na tabela de contatos e no envio. */
 export const SEGMENTOS = [

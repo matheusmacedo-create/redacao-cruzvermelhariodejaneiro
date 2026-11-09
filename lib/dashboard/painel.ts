@@ -138,6 +138,14 @@ export function fraseDaAtividade(l: LinhaDeAtividade, tituloDaPauta: (id: string
       ? `enviou a campanha "${assunto}" para ${enviados} contato${enviados === 1 ? '' : 's'}`
       : `enviou a campanha "${assunto}"`
   }
+  if (l.action === 'campanha_agendada') {
+    const assunto = texto(m.assunto)
+    const enviados = numero(m.enviados)
+    if (!assunto) return null
+    return enviados !== null
+      ? `agendou a campanha "${assunto}" para ${enviados} contato${enviados === 1 ? '' : 's'}`
+      : `agendou a campanha "${assunto}"`
+  }
   if (l.action === 'contatos_importados') {
     const n = (numero(m.inseridos) ?? 0) + (numero(m.atualizados) ?? 0)
     return n ? `importou ${n} contato${n === 1 ? '' : 's'} de imprensa` : null

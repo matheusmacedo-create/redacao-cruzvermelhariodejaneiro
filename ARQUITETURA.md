@@ -77,6 +77,7 @@ Settings → Environment Variables. Aqui só existem nomes.
 | `FTP_HOST` `FTP_USER` `FTP_PASSWORD` `FTP_BASE_DIR` | server | publicação no site |
 | `SITE_PUBLIC_BASE_URL` | server | opcional; sem ela o `ftp-check` não confere se a pasta é publicada |
 | `CRON_SECRET` | server | **segredo** — a Vercel manda nos crons de `vercel.json`; sem ela as rotas de cron ficam fechadas |
+| `RESEND_WEBHOOK_SECRET` | server | **segredo** — o segredo de assinatura do webhook do Resend (`/api/webhooks/resend`); sem ela a rota responde 503 e devolução, denúncia e supressão não chegam ao Palácio (§7.39) |
 | `META_CONVERSOES_TOKEN` | server | **segredo**, reserva do cofre — token da API de Conversões do pixel da Escola (§8.6); sem ele, o envio tenta `META_ADS_TOKEN` |
 | `AUDITORIA_CHAVE_PRIVADA` | server | **segredo** — Ed25519 (PKCS#8 PEM) que assina os lotes da trilha pública; sem ela os lotes ficam sem assinatura até ela chegar (§7.9) |
 | `AUDITORIA_SEGREDO` | server | **segredo**, opcional — HMAC do limite da consulta pública; na falta, derivado da chave de serviço |
@@ -2234,6 +2235,58 @@ com a selfie como foto (`lib/voluntariado/fichas-do-site.ts`; regras puras em
   (`cpf_para_o_site`, auditado) porque o site exige CPF para emitir código. Falhar no site não
   desfaz a aprovação: a ficha oferece “Gerar código no site”. Recusar aqui recusa lá.
 - O portal do site continua para consulta e para cancelar um código.
+
+### 7.39 Imprensa e contatos: campanhas em fila (`/imprensa`, 09/11/2026)
+
+`/imprensa` é o banco de contatos (`press_contacts`) e as campanhas por e-mail que saem dele
+(`press_campanhas`, uma linha por destinatário em `press_campanha_destinatarios`). Desde a
+migração `20261109120000_cvrj_envio_em_fila` o envio é uma fila, tem hora marcada e ouve o que o
+Resend conta depois que a mensagem sai. É a "fase 0" do plano de RP: a fundação do envio.
+
+- **Pôr na fila** (`enviarCampanha`, `app/actions/imprensa.ts`): a action confere permissão
+  (`imprensa.campanhas`) e chama `enfileirar_campanha`, que grava a campanha e os destinatários
+  **numa transação** e decide no banco quem pode receber (tem e-mail, não saiu da lista, não está
+  inválido, não está em `email_supressoes`). A conta da tela (`motivoDeFora`,
+  `lib/imprensa/campanha.ts`) é só a prévia; se divergir, vale o banco e a tela diz quantos
+  ficaram de fora. Só campanha criada por essa função tem `em_fila = true`: campanha antiga que
+  morreu no meio nunca é retomada.
+- **Quem envia** (`processarFila`, `lib/imprensa/fila.ts`): reserva um lote de 100
+  (`reservar_lote_de_campanha`), monta as mensagens, manda ao Resend em lote com chave de
+  idempotência e confirma (`confirmar_lote_de_campanha`, que guarda o id de cada mensagem). Um
+  trabalhador por vez no banco inteiro. Roda em três lugares: dentro da action, esperando, para
+  campanha de até 300 destinatários (`ENVIO_NA_HORA`); em `after()` para as maiores; e em
+  `/api/comunicados/fila`, chamada a cada minuto pelo pg_cron (job `enviar-campanhas`; mesmo
+  desenho e mesmo segredo `cron_secret` do cofre do job `publicar-agendadas`, migração
+  `20261102180000`) só quando há campanha com hora vencida ou fila parada.
+- **Hora marcada**: `agendarPara` vem do campo `datetime-local` e é lido como horário de Brasília
+  (`lerAgendamento`); a campanha fica `agendada` até o relógio promovê-la. `cancelarAgendamento`
+  devolve a campanha aos rascunhos enquanto ela espera. Na hora de sair, quem deixou de poder
+  receber durante a espera vira `de_fora` (não conta como falha).
+- **Se a função morrer no meio**: o lote reservado e não confirmado vira `falhou` em 10 minutos,
+  com o aviso de que pode ter saído. **Nunca é reenviado**: o mesmo release duas vezes na caixa
+  de um jornalista é pior do que uma falha visível. O resto continua na fila.
+- **O que o Resend conta** (`/api/webhooks/resend`, assinatura no padrão Svix conferida por
+  `lib/imprensa/webhook.ts` com `RESEND_WEBHOOK_SECRET`): `registrar_evento_de_email` grava
+  entrega, devolução definitiva, denúncia de spam, mensagem barrada pela supressão do Resend e
+  falha de envio na linha da campanha (achada pelo id da mensagem), marca o contato
+  (`invalido` + `devolvido_em`, ou `descadastrado_em` na denúncia), tira o inscrito da newsletter
+  com o mesmo endereço e espelha a lista de supressão da conta em `email_supressoes`.
+  `suppression.removed` desfaz a devolução (quem denunciou continua fora). Devolução temporária
+  é ignorada de propósito. O Gmail não manda evento de denúncia: o número da tela é piso.
+  Evento que chega antes de o lote ser confirmado acha a linha pelo endereço, entre as que
+  estão `enviando`.
+- **Para ligar o webhook** (uma vez): painel do Resend → Webhooks → endereço
+  `https://palacio.cruzvermelhariodejaneiro.org/api/webhooks/resend`, eventos `email.delivered`,
+  `email.bounced`, `email.complained`, `email.suppressed`, `email.failed`, `suppression.added` e
+  `suppression.removed`; o segredo de assinatura vai para `RESEND_WEBHOOK_SECRET` na Vercel.
+  **Não liste os webhooks pela API nem pelo MCP do Resend**: a resposta traz o segredo (§10.6).
+- **Teste** (`enviarTesteDaCampanha`): manda a mensagem só para o e-mail de quem pediu, com
+  `[Teste]` no assunto e tokens de rastreio que não são de ninguém. Não grava campanha.
+- **Conferência**: `supabase/tests/fila-de-campanhas.test.sql` (pgTAP: fila, hora marcada,
+  supressão, eventos, permissões) e `npx tsx scripts/conferir-campanhas.ts` (assinatura e
+  leitura do webhook, agendamento, repetição de lote, alertas de entrega).
+- **O que ainda não tem fila**: a newsletter (`lib/newsletter/envio.ts`) continua saindo de uma
+  vez, com o teto de 1.000 inscritos. O webhook já tira dela o endereço que devolve ou denuncia.
 
 ## 8. Integrações externas
 

@@ -12,8 +12,9 @@ import { tituloDaArea } from '@/lib/navegacao'
 export const metadata = { title: tituloDaArea('/imprensa') }
 
 export const dynamic = 'force-dynamic'
-// O disparo de campanha roda como server action desta página: até 1000
-// destinatários em lotes de 100 precisam de mais que o tempo padrão.
+// O disparo de campanha roda como server action desta página: a campanha
+// pequena sai antes da resposta e a grande segue com after() (lib/imprensa/
+// fila.ts). Os dois precisam de mais que o tempo padrão.
 export const maxDuration = 60
 
 const TETO_NA_TELA = 20000
@@ -27,7 +28,7 @@ export default async function ImprensaPage() {
   const context = await requireWorkspace()
   const supabase = await createClient()
 
-  const COLUNAS = 'id,nome,veiculo,cargo,dominio,email,email_status,confianca,telefone,tags,notas,fonte,verificado_em,created_by,updated_at,descadastrado_em,ultimo_envio_em,ultima_abertura_em,envios_sem_abertura,total_envios,total_aberturas'
+  const COLUNAS = 'id,nome,veiculo,cargo,dominio,email,email_status,confianca,telefone,tags,notas,fonte,verificado_em,created_by,updated_at,descadastrado_em,devolvido_em,motivo_da_devolucao,ultimo_envio_em,ultima_abertura_em,envios_sem_abertura,total_envios,total_aberturas'
   // A API do banco devolve no máximo 1000 linhas por pedido: com listas
   // importadas, o banco passa disso, e o resto sumiria da tela em silêncio.
   async function todosOsContatos() {
@@ -47,7 +48,7 @@ export default async function ImprensaPage() {
     todosOsContatos(),
     supabase
       .from('press_campanhas')
-      .select('id,assunto,corpo,link_url,link_rotulo,estado,total_destinatarios,total_enviados,total_falhas,total_aberturas,total_aberturas_brutas,total_cliques,total_cliques_brutos,total_descadastros,created_at,enviada_em,enviada_por,profiles:enviada_por(full_name,username)')
+      .select('id,assunto,corpo,link_url,link_rotulo,estado,total_destinatarios,total_enviados,total_falhas,total_aberturas,total_aberturas_brutas,total_cliques,total_cliques_brutos,total_descadastros,total_devolucoes,total_denuncias,agendada_para,created_at,enviada_em,enviada_por,profiles:enviada_por(full_name,username)')
       .eq('workspace_id', context.workspace.id)
       .order('created_at', { ascending: false })
       .limit(500),
@@ -71,11 +72,23 @@ export default async function ImprensaPage() {
     criadoPor: c.created_by,
     atualizadoEm: c.updated_at,
     descadastradoEm: c.descadastrado_em,
+    devolvidoEm: c.devolvido_em,
+    motivoDaDevolucao: c.motivo_da_devolucao ?? '',
     ultimoEnvioEm: c.ultimo_envio_em,
     ultimaAberturaEm: c.ultima_abertura_em,
     enviosSemAbertura: c.envios_sem_abertura ?? 0,
     totalEnvios: c.total_envios ?? 0,
     totalAberturas: c.total_aberturas ?? 0,
+  }))
+
+  // A campanha em envio ainda não tem os totais (eles fecham no fim): o
+  // andamento vem da contagem das linhas já enviadas. São raras ao mesmo tempo.
+  const jaSairam = new Map<string, number>()
+  await Promise.all((campanhas ?? []).filter((c) => c.estado === 'enviando').slice(0, 5).map(async (c) => {
+    const { count } = await supabase.from('press_campanha_destinatarios')
+      .select('id', { count: 'exact', head: true })
+      .eq('workspace_id', context.workspace.id).eq('campanha_id', c.id).eq('estado', 'enviado')
+    jaSairam.set(c.id, count ?? 0)
   }))
 
   const historico: CampanhaNaTela[] = (campanhas ?? []).map((c) => {
@@ -95,6 +108,10 @@ export default async function ImprensaPage() {
       cliques: c.total_cliques,
       cliquesTotais: c.total_cliques_brutos,
       descadastros: c.total_descadastros,
+      devolucoes: c.total_devolucoes ?? 0,
+      denuncias: c.total_denuncias ?? 0,
+      agendadaPara: c.agendada_para,
+      jaSairam: jaSairam.get(c.id) ?? null,
       criadaEm: c.created_at,
       enviadaEm: c.enviada_em,
       quem: perfil?.full_name || perfil?.username || '—',
@@ -112,7 +129,7 @@ export default async function ImprensaPage() {
     <div>
       <PageHeader
         title="Imprensa e contatos"
-        description="Banco de contatos — imprensa e todo contato relevante. Encontre e verifique pela Hunter.io, dispare campanhas e acompanhe quem lê."
+        description="Banco de contatos — imprensa e todo contato relevante. Encontre e verifique pela Hunter.io, envie ou agende campanhas e acompanhe quem lê."
       />
       <PainelDeImprensa
         contatos={contatos}

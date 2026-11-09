@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
 import { requireWorkspace } from '@/lib/session'
 import { pode } from '@/lib/permissoes'
 import { ehControleDoNext, mensagemDoErro } from '@/lib/erro-de-acao'
@@ -12,11 +13,14 @@ import {
 import { obterChave } from '@/lib/integracoes/chaves'
 import { comoBalde } from '@/lib/imprensa/email-status'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { emailConfigurado, emLotes, enviarLote, semChave, type Mensagem } from '@/lib/newsletter/resend'
-import { urlBase } from '@/lib/newsletter/contexto'
+import { emailConfigurado, enviarEmail, semChave } from '@/lib/newsletter/resend'
 import {
-  emailDaCampanha, linkValido, motivoDeFora, TETO_DE_DESTINATARIOS,
+  emailDaCampanha, ENVIO_NA_HORA, lerAgendamento, linkValido, TETO_DE_DESTINATARIOS,
 } from '@/lib/imprensa/campanha'
+import {
+  processarFila, remetenteDaCampanha, respostaDaCampanha, urlDeSaidaDoContato,
+  urlDeSaidaEmUmCliqueDoContato, urlDoPixel,
+} from '@/lib/imprensa/fila'
 import { comoEtiqueta, extrairEmail, LOTE_DE_IMPORTACAO } from '@/lib/imprensa/importacao'
 
 /** Divide ids para filtros `in`: a lista vai na URL, e URL tem limite. */
@@ -68,6 +72,9 @@ export type ContatoDeImprensa = {
   criadoPor: string | null
   atualizadoEm: string
   descadastradoEm: string | null
+  /** O provedor devolveu uma mensagem em definitivo (webhook do Resend). */
+  devolvidoEm: string | null
+  motivoDaDevolucao: string
   ultimoEnvioEm: string | null
   ultimaAberturaEm: string | null
   enviosSemAbertura: number
@@ -388,15 +395,12 @@ export async function excluirContatos(formData: FormData): Promise<{ erro?: stri
 
 // ---------------------------------------------------------------- campanhas
 
-const REMETENTE_PADRAO = 'Cruz Vermelha RJ — Comunicação <imprensa@noticias.cruzvermelhariodejaneiro.org>'
-const remetenteDaCampanha = () => process.env.IMPRENSA_REMETENTE?.trim() || REMETENTE_PADRAO
-const respostaDaCampanha = () => process.env.IMPRENSA_RESPONDER_PARA?.trim() || undefined
+// O remetente e os endereços rastreados moram em lib/imprensa/fila.ts: quem
+// monta a mensagem de verdade é a fila, e o teste usa os mesmos.
 
-const urlDoPixel = (token: string) => `${urlBase()}/api/comunicados/abertura/${token}`
-const urlDoClique = (token: string) => `${urlBase()}/api/comunicados/clique/${token}`
-// c = o destinatário: diz qual campanha fez a pessoa sair.
-const urlDeSaidaDoContato = (token: string, c: string) => `${urlBase()}/comunicados/sair?t=${token}&c=${c}`
-const urlDeSaidaEmUmCliqueDoContato = (token: string, c: string) => `${urlBase()}/api/comunicados/sair?t=${token}&c=${c}`
+const quandoPorExtenso = new Intl.DateTimeFormat('pt-BR', {
+  day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
+})
 
 type Rascunho = { assunto: string; corpo: string; linkUrl: string; linkRotulo: string }
 
@@ -457,7 +461,7 @@ export async function excluirRascunho(formData: FormData): Promise<{ erro?: stri
   }
 }
 
-/** Follow-up: os contatos que receberam a campanha e não abriram. */
+/** Follow-up: os contatos que receberam a campanha e não abriram (quem devolveu não recebeu). */
 export async function naoAbriramDaCampanha(formData: FormData): Promise<{ erro?: string; ids?: string[] }> {
   try {
     const context = await requireWorkspace()
@@ -467,7 +471,7 @@ export async function naoAbriramDaCampanha(formData: FormData): Promise<{ erro?:
       const { data, error } = await supabase.from('press_campanha_destinatarios')
         .select('contato_id')
         .eq('workspace_id', context.workspace.id).eq('campanha_id', texto(formData, 'id'))
-        .eq('estado', 'enviado').is('aberto_em', null).not('contato_id', 'is', null)
+        .eq('estado', 'enviado').is('aberto_em', null).is('devolvido_em', null).not('contato_id', 'is', null)
         .range(de, de + 999)
       if (error) throw new Error('Não foi possível ler quem não abriu.')
       ids.push(...(data ?? []).map((d) => d.contato_id as string))
@@ -480,16 +484,16 @@ export async function naoAbriramDaCampanha(formData: FormData): Promise<{ erro?:
 }
 
 /**
- * Dispara uma campanha para os contatos escolhidos.
+ * Põe uma campanha na fila para os contatos escolhidos — para sair agora ou
+ * na hora marcada (`agendarPara`).
  *
- * Tudo fica registrado antes de sair: a campanha e cada destinatário (com o
- * token do pixel que vai dentro da mensagem). Depois de cada lote, o
- * resultado; no fim, concluir_campanha fecha os totais e atualiza a
- * sequência "sem abertura" de cada contato. O histórico é visível a toda a
- * equipe.
- *
- * Quem não pode receber (sem e-mail, inválido, saiu da lista) é filtrado
- * AQUI, no servidor, com o dado do banco — não pela seleção da tela.
+ * A campanha e os destinatários são gravados de uma vez pelo banco
+ * (enfileirar_campanha): ou tudo entra, ou nada. Quem não pode receber (sem
+ * e-mail, inválido, saiu da lista, na supressão) é filtrado LÁ, com o dado do
+ * banco — não pela seleção da tela. O envio em si é da fila
+ * (lib/imprensa/fila.ts): a campanha pequena sai antes de esta action
+ * responder; a grande segue depois da resposta e, se não couber, o relógio do
+ * banco continua de minuto em minuto. O histórico é visível a toda a equipe.
  */
 export async function enviarCampanha(formData: FormData): Promise<{ erro?: string; recado?: string }> {
   try {
@@ -501,6 +505,8 @@ export async function enviarCampanha(formData: FormData): Promise<{ erro?: strin
     if (assunto.length < 3) throw new Error('Escreva o assunto.')
     if (corpo.length < 10) throw new Error('Escreva o texto da mensagem.')
     const rascunhoId = texto(formData, 'campanhaId')
+    const agendamento = lerAgendamento(texto(formData, 'agendarPara'))
+    if ('erro' in agendamento) throw new Error(agendamento.erro)
 
     let ids: string[]
     try { ids = JSON.parse(texto(formData, 'ids') || '[]') } catch { ids = [] }
@@ -511,157 +517,192 @@ export async function enviarCampanha(formData: FormData): Promise<{ erro?: strin
     const admin = createAdminClient()
     const workspaceId = context.workspace.id
 
-    const contatos: { id: string; nome: string; email: string | null; email_status: string; descadastrado_em: string | null; token_descadastro: string }[] = []
-    for (const pedaco of emPedacos(ids)) {
-      const { data, error } = await admin.from('press_contacts')
-        .select('id, nome, email, email_status, descadastrado_em, token_descadastro')
-        .eq('workspace_id', workspaceId).in('id', pedaco)
-      if (error) throw new Error('Não foi possível ler os contatos.')
-      contatos.push(...(data ?? []))
+    const { data: entrada, error: erroDaFila } = await admin.rpc('enfileirar_campanha', {
+      p_workspace_id: workspaceId,
+      p_autor: context.user.id,
+      p_rascunho_id: rascunhoId || null,
+      p_assunto: assunto,
+      p_corpo: corpo,
+      p_link_url: linkUrl,
+      p_link_rotulo: linkRotulo,
+      p_contatos: ids,
+      p_agendar_para: agendamento.quando,
+    })
+    if (erroDaFila) {
+      throw new Error(/rascunho_indisponivel/.test(erroDaFila.message)
+        ? 'Este rascunho já foi enviado ou não existe mais.'
+        : 'Não foi possível registrar a campanha.')
     }
-
-    const aptos = contatos.filter((c) => !motivoDeFora({
-      email: c.email, emailStatus: c.email_status, descadastradoEm: c.descadastrado_em,
-    }))
-    const deFora = ids.length - aptos.length
-    if (!aptos.length) throw new Error('Nenhum dos contatos selecionados pode receber: sem e-mail, e-mail inválido ou saíram da lista.')
-
-    const agora = new Date().toISOString()
-    const dadosDaCampanha = {
-      assunto,
-      corpo,
-      link_url: linkUrl,
-      link_rotulo: linkRotulo,
-      estado: 'enviando',
-      total_destinatarios: aptos.length,
-      enviada_por: context.user.id,
-      enviada_em: agora,
-      atualizada_em: agora,
+    const linha = (Array.isArray(entrada) ? entrada[0] : entrada) as { id_da_campanha?: string; total?: number } | null
+    if (!linha?.id_da_campanha) {
+      throw new Error('Nenhum dos contatos selecionados pode receber: sem e-mail, e-mail inválido ou devolvido, ou saíram da lista.')
     }
-    // Rascunho que sai vira a própria campanha: some da aba de rascunhos e
-    // aparece como enviada, sem cópia. O filtro por estado impede reenviar
-    // uma campanha que já saiu (dois cliques rápidos, duas abas abertas).
-    const { data: campanha, error: erroCampanha } = rascunhoId
-      ? await admin.from('press_campanhas').update(dadosDaCampanha)
-        .eq('id', rascunhoId).eq('workspace_id', workspaceId).eq('estado', 'rascunho').select('id').maybeSingle()
-      : await admin.from('press_campanhas').insert({ ...dadosDaCampanha, workspace_id: workspaceId }).select('id').single()
-    if (erroCampanha || !campanha) {
-      throw new Error(rascunhoId ? 'Este rascunho já foi enviado ou não existe mais.' : 'Não foi possível registrar a campanha.')
-    }
-
-    const fila: { id: string; contato_id: string | null; email: string; nome: string; token_abertura: string }[] = []
-    let erroFila = false
-    for (const pedaco of emPedacos(aptos, 500)) {
-      const { data, error } = await admin.from('press_campanha_destinatarios').insert(
-        pedaco.map((c) => ({
-          campanha_id: campanha.id,
-          workspace_id: workspaceId,
-          contato_id: c.id,
-          email: c.email as string,
-          nome: c.nome ?? '',
-          estado: 'na_fila',
-        })),
-      ).select('id, contato_id, email, nome, token_abertura')
-      if (error || !data) { erroFila = true; break }
-      fila.push(...data)
-    }
-    if (erroFila) {
-      await admin.from('press_campanhas').update({ estado: 'falhou', concluida_em: new Date().toISOString() }).eq('id', campanha.id)
-      throw new Error('Não foi possível preparar a lista de destinatários.')
-    }
-
-    const tokenDoContato = new Map(aptos.map((c) => [c.id, c.token_descadastro as string]))
-    let primeiroErro = ''
-
-    const lotes = emLotes(fila)
-    for (const [i, lote] of lotes.entries()) {
-      // O Resend aceita poucas chamadas por segundo; sem pausa, o lote 3
-      // volta 429 e metade da campanha falha por pressa.
-      if (i > 0) await new Promise((r) => setTimeout(r, 600))
-      const mensagens: Mensagem[] = lote.map((d) => {
-        const tokenSaida = tokenDoContato.get(d.contato_id as string) as string
-        const email = emailDaCampanha({
-          assunto, corpo, nome: d.nome as string, linkUrl, linkRotulo,
-          urlDoClique: urlDoClique(d.token_abertura),
-          urlDoPixel: urlDoPixel(d.token_abertura),
-          urlDeSaida: urlDeSaidaDoContato(tokenSaida, d.token_abertura),
-        })
-        return {
-          para: d.email as string,
-          assunto: email.assunto,
-          html: email.html,
-          texto: email.texto,
-          urlDeSaidaEmUmClique: urlDeSaidaEmUmCliqueDoContato(tokenSaida, d.token_abertura),
-          de: remetenteDaCampanha(),
-          responderPara: respostaDaCampanha(),
-        }
-      })
-      const idsDoLote = lote.map((d) => d.id as string)
-      try {
-        await enviarLote(mensagens)
-        await admin.from('press_campanha_destinatarios')
-          .update({ estado: 'enviado', enviado_em: new Date().toISOString() }).in('id', idsDoLote)
-      } catch (causa) {
-        const motivo = semChave(causa instanceof Error ? causa.message : String(causa)).slice(0, 500)
-        primeiroErro ||= motivo
-        await admin.from('press_campanha_destinatarios')
-          .update({ estado: 'falhou', erro: motivo }).in('id', idsDoLote)
-      }
-    }
-
-    await admin.rpc('concluir_campanha', { p_campanha_id: campanha.id })
-
-    const { data: final } = await admin.from('press_campanhas')
-      .select('total_enviados, total_falhas').eq('id', campanha.id).single()
-    const enviados = final?.total_enviados ?? 0
-    const falhas = final?.total_falhas ?? 0
+    const campanhaId = linha.id_da_campanha
+    const total = Number(linha.total) || 0
+    const deFora = ids.length - total
+    const foraTexto = deFora > 0 ? ` ${deFora} ficaram de fora (sem e-mail, inválidos ou devolvidos, ou saíram da lista).` : ''
 
     await admin.from('activity_log').insert({
       workspace_id: workspaceId,
       actor_id: context.user.id,
-      action: 'campanha_enviada',
+      action: agendamento.quando ? 'campanha_agendada' : 'campanha_enviada',
       entity_type: 'press_campanha',
-      entity_id: campanha.id,
-      metadata: { assunto, enviados, falhas, deFora },
+      entity_id: campanhaId,
+      metadata: { assunto, enviados: total, deFora, ...(agendamento.quando ? { agendadaPara: agendamento.quando } : {}) },
     })
-
     revalidatePath('/imprensa')
-    const foraTexto = deFora ? ` ${deFora} ficaram de fora (sem e-mail, inválidos ou saíram da lista).` : ''
-    if (!enviados) return { erro: `A campanha não saiu: ${primeiroErro || 'o provedor recusou.'}` }
-    if (falhas) return { erro: `Saíram ${enviados} de ${enviados + falhas} mensagens. Motivo das falhas: ${primeiroErro}${foraTexto}` }
+
+    if (agendamento.quando) {
+      return { recado: `Campanha agendada para ${quandoPorExtenso.format(new Date(agendamento.quando))} (horário de Brasília): ${total} contato(s).${foraTexto} Até lá, dá para cancelar na aba Campanhas.` }
+    }
+
+    if (total > ENVIO_NA_HORA) {
+      // Lista grande: a resposta não espera. O que não couber aqui, o relógio
+      // do banco continua (/api/comunicados/fila).
+      after(async () => { await processarFila(30_000) })
+      return { recado: `A campanha entrou na fila de envio: ${total} contato(s).${foraTexto} A aba Campanhas mostra o andamento.` }
+    }
+
+    await processarFila(25_000)
+    const { data: final } = await admin.from('press_campanhas')
+      .select('estado, total_enviados, total_falhas').eq('id', campanhaId).single()
+    if (!final || final.estado === 'enviando') {
+      // Outra campanha estava com a vez da fila; esta sai em seguida.
+      return { recado: `A campanha entrou na fila de envio: ${total} contato(s).${foraTexto} A aba Campanhas mostra o andamento.` }
+    }
+    const enviados = final.total_enviados ?? 0
+    const falhas = final.total_falhas ?? 0
+    let motivo = ''
+    if (falhas) {
+      const { data: falha } = await admin.from('press_campanha_destinatarios')
+        .select('erro').eq('campanha_id', campanhaId).eq('estado', 'falhou').not('erro', 'is', null).limit(1).maybeSingle()
+      motivo = semChave(falha?.erro ?? '')
+    }
+    if (!enviados) return { erro: `A campanha não saiu: ${motivo || 'o provedor recusou.'}` }
+    if (falhas) return { erro: `Saíram ${enviados} de ${enviados + falhas} mensagens. Motivo das falhas: ${motivo || 'o provedor recusou.'}${foraTexto}` }
     return { recado: `Campanha enviada para ${enviados} contato(s).${foraTexto}` }
   } catch (causa) {
     return { erro: semChave(mensagemDoErro(causa, 'Não foi possível enviar a campanha.')) }
   }
 }
 
+/**
+ * Desfaz um agendamento: a campanha volta a ser rascunho, com o texto como
+ * estava, e a lista de destinatários é escolhida de novo no próximo envio.
+ * Só vale enquanto ela espera — depois que começou a sair, não há o que desfazer.
+ */
+export async function cancelarAgendamento(formData: FormData): Promise<{ erro?: string; recado?: string }> {
+  try {
+    const context = await requireWorkspace()
+    if (!pode(context.role, 'imprensa.campanhas')) throw new Error('Campanhas são para administradores e editores.')
+    const id = texto(formData, 'id')
+    const admin = createAdminClient()
+    // O filtro por estado decide a corrida com o relógio: se a campanha já
+    // passou a "enviando", nenhuma linha muda e o cancelamento é recusado.
+    const { data, error } = await admin.from('press_campanhas')
+      .update({ estado: 'rascunho', em_fila: false, agendada_para: null, total_destinatarios: 0, atualizada_em: new Date().toISOString() })
+      .eq('id', id).eq('workspace_id', context.workspace.id).eq('estado', 'agendada').select('id, assunto')
+    if (error) throw new Error('Não foi possível cancelar o agendamento.')
+    if (!data?.length) throw new Error('Esta campanha já começou a sair ou não está mais agendada.')
+    // Rascunho não tem destinatário. Se este delete falhar, enfileirar_campanha
+    // limpa a sobra quando o rascunho for enviado de novo.
+    await admin.from('press_campanha_destinatarios').delete().eq('campanha_id', id).eq('estado', 'na_fila')
+
+    await admin.from('activity_log').insert({
+      workspace_id: context.workspace.id,
+      actor_id: context.user.id,
+      action: 'campanha_desagendada',
+      entity_type: 'press_campanha',
+      entity_id: id,
+      metadata: { assunto: data[0].assunto },
+    })
+    revalidatePath('/imprensa')
+    return { recado: 'Agendamento cancelado. A campanha voltou para os rascunhos.' }
+  } catch (causa) {
+    return comoErro(causa, 'Não foi possível cancelar o agendamento.')
+  }
+}
+
+// Tokens no formato certo e que não são de ninguém: o teste tem os mesmos
+// links da mensagem de verdade, e abrir ou clicar em "sair" não registra nada.
+const TOKEN_DE_TESTE = '0'.repeat(32)
+const SAIDA_DE_TESTE = '0'.repeat(48)
+
+/**
+ * Manda a campanha, como está escrita agora, só para o e-mail de quem pediu.
+ * Não grava campanha, não conta como envio e não mexe em contato nenhum:
+ * serve para ver a mensagem na caixa de entrada antes de ela sair.
+ */
+export async function enviarTesteDaCampanha(formData: FormData): Promise<{ erro?: string; recado?: string }> {
+  try {
+    const context = await requireWorkspace()
+    if (!pode(context.role, 'imprensa.campanhas')) throw new Error('Campanhas são para administradores e editores.')
+    if (!emailConfigurado()) throw new Error('O envio de e-mail não está configurado: falta RESEND_API_KEY.')
+
+    const { assunto, corpo, linkUrl, linkRotulo } = lerRascunho(formData)
+    if (assunto.length < 3) throw new Error('Escreva o assunto.')
+    if (corpo.length < 10) throw new Error('Escreva o texto da mensagem.')
+    const para = context.user.email?.trim()
+    if (!para) throw new Error('Sua conta não tem um e-mail para receber o teste.')
+
+    const email = emailDaCampanha({
+      assunto, corpo, nome: context.profile?.full_name ?? '', linkUrl, linkRotulo,
+      urlDoPixel: urlDoPixel(TOKEN_DE_TESTE),
+      urlDeSaida: urlDeSaidaDoContato(SAIDA_DE_TESTE, TOKEN_DE_TESTE),
+    })
+    await enviarEmail({
+      para,
+      assunto: `[Teste] ${email.assunto}`,
+      html: email.html,
+      texto: email.texto,
+      urlDeSaidaEmUmClique: urlDeSaidaEmUmCliqueDoContato(SAIDA_DE_TESTE, TOKEN_DE_TESTE),
+      de: remetenteDaCampanha(),
+      responderPara: respostaDaCampanha(),
+    })
+    return { recado: `Teste enviado para ${para}. Confira também a pasta de spam.` }
+  } catch (causa) {
+    return { erro: semChave(mensagemDoErro(causa, 'Não foi possível enviar o teste.')) }
+  }
+}
+
+const MAXIMO_NA_LISTA = 1000
+
 export type DestinatarioDaCampanha = {
   email: string
   nome: string
-  estado: 'na_fila' | 'enviado' | 'falhou'
+  /** na_fila: esperando a vez. enviando: a caminho do Resend. de_fora: não
+   * recebeu porque não podia (saiu da lista, endereço deixou de valer). */
+  estado: 'na_fila' | 'enviando' | 'enviado' | 'falhou' | 'de_fora'
   erro: string | null
   abertoEm: string | null
   aberturas: number
   clicadoEm: string | null
   descadastrouEm: string | null
+  /** O que o provedor contou depois do envio (webhook do Resend). */
+  entregueEm: string | null
+  devolvidoEm: string | null
+  motivoDaDevolucao: string | null
+  denunciouEm: string | null
 }
 
-/** Quem recebeu uma campanha e quem abriu — para o histórico. */
+/** Quem recebeu uma campanha e quem abriu — para o histórico. A lista mostra
+ * até MAXIMO_NA_LISTA linhas (o teto de uma leitura do banco), abertos primeiro. */
 export async function destinatariosDaCampanha(formData: FormData): Promise<{ erro?: string; destinatarios?: DestinatarioDaCampanha[] }> {
   try {
     const context = await requireWorkspace()
     const supabase = await createClient()
     const { data, error } = await supabase.from('press_campanha_destinatarios')
-      .select('email, nome, estado, erro, aberto_em, aberturas, clicado_em, descadastrou_em')
+      .select('email, nome, estado, erro, aberto_em, aberturas, clicado_em, descadastrou_em, entregue_em, devolvido_em, motivo_da_devolucao, denunciou_em')
       .eq('workspace_id', context.workspace.id)
       .eq('campanha_id', texto(formData, 'id'))
       .order('aberto_em', { ascending: false, nullsFirst: false })
-      .limit(TETO_DE_DESTINATARIOS)
+      .limit(MAXIMO_NA_LISTA)
     if (error) throw new Error('Não foi possível carregar os destinatários.')
     return {
       destinatarios: (data ?? []).map((d) => ({
         email: d.email, nome: d.nome, estado: d.estado, erro: d.erro, abertoEm: d.aberto_em, aberturas: d.aberturas,
         clicadoEm: d.clicado_em, descadastrouEm: d.descadastrou_em,
+        entregueEm: d.entregue_em, devolvidoEm: d.devolvido_em, motivoDaDevolucao: d.motivo_da_devolucao, denunciouEm: d.denunciou_em,
       })),
     }
   } catch (causa) {
