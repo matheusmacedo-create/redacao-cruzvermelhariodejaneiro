@@ -93,10 +93,15 @@ já vêm prontos.
    (Na web isso é automático: cada sessão já trabalha num branch próprio.)
 2. **Peça ao Claude** o que precisa. Ele segue as regras do `AGENTS.md`.
 3. **Valide:** `/validar` (ou peça "valide antes de subir").
-4. **Entregue:** `/entregar` — commit em português, push do branch e PR.
-5. **Confira o preview:** a Vercel comenta no PR com um link. Percorra a tela
+4. **Tem migração?** Ela entra em produção **antes** do push do código que
+   depende dela: o Claude mostra o SQL, o responsável pelo banco aplica (ou
+   autoriza o Claude a aplicar) e só depois vem a entrega (regra 3 do
+   `AGENTS.md`; detalhes em `/migracao`). Código no ar sem a migração quebra a
+   tela.
+5. **Entregue:** `/entregar` — commit em português, push do branch e PR.
+6. **Confira o preview:** a Vercel comenta no PR com um link. Percorra a tela
    que mudou. Atenção: o preview usa os **dados reais** e não envia e-mail.
-6. **Revisão e merge:** quem revisa faz o merge. Todo merge na `main` publica
+7. **Revisão e merge:** quem revisa faz o merge. Todo merge na `main` publica
    em produção na hora.
 
 Dois colaboradores mexendo no mesmo lugar: quem abrir o PR depois traz a

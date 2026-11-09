@@ -28,7 +28,8 @@ isto, nesta ordem, e **tudo precisa passar** antes de qualquer push:
    com casos de borda. Não commite o script.
 
 5. **Migração nova**: siga a skill `migracao` (inclui testar num Postgres
-   descartável quando houver RLS).
+   descartável quando houver RLS). Ela precisa estar aplicada em produção
+   **antes do push** do código que depende dela.
 
 Relate o resultado de cada passo. Se algo falhou e você não corrigiu, diga
 qual comando, a saída, e por que parou — não empurre código vermelho.

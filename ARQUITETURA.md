@@ -3836,8 +3836,10 @@ arquivo recém-enviado era apagado. **Todo envio à Biblioteca falhou por 14
 minutos**, até a migração ser aplicada.
 
 **A regra (a mesma de §10.1, do outro lado):** migração que acrescenta vai
-**antes** do merge. Quem mescla confere na lista de migrações do Supabase
-(`supabase_migrations.schema_migrations`) que a do PR já está lá.
+**antes** do código. Desde 09/11/2026, antes do **push**, e não só do merge
+(`AGENTS.md`, regra 3; skill `migracao`). Quem mescla confere na lista de
+migrações do Supabase (`supabase_migrations.schema_migrations`) que a do PR já
+está lá.
 
 **De novo em 26/09/2026:** o PR #241 (aviso, enquete e quiz nas
 oportunidades) foi mesclado com a migração `20260929020000` pendente, apesar
@@ -3885,7 +3887,8 @@ O que este caso acrescenta:
   mesclados de 10 a 20 segundos depois de abertos, e o branch empurrado já
   oferece o botão de abrir o PR. Como a migração só acrescenta e convive com o
   código que está no ar, o agente pede a autorização e aplica **antes de
-  empurrar o código que depende dela**.
+  empurrar o código que depende dela**. Virou regra no mesmo dia: `AGENTS.md`
+  (regra 3) e as skills `migracao`, `entregar` e `validar`.
 - **Aplicar pelo MCP do Supabase tem dois detalhes.** O MCP recebe o SQL
   digitado, não o arquivo: embrulhe o texto num bloco `do` que confere o md5
   contra o arquivo do repositório e só então executa, para que um erro de cópia
@@ -3962,7 +3965,7 @@ Um roteiro que evita a maioria dos erros acima:
 3. **`npx tsc --noEmit` e `pnpm build` antes de todo push.** Sem exceção.
 4. **Para lógica pura, escreva um script e rode.** `npx tsx`, casos de borda
    inclusive. Leva minutos e pega o `2026-02-31`.
-5. **Migração: só acrescente.** §10.1.
+5. **Migração: só acrescente, e aplique antes do push.** §10.1 e §10.7.
 6. **Percorra o caminho do usuário** até a tela que você mexeu. §10.3.
 7. **Atualize a ajuda junto com a tela.** Botão renomeado na tela e não na
    ajuda manda a pessoa procurar o que não existe. Guia em
