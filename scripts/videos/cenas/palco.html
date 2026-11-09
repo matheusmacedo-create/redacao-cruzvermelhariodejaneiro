@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Palácio Virtual · cenas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="palco.css">
+</head>
+<body>
+  <!-- O palco dos vídeos de explicação (docs/AJUDA.md §18): palco.html?v=<id> carrega <id>.js (window.CENAS). -->
+  <header class="marca"><img src="/images/palacio-virtual.png" alt=""><span>Palácio Virtual · Cruz Vermelha RJ</span></header>
+  <main id="palco"></main>
+  <script src="palco.js"></script>
+  <script>
+    const id = new URLSearchParams(location.search).get('v') || ''
+    if (/^[a-z0-9-]+$/.test(id)) {
+      const s = document.createElement('script')
+      s.src = `${id}.js`
+      s.onload = () => { window.palco.montar(window.CENAS || []); if (!new URLSearchParams(location.search).has('parado')) window.palco.ir(0) }
+      document.body.appendChild(s)
+    }
+  </script>
+</body>
+</html>

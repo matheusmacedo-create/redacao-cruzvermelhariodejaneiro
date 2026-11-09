@@ -159,8 +159,18 @@ export class RoboDoPalacio implements Robo {
   }
 
   async ir(rota: string) {
-    await this.pagina.goto(this.base + rota, { waitUntil: 'domcontentloaded' })
+    // Endereço inteiro: o palco das cenas, servido pelo próprio gravador (gravar.ts).
+    await this.pagina.goto(/^https?:\/\//.test(rota) ? rota : this.base + rota, { waitUntil: 'domcontentloaded' })
     await this.assentar()
+  }
+
+  async cena(n: number) {
+    await this.js(`window.palco && window.palco.ir(${Number(n)})`)
+  }
+
+  /** O cursor some (no palco das cenas não há o que apontar). */
+  async semCursor() {
+    await this.js('window.__v && window.__v.cursorVisivel(false)')
   }
 
   async cartao(rotulo: string, titulo: string, subtitulo: string) {
