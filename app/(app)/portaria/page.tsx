@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/server'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { tituloDaArea } from '@/lib/navegacao'
 import {
-  COLUNAS_DA_VISITA, crachaPendente, diaEHora, diaEmSaoPaulo, entrouEmOutroDia, haQuanto, hora, linkDaEntrada, quemVisita, situacaoDaVisita,
+  COLUNAS_DA_VISITA, crachaPendente, diaDoHistorico, diaEHora, diaEmSaoPaulo, entrouEmOutroDia, haQuanto, hora, linkDaEntrada, quemVisita, situacaoDaVisita,
   urlDaFotoDoVisitante, type Visita,
 } from '@/lib/portaria/regras'
 import { pessoasParaVisitar } from '@/lib/portaria/servidor'
@@ -190,7 +190,7 @@ async function Agora({ ws, hoje, supabase, pessoas: pessoasP }: { ws: string; ho
 }
 
 async function Historico({ ws, hoje, dia, q, supabase, pessoas: pessoasP }: { ws: string; hoje: string; dia?: string; q?: string; supabase: Supabase; pessoas: Pessoas }) {
-  const escolhido = dia && /^\d{4}-\d{2}-\d{2}$/.test(dia) && dia <= hoje ? dia : hoje
+  const escolhido = diaDoHistorico(dia, hoje)
   const termo = (q ?? '').trim().slice(0, 60)
   let consulta = supabase.from('portaria_visitas').select(COLUNAS_DA_VISITA).eq('workspace_id', ws).not('entrada_em', 'is', null)
   // Com busca, olha todos os dias; sem busca, o dia escolhido.
