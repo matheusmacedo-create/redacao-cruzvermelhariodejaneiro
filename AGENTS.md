@@ -53,6 +53,12 @@ Postgres com RLS) + Vercel (deploy, Blob, crons) + Resend. Gerenciador: **pnpm**
 
 ## Convenções
 
+- **Celular primeiro, para um público 50+.** A sede tem poucos computadores: a
+  maior parte da equipe usa o Palácio no próprio celular, e a maioria tem mais
+  de 50 anos. Toda tela nova (e todo vídeo) é pensada primeiro para o celular:
+  letra grande, alvos de toque de 44 px ou mais, uma coisa de cada vez, nada que
+  dependa de passar o mouse ou de tela larga. Confira em 390 px de largura antes
+  de abrir o PR.
 - Interface, mensagens de erro, comentários e commits em **português**. Código
   novo nomeia em português; código antigo em inglês fica como está.
 - Toda escrita passa por server action que começa com `requireWorkspace()` /
