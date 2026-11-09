@@ -7,7 +7,8 @@ import type { GuiaDaArea } from '../tipos'
  *
  * Cada frase tem apoio no código: app/(app)/newsletter (page e central.tsx),
  * app/actions/newsletter.ts, lib/newsletter/** (inscrição, decisão, envio,
- * CSV), as rotas app/newsletter/confirmar e app/api/newsletter/exportar e o
+ * CSV, materiais), lib/site/caixa-de-material.ts (a caixa da lista do kit nas
+ * matérias), as rotas app/newsletter/confirmar e app/api/newsletter/exportar e o
  * destino Newsletter em lib/publicacao/canais/newsletter.ts e
  * app/actions/pacotes.ts; app/(app)/imprensa, components/app/imprensa/**,
  * app/actions/imprensa.ts, lib/imprensa/** e as políticas de press_contacts;
@@ -191,6 +192,12 @@ const NEWSLETTER: GuiaDaArea = {
       pergunta: 'Ninguém novo entra na lista. O que conferir?',
       resposta: 'Veja o cartão “Formulário do site” (só administradores veem a situação). “Não está ligado” quer dizer que a conferência não achou, na página inicial do site, o formulário mandando as inscrições para cá: quem se inscreve lá pode estar tendo o endereço descartado sem saber. Um administrador resolve com “Ligar o formulário”.\n\n“Sem resposta agora” quer dizer que a conferência não respondeu naquele momento; toque em “Ver situação” daqui a pouco.',
       termos: ['formulário', 'home', 'site', 'inscrições pararam', 'Não está ligado'],
+    },
+    {
+      id: 'origem-materia',
+      pergunta: 'De onde vêm as pessoas com origem “Materia”?',
+      resposta: 'Da caixa “Receba a lista do kit de emergência no seu e-mail”, que fica no fim de algumas matérias do site: as de emergência, Defesa Civil e primeiros socorros em casa. A pessoa deixa o e-mail, marca a autorização e recebe uma mensagem com o botão “Baixar a lista em PDF”.\n\nO toque nesse botão baixa a lista e confirma a inscrição. Até lá ela fica “Aguardando confirmação”, como qualquer outra. Quem já está confirmado não recebe a mensagem de novo: a caixa mostra o link do guia do kit de emergência, no site, onde a lista também está.',
+      termos: ['kit de emergência', 'lista do kit', 'pdf', 'origem', 'matéria', 'materia', 'caixa', 'isca', 'baixar a lista'],
     },
     {
       id: 'restrito-a-administrador',

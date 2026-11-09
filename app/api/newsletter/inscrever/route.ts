@@ -7,7 +7,8 @@ import {
 import {
   espacoDaNewsletter, urlDeConfirmacao, urlDeSaida, urlDeSaidaEmUmClique, cabecalhosDeCors,
 } from '@/lib/newsletter/contexto'
-import { emailDeConfirmacao } from '@/lib/newsletter/modelo'
+import { emailDeConfirmacao, emailDoMaterial } from '@/lib/newsletter/modelo'
+import { materialPorId } from '@/lib/newsletter/materiais'
 import { enviarEmail, emailConfigurado, semChave } from '@/lib/newsletter/resend'
 import { decidirInscricao, LIMITE_POR_IP, type InscritoExistente } from '@/lib/newsletter/decisao'
 
@@ -44,6 +45,15 @@ export const dynamic = 'force-dynamic'
  * estiver fora, ou nem configurado ainda, o pedido fica registrado como
  * pendente e o convite pode sair depois — perder o endereço de quem quis se
  * inscrever seria o único erro irreversível aqui.
+ *
+ * PEDIDO DE MATERIAL (09/11/2026). A caixa "Receba a lista do kit de emergência"
+ * das matérias (lib/site/caixa-de-material.ts) manda para cá com o campo
+ * `material`. É a mesma inscrição, com as mesmas quatro defesas, e três
+ * diferenças: o texto do aceite gravado é o do material (a pessoa autorizou a
+ * lista e depois as notícias), a origem é "materia" e o convite é a mensagem
+ * que entrega o arquivo, cujo botão confirma a inscrição
+ * (lib/newsletter/materiais.ts). Quem já confirmou continua sem receber nada
+ * daqui: a caixa mostra o link do guia, onde o arquivo está aberto a todos.
  */
 
 /** A mesma resposta para todo caminho de sucesso — inclusive os que não gravam. */
@@ -64,7 +74,7 @@ const RECADO = 'Quase lá! Enviamos um e-mail para você confirmar a inscrição
  */
 const RECADO_SEM_ENVIO = 'Recebemos seu cadastro! O e-mail de confirmação será enviado assim que nosso envio de newsletter entrar no ar.'
 
-type Campos = { email: unknown; nome: unknown; armadilha: unknown; consentimento: unknown }
+type Campos = { email: unknown; nome: unknown; armadilha: unknown; consentimento: unknown; material: unknown }
 
 /**
  * Aceita JSON e formulário comum.
@@ -77,7 +87,7 @@ async function lerCampos(request: NextRequest): Promise<Campos> {
   const tipo = request.headers.get('content-type') ?? ''
   if (tipo.includes('application/json')) {
     const corpo = await request.json().catch(() => ({})) as Record<string, unknown>
-    return { email: corpo.email, nome: corpo.nome, armadilha: corpo.site, consentimento: corpo.consentimento }
+    return { email: corpo.email, nome: corpo.nome, armadilha: corpo.site, consentimento: corpo.consentimento, material: corpo.material }
   }
   const form = await request.formData().catch(() => null)
   return {
@@ -85,6 +95,7 @@ async function lerCampos(request: NextRequest): Promise<Campos> {
     nome: form?.get('nome') ?? undefined,
     armadilha: form?.get('site') ?? undefined,
     consentimento: form?.get('consentimento') ?? undefined,
+    material: form?.get('material') ?? undefined,
   }
 }
 
@@ -116,9 +127,22 @@ export async function POST(request: NextRequest) {
 
   const campos = await lerCampos(request)
 
+  // O material pedido, quando o formulário é a caixa de uma matéria. Campo ausente ou vazio é a inscrição comum.
+  const pediuMaterial = typeof campos.material === 'string' && campos.material.trim() !== ''
+  const material = pediuMaterial ? materialPorId(campos.material) : null
+  // Os recados deste pedido: os do material, ou os da inscrição comum. Todo caminho de sucesso usa o mesmo.
+  const recado = material?.recado ?? RECADO
+  const recadoSemEnvio = material?.recadoSemEnvio ?? RECADO_SEM_ENVIO
+
   // Defesa 1: a armadilha. Sucesso para o robô, sem gravar nada.
   if (typeof campos.armadilha === 'string' && campos.armadilha.trim()) {
-    return responder(true, RECADO)
+    return responder(true, recado)
+  }
+
+  // Material que não existe: página antiga em cache ou formulário forjado. Não vira inscrição comum, porque o aceite
+  // que a pessoa leu na caixa não é o da newsletter, e gravar um texto que ela não viu seria registrar o que não houve.
+  if (pediuMaterial && !material) {
+    return responder(false, 'Este formulário está desatualizado. Recarregue a página e tente de novo.', 400)
   }
 
   const email = normalizarEmail(campos.email)
@@ -179,7 +203,7 @@ export async function POST(request: NextRequest) {
     if (decisao.porque === 'limite-de-ip') {
       console.warn(`[newsletter] limite de ${LIMITE_POR_IP} inscrições/hora atingido pelo IP ${ip}`)
     }
-    return responder(true, RECADO)
+    return responder(true, recado)
   }
 
   const token = novoToken()
@@ -193,8 +217,10 @@ export async function POST(request: NextRequest) {
     // Quem saiu e voltou tem o registro de saída limpo: o pedido novo é dela,
     // e a confirmação em duas etapas prova que é.
     descadastrado_em: null,
-    origem: 'home' as const,
-    consentimento_texto: TEXTO_DO_CONSENTIMENTO,
+    // De onde veio: a caixa de material fica no fim das matérias; a inscrição comum, na home.
+    origem: material ? ('materia' as const) : ('home' as const),
+    // O texto que a pessoa leu e aceitou: o do material, quando o pedido veio da caixa dele.
+    consentimento_texto: material?.consentimento ?? TEXTO_DO_CONSENTIMENTO,
     consentimento_ip: ip,
     consentimento_agente: agente,
   }
@@ -214,15 +240,23 @@ export async function POST(request: NextRequest) {
   // está guardado, e o convite pode ser reenviado depois pela tela de gestão.
   if (!emailConfigurado()) {
     console.warn('[newsletter] inscrição gravada, mas RESEND_API_KEY não está configurada: convite não enviado para', email)
-    return responder(true, RECADO_SEM_ENVIO)
+    return responder(true, recadoSemEnvio)
   }
 
   try {
-    const modelo = emailDeConfirmacao({
-      nome,
-      urlConfirmar: urlDeConfirmacao(token),
-      urlDeSaida: urlDeSaida(gravado.token_descadastro as string),
-    })
+    // Com material, o convite é a mensagem que entrega o arquivo: o botão é o link de confirmação com o material
+    // junto, e a rota de confirmação termina no arquivo (app/newsletter/confirmar).
+    const modelo = material
+      ? emailDoMaterial({
+          material,
+          urlBaixar: `${urlDeConfirmacao(token)}&m=${encodeURIComponent(material.id)}`,
+          urlDeSaida: urlDeSaida(gravado.token_descadastro as string),
+        })
+      : emailDeConfirmacao({
+          nome,
+          urlConfirmar: urlDeConfirmacao(token),
+          urlDeSaida: urlDeSaida(gravado.token_descadastro as string),
+        })
     await enviarEmail({
       para: email,
       assunto: modelo.assunto,
@@ -235,8 +269,8 @@ export async function POST(request: NextRequest) {
     // único erro irreversível aqui. Mas a resposta muda — dizer "enviamos" de
     // um e-mail que não saiu é a promessa que este projeto começou consertando.
     console.error('[newsletter] convite não saiu:', semChave(causa instanceof Error ? causa.message : String(causa)))
-    return responder(true, RECADO_SEM_ENVIO)
+    return responder(true, recadoSemEnvio)
   }
 
-  return responder(true, RECADO)
+  return responder(true, recado)
 }

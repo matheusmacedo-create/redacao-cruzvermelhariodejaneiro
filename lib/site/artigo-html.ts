@@ -6,6 +6,7 @@ import {
 import { svgDaMarca } from '@/lib/marcas'
 import { alternativasDaPagina } from '@/lib/site/traducoes'
 import { ehAudioDeNarracao } from '@/lib/voz/regras'
+import { CSS_DA_CAIXA_DE_MATERIAL, SCRIPT_DA_CAIXA_DE_MATERIAL, caixaDaMateria, htmlDaCaixaDeMaterial } from '@/lib/site/caixa-de-material'
 export { escapar } from '@/lib/site/esqueleto'
 
 /**
@@ -326,6 +327,17 @@ export type DadosDoArtigo = {
    * abaixo do cabeçalho, com o aviso de que a voz é gerada por inteligência artificial.
    */
   audio?: { nome: string }
+  /**
+   * A rota de inscrição da newsletter, para a caixa da lista do kit (lib/site/caixa-de-material.ts). A caixa aparece
+   * sozinha nas matérias listadas lá; isto só diz para onde o formulário dela manda. Em branco, a do endereço fixo do
+   * Palácio (é o que a prévia do hub usa).
+   */
+  rotaDeInscricao?: string
+  /**
+   * true: a página sai sem a caixa da lista do kit, mesmo com a matéria na lista. A publicação usa quando o arquivo
+   * que a caixa promete ainda não responde no site (lib/site/material-no-ar.ts).
+   */
+  semCaixaDeMaterial?: boolean
 }
 
 const formatoCurto = (d: Date) =>
@@ -417,6 +429,10 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
             <p class="news-ouvir-nota">Narração com voz gerada por inteligência artificial, a partir do texto publicado.</p>
           </section>`
     : ''
+
+  // A caixa "Receba a lista do kit de emergência no seu e-mail": só nas matérias da lista (caixa-de-material.ts).
+  const caixa = dados.semCaixaDeMaterial ? null : caixaDaMateria(dados.slug)
+  const htmlDaCaixa = caixa ? htmlDaCaixaDeMaterial(caixa, dados.rotaDeInscricao?.trim() || undefined) : ''
 
   const organizacao = noDaOrganizacao()
   const jsonLd = {
@@ -535,6 +551,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
           <div class="news-body">
       ${htmlDoCorpo}
           </div>
+          ${htmlDaCaixa}
           <footer class="news-source">Publicado por ${escapar(assinatura)}. <a href="/como-produzimos-nosso-conteudo/">Como produzimos nosso conteúdo</a>. <a href="/">Ver mais do nosso trabalho</a>.</footer>
         </article>
         ${rail}
@@ -542,7 +559,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
       ${maisNoticias}
     </div>`
 
-  const scripts = `${dados.rastreio ? `${blocoDeRastreio(dados.rastreio)}\n    ` : ''}${audioDaMateria ? `${SCRIPT_DO_OUVIR}\n    ` : ''}<script>
+  const scripts = `${dados.rastreio ? `${blocoDeRastreio(dados.rastreio)}\n    ` : ''}${audioDaMateria ? `${SCRIPT_DO_OUVIR}\n    ` : ''}${caixa ? `${SCRIPT_DA_CAIXA_DE_MATERIAL}\n    ` : ''}<script>
       document.querySelector('.copiar-link')?.addEventListener('click', async function() {
         try { await navigator.clipboard.writeText(this.dataset.url); } catch { return; }
         this.classList.add('copiado');
@@ -558,7 +575,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
     caminho: `${canonica.slice(origem.length)}`,
     origem,
     corpo,
-    cssExtra: `${dados.rastreio ? CSS_DO_BOTAO : ''}${audioDaMateria ? CSS_DO_OUVIR : ''}`,
+    cssExtra: `${dados.rastreio ? CSS_DO_BOTAO : ''}${audioDaMateria ? CSS_DO_OUVIR : ''}${caixa ? CSS_DA_CAIXA_DE_MATERIAL : ''}`,
     jsonLd,
     ...(alternativas ? { alternativas } : {}),
     ativo: 'noticias',

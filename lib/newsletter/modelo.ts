@@ -1,4 +1,5 @@
 import { escapar } from '@/lib/site/artigo-html'
+import type { Material } from '@/lib/newsletter/materiais'
 
 /**
  * Os modelos de e-mail da newsletter.
@@ -31,8 +32,11 @@ const LINHA = '#e2e8f0'
 
 export type Modelo = { assunto: string; html: string; texto: string }
 
-/** Envolve o conteúdo no cabeçalho e rodapé comuns. */
-function moldura(opcoes: { miolo: string; urlDeSaida: string; preheader: string }): string {
+/** Por que a pessoa recebe a mensagem: a frase do rodapé, quando ninguém informa outra. */
+const MOTIVO_PADRAO = 'Você recebe esta mensagem porque confirmou a inscrição na nossa lista.'
+
+/** Envolve o conteúdo no cabeçalho e rodapé comuns. `motivo` troca a frase do rodapé (texto puro, escapado aqui). */
+function moldura(opcoes: { miolo: string; urlDeSaida: string; preheader: string; motivo?: string }): string {
   return `<!doctype html>
 <html lang="pt-BR"><head>
 <meta charset="utf-8">
@@ -60,7 +64,7 @@ ${opcoes.miolo}
     <tr><td style="padding:24px 32px 28px;border-top:1px solid ${LINHA};font-family:Arial,Helvetica,sans-serif;color:${SUAVE};font-size:12px;line-height:1.6;">
       <p style="margin:0 0 8px;">Cruz Vermelha Brasileira — Filial do Estado do Rio de Janeiro</p>
       <p style="margin:0 0 12px;"><a href="${SITE}" style="color:${SUAVE};">cruzvermelhariodejaneiro.org</a></p>
-      <p style="margin:0;">Você recebe esta mensagem porque confirmou a inscrição na nossa lista.
+      <p style="margin:0;">${escapar(opcoes.motivo?.trim() || MOTIVO_PADRAO)}
         <a href="${escapar(opcoes.urlDeSaida)}" style="color:${VERMELHO};font-weight:bold;">Sair da lista</a>.</p>
     </td></tr>
 
@@ -133,6 +137,76 @@ export function emailDeConfirmacao(dados: {
       miolo,
       urlDeSaida: dados.urlDeSaida,
       preheader: 'Falta um clique para você começar a receber as novidades.',
+    }),
+    texto,
+  }
+}
+
+/**
+ * A mensagem que entrega um material pedido no site (lib/newsletter/materiais.ts): hoje, a lista do kit de emergência.
+ *
+ * É o convite de confirmação com outro corpo. O botão "Baixar a lista em PDF" é o link de confirmação com o material
+ * junto (app/newsletter/confirmar): o toque baixa o arquivo e confirma a inscrição. Como o toque faz as duas coisas,
+ * a mensagem DIZ as duas coisas, logo abaixo do botão, com as mesmas palavras do aceite que a pessoa marcou e na letra
+ * do corpo, não em letra miúda. Entregar o arquivo e inscrever em silêncio seria o tipo de truque que este projeto não
+ * faz.
+ *
+ * O rodapé troca de frase: quem recebe esta mensagem ainda não confirmou nada, só pediu a lista.
+ */
+export function emailDoMaterial(dados: {
+  material: Material
+  /** O link de confirmação, já com o material (termina no arquivo). */
+  urlBaixar: string
+  urlDeSaida: string
+}): Modelo {
+  const m = dados.material
+
+  const miolo = `
+      <p style="margin:0 0 4px;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;color:${VERMELHO};">Você pediu, aqui está</p>
+      <h1 style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:26px;line-height:1.25;color:#0f1318;">${escapar(m.email.titulo)}</h1>
+      <p style="margin:0 0 16px;">Olá!</p>
+      <p style="margin:0 0 16px;">Você pediu ${escapar(m.nome)} no nosso site. ${escapar(m.email.descricao)}</p>
+      ${botao(dados.urlBaixar, m.email.botao)}
+      <p style="margin:0 0 16px;">Ao tocar no botão, você baixa a lista e confirma o seu e-mail: passa a receber também as notícias, campanhas e informações sobre cursos da Cruz Vermelha do Rio de Janeiro. Dá para sair quando quiser, pelo link no fim de cada mensagem.</p>
+      <p style="margin:0 0 16px;font-size:14px;color:${SUAVE};">Quer entender cada item da lista? Veja o <a href="${escapar(m.guia)}" style="color:${VERMELHO};font-weight:bold;">${escapar(m.rotuloDoGuia)}</a>, no nosso site.</p>
+      <p style="margin:0 0 16px;font-size:14px;color:${SUAVE};">Se o botão não funcionar, copie e cole este endereço no navegador:<br>
+        <span style="word-break:break-all;color:${SUAVE};">${escapar(dados.urlBaixar)}</span></p>
+      <p style="margin:0;font-size:14px;color:${SUAVE};"><strong>Não foi você?</strong> Então não faça nada: sem o toque no botão, nada mais é enviado e o pedido expira sozinho.</p>`
+
+  const texto = [
+    m.email.titulo.toUpperCase(),
+    '',
+    'Olá!',
+    '',
+    `Você pediu ${m.nome} no nosso site. ${m.email.descricao}`,
+    '',
+    `${m.email.botao}:`,
+    dados.urlBaixar,
+    '',
+    'Ao abrir esse endereço, você baixa a lista e confirma o seu e-mail: passa a',
+    'receber também as notícias, campanhas e informações sobre cursos da Cruz',
+    'Vermelha do Rio de Janeiro. Dá para sair quando quiser, pelo link no fim de',
+    'cada mensagem.',
+    '',
+    `Quer entender cada item da lista? Veja o ${m.rotuloDoGuia}:`,
+    m.guia,
+    '',
+    'Não foi você? Então não faça nada: sem abrir o endereço acima, nada mais é',
+    'enviado e o pedido expira sozinho.',
+    '',
+    '--',
+    'Cruz Vermelha Brasileira — Filial do Estado do Rio de Janeiro',
+    SITE,
+    `Sair da lista: ${dados.urlDeSaida}`,
+  ].join('\n')
+
+  return {
+    assunto: m.email.assunto,
+    html: moldura({
+      miolo,
+      urlDeSaida: dados.urlDeSaida,
+      preheader: m.email.chamada,
+      motivo: `Você recebe esta mensagem porque pediram ${m.nome} no nosso site com este endereço de e-mail.`,
     }),
     texto,
   }
