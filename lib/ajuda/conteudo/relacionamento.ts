@@ -157,7 +157,7 @@ const NEWSLETTER: GuiaDaArea = {
       passos: [
         'No cartão “Envio”, veja o selo: “Configurado” ou “Sem chave do Resend”.',
         'Toque em “Conferir envio”.',
-        'Leia o resultado: ele diz se o domínio de onde a newsletter sai está verificado e o que fazer em seguida.',
+        'Leia o resultado: ele diz se o domínio de onde a newsletter sai está verificado, ou que não deu para consultar, e o que fazer em seguida.',
       ],
       dica: 'Para quem não é administrador, o botão responde que o diagnóstico completo é restrito a administradores.',
     },
@@ -198,6 +198,12 @@ const NEWSLETTER: GuiaDaArea = {
       pergunta: 'De onde vêm as pessoas com origem “Materia”?',
       resposta: 'Da caixa “Receba a lista do kit de emergência no seu e-mail”, que fica no fim de algumas matérias do site: as de emergência, Defesa Civil e primeiros socorros em casa. A pessoa deixa o e-mail, marca a autorização e recebe uma mensagem com o botão “Baixar a lista em PDF”.\n\nO toque nesse botão baixa a lista e confirma a inscrição. Até lá ela fica “Aguardando confirmação”, como qualquer outra.\n\nQuem já está confirmado também recebe a lista, no máximo uma vez por dia, mas não muda na tabela: continua com a origem de antes e não aparece como inscrição nova. Quem pede de novo no mesmo dia (ou confirmou a inscrição há menos de um dia) não recebe outra mensagem: o caminho é o link do guia do kit de emergência, que a caixa mostra depois do pedido e onde a lista também está.',
       termos: ['kit de emergência', 'lista do kit', 'pdf', 'origem', 'matéria', 'materia', 'caixa', 'isca', 'baixar a lista'],
+    },
+    {
+      id: 'chave-so-de-envio',
+      pergunta: 'O “Conferir envio” diz que a chave é “só de envio”. É problema?',
+      resposta: 'Não. É o tipo de chave mais seguro para ficar no servidor: com ela o Palácio envia e-mail, e mais nada.\n\nSó que esse tipo não deixa o Palácio consultar se o domínio de onde as mensagens saem está verificado. Por isso o resultado diz que não consegue consultar, e não que há algo errado. Não precisa trocar a chave.\n\nSe o envio for recusado um dia, a administração recebe um alerta no sino e no WhatsApp. Para ver a situação do domínio, abra o painel do Resend, em “Domains”.',
+      termos: ['chave', 'resend', 'só de envio', 'domínio', 'verificado', 'não está verificado', 'conferir envio', 'diagnóstico'],
     },
     {
       id: 'restrito-a-administrador',

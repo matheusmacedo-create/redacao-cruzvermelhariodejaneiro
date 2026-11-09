@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import {
-  AlertTriangle, CheckCircle2, Download, Loader2, Mail, MailCheck, Plus,
+  AlertTriangle, CheckCircle2, Download, Info, Loader2, Mail, MailCheck, Plus,
   Globe, RefreshCw, Search, Send, Trash2, X,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
@@ -227,7 +227,8 @@ function FormularioDaHome({ podeLigar, executar, processando }: {
   const olhar = useCallback(async () => {
     setOlhando(true)
     try {
-      const r = await fetch('/api/admin/newsletter-check')
+      // Só a leitura da home: esta conferência roda sozinha a cada abertura, e não chama o Resend para isso.
+      const r = await fetch('/api/admin/newsletter-check?so=formulario')
       const d = await r.json()
       setEstado(r.status === 403 ? 'restrito' : (d.formularioDaHome ?? 'sem-resposta'))
     } catch {
@@ -318,6 +319,10 @@ function FormularioDaHome({ podeLigar, executar, processando }: {
  *
  * A conferência do domínio é sob demanda, não no carregamento: é uma chamada
  * ao Resend, e a tela não pode abrir na velocidade dele.
+ *
+ * O ícone do resultado segue o tom que o diagnóstico devolve
+ * (lib/newsletter/diagnostico.ts): certo, atenção, ou neutro quando não deu
+ * para conferir. Não dar para conferir não é problema, e não veste o alerta.
  */
 function EstadoDoEnvio({ envio, pendentes, executar, processando }: {
   envio: { configurado: boolean; remetente: string; responderPara: string }
@@ -326,17 +331,17 @@ function EstadoDoEnvio({ envio, pendentes, executar, processando }: {
   processando: boolean
 }) {
   const [conferindo, setConferindo] = useState(false)
-  const [diagnostico, setDiagnostico] = useState<{ veredito?: string; oQueFazer?: string[]; dominioVerificado?: boolean } | null>(null)
+  const [diagnostico, setDiagnostico] = useState<{ veredito?: string; oQueFazer?: string[]; tom?: 'ok' | 'neutro' | 'atencao' } | null>(null)
 
   const conferir = async () => {
     setConferindo(true)
     try {
       const r = await fetch('/api/admin/newsletter-check')
       setDiagnostico(r.status === 403
-        ? { veredito: 'O diagnóstico completo é restrito a administradores.' }
+        ? { veredito: 'O diagnóstico completo é restrito a administradores.', tom: 'neutro' }
         : await r.json())
     } catch {
-      setDiagnostico({ veredito: 'Não foi possível conferir agora.' })
+      setDiagnostico({ veredito: 'Não foi possível conferir agora.', tom: 'neutro' })
     } finally {
       setConferindo(false)
     }
@@ -387,14 +392,16 @@ function EstadoDoEnvio({ envio, pendentes, executar, processando }: {
         <div className="mt-4 space-y-2 rounded-lg bg-muted/50 p-4 text-sm">
           {diagnostico.veredito && (
             <p className="flex items-start gap-2">
-              {diagnostico.dominioVerificado
+              {diagnostico.tom === 'ok'
                 ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" />
-                : <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />}
-              <span>{diagnostico.veredito}</span>
+                : diagnostico.tom === 'neutro'
+                  ? <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  : <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />}
+              <span className="min-w-0 break-words">{diagnostico.veredito}</span>
             </p>
           )}
           {diagnostico.oQueFazer?.map((item, i) => (
-            <p key={i} className="pl-6 text-xs leading-relaxed text-muted-foreground">• {item}</p>
+            <p key={i} className="break-words pl-6 text-xs leading-relaxed text-muted-foreground">• {item}</p>
           ))}
         </div>
       )}
