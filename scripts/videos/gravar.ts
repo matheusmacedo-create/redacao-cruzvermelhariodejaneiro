@@ -150,7 +150,11 @@ async function main() {
       quadros.push({ arquivo, t: q.metadata.timestamp ?? Date.now() / 1000 })
       cdp.send('Page.screencastFrameAck', { sessionId: q.sessionId }).catch(() => undefined)
     })
-    await robo.cartao('Palácio Virtual · Como fazer', roteiro.titulo, 'O passo a passo da ajuda, na tela de verdade, com dados fictícios.')
+    // O vídeo de explicação de uma página (§18) não é passo a passo nem usa dados fictícios: o cartão diz o que ele é.
+    const abertura = roteiro.explica
+      ? { etiqueta: 'Palácio Virtual · Por dentro', texto: 'Explicado com calma, com o texto da página “Segurança do Palácio”.' }
+      : { etiqueta: 'Palácio Virtual · Como fazer', texto: 'O passo a passo da ajuda, na tela de verdade, com dados fictícios.' }
+    await robo.cartao(abertura.etiqueta, roteiro.titulo, abertura.texto)
     const tela = celular ? { largura: 1080, altura: 1920 } : { largura: 1920, altura: 1080 }
     await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 90, maxWidth: tela.largura, maxHeight: tela.altura, everyNthFrame: 1 })
     await robo.esperar(500)
@@ -179,7 +183,10 @@ async function main() {
     }
 
     await robo.apagar()
-    await robo.cartao('Palácio Virtual · Ajuda', 'Ficou alguma dúvida?', 'Toque em ? no alto de qualquer tela: o passo a passo, o “Ouvir” e os vídeos estão lá.')
+    const fechamento = roteiro.explica
+      ? { etiqueta: 'Palácio Virtual · Por dentro', titulo: 'Quer ler com calma?', texto: 'A página “Segurança do Palácio” tem tudo isto, com o “Ouvir” e a versão para imprimir.' }
+      : { etiqueta: 'Palácio Virtual · Ajuda', titulo: 'Ficou alguma dúvida?', texto: 'Toque em ? no alto de qualquer tela: o passo a passo, o “Ouvir” e os vídeos estão lá.' }
+    await robo.cartao(fechamento.etiqueta, fechamento.titulo, fechamento.texto)
     await robo.esperar(400)
     const ultima = falas[falas.length - 1]
     noVideo.push({ fala: ultima, inicio: agora() })
