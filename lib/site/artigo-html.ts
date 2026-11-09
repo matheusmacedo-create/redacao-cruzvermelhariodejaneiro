@@ -333,6 +333,11 @@ export type DadosDoArtigo = {
    * Palácio (é o que a prévia do hub usa).
    */
   rotaDeInscricao?: string
+  /**
+   * true: a página sai sem a caixa da lista do kit, mesmo com a matéria na lista. A publicação usa quando o arquivo
+   * que a caixa promete ainda não responde no site (lib/site/material-no-ar.ts).
+   */
+  semCaixaDeMaterial?: boolean
 }
 
 const formatoCurto = (d: Date) =>
@@ -426,7 +431,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
     : ''
 
   // A caixa "Receba a lista do kit de emergência no seu e-mail": só nas matérias da lista (caixa-de-material.ts).
-  const caixa = caixaDaMateria(dados.slug)
+  const caixa = dados.semCaixaDeMaterial ? null : caixaDaMateria(dados.slug)
   const htmlDaCaixa = caixa ? htmlDaCaixaDeMaterial(caixa, dados.rotaDeInscricao?.trim() || undefined) : ''
 
   const organizacao = noDaOrganizacao()

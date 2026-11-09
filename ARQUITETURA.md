@@ -684,9 +684,12 @@ com o botão “Baixar a lista em PDF”. Esse botão é o link de confirmação
 e redireciona para o PDF do site, e todo desfecho termina no arquivo (link vencido só não confirma). Quem já confirmou
 não recebe mensagem (a regra de `decisao.ts` não mudou): depois do envio, a caixa mostra o link do guia
 `/kit-de-emergencia/#baixar`, onde o PDF está aberto a todos. O PDF e o guia são do repositório do site
-(`scripts/gerar_pdf_kit.py`); se o arquivo mudar de endereço, mude em `materiais.ts`. Medição: `kit_pedir` (`origem` =
-`materia`, `tipo` = a variante da caixa) pelo gtag da página. Matéria que já está no ar só ganha a caixa com “Regerar
-as páginas das matérias”. Conferência: `npx tsx scripts/conferir-caixa-de-material.ts`.
+(`scripts/gerar_pdf_kit.py`); se o arquivo mudar de endereço, mude em `materiais.ts`. **Trava do arquivo**
+(`lib/site/material-no-ar.ts`): ao gerar a página, a publicação e a regeração conferem com um HEAD se o PDF responde no
+site (leitura guardada por 10 minutos; por 1, quando falha); sem ele a página sai sem a caixa e o aviso da publicação
+diz por quê. Publicado o PDF, a caixa entra na regeração seguinte. Medição: `kit_pedir` (`origem` = `materia`, `tipo` =
+a variante da caixa) pelo gtag da página. Matéria que já está no ar só ganha a caixa com “Regerar as páginas das
+matérias”. Conferência: `npx tsx scripts/conferir-caixa-de-material.ts`.
 
 **Chat.** As páginas usam a versão (`?v=`) que a home usa, lida da home na hora
 (`chat-do-site.ts`); sem ela, saem sem o chat. **Redirecionamentos** 301 de notícias:

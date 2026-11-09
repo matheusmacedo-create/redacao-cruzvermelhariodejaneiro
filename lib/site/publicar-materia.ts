@@ -6,6 +6,8 @@ import { gerarSlug, slugDigitado, slugDisponivel, slugValido } from '@/lib/site/
 import { nomeSeoDaMidia } from '@/lib/site/nome-da-midia'
 import { altUtil, montarPaginaDoArtigo, type ArquivoLocal, type NoticiaRelacionada } from '@/lib/site/artigo-html'
 import { problemasDaPagina } from '@/lib/site/guarda-da-pagina'
+import { caixaDaMateria } from '@/lib/site/caixa-de-material'
+import { materialNoAr } from '@/lib/site/material-no-ar'
 import { medidasDaImagem, processarFotoDaMateria, TIPOS_PROCESSADOS, TIPOS_QUE_O_NAVEGADOR_MOSTRA } from '@/lib/site/imagens-da-materia'
 import { prepararChatDoSite } from '@/lib/site/chat-do-site'
 import { conteudoCanonicoDaMateria } from '@/lib/site/trilha-da-materia'
@@ -221,6 +223,13 @@ export async function gerarPaginaDaMateria(a: {
   const narracao = a.narracao ? await narracaoDaMateria({ ...a.narracao, peca: a.peca, base: a.base, slug: a.slug }) : {}
   if (narracao.arquivo) paraSubir.push(narracao.arquivo)
   if (narracao.aviso) registro.push(narracao.aviso)
+  // A caixa da lista do kit só sobe se o arquivo que ela promete já responde no site (material-no-ar.ts): o PDF é
+  // publicado pelo repositório do site, e caixa com arquivo que não existe é promessa quebrada na caixa de entrada.
+  const caixa = caixaDaMateria(a.slug)
+  const semCaixaDeMaterial = caixa ? !(await materialNoAr(caixa.material)) : false
+  if (caixa && semCaixaDeMaterial) {
+    registro.push(`a caixa “Receba ${caixa.material.nome} no seu e-mail” ficou de fora: o arquivo dela ainda não responde no site (${caixa.material.arquivo}); publique o arquivo e regere a página`)
+  }
   const html = montarPaginaDoArtigo({
     titulo: a.peca.title,
     subtitulo: a.peca.subtitle,
@@ -237,6 +246,7 @@ export async function gerarPaginaDaMateria(a: {
     audio: narracao.audio,
     // A caixa da lista do kit (só nas matérias de lib/site/caixa-de-material.ts) manda para a rota da newsletter.
     rotaDeInscricao: `${urlBase()}/api/newsletter/inscrever`,
+    semCaixaDeMaterial,
   })
   const problemas = problemasDaPagina(html)
   if (problemas.length) throw new PaginaRecusada(problemas)

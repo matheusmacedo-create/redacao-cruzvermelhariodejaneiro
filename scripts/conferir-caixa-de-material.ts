@@ -8,7 +8,8 @@
  * - o aceite que a caixa mostra é, letra por letra, o que a rota grava;
  * - a página de qualquer outra matéria sai sem nada da caixa;
  * - o id do material só aceita o que está cadastrado;
- * - a mensagem diz que o botão baixa E confirma, e leva o link de saída.
+ * - a mensagem diz que o botão baixa E confirma, e leva o link de saída;
+ * - a trava do arquivo: sem o PDF respondendo no site, a página sai sem a caixa.
  */
 import { montarPaginaDoArtigo } from '../lib/site/artigo-html'
 import { problemasDaPagina } from '../lib/site/guarda-da-pagina'
@@ -18,6 +19,7 @@ import {
 } from '../lib/site/caixa-de-material'
 import { KIT_DE_EMERGENCIA, materialPorId, todosOsMateriais } from '../lib/newsletter/materiais'
 import { emailDoMaterial } from '../lib/newsletter/modelo'
+import { esquecerMateriaisConferidos, materialNoAr } from '../lib/site/material-no-ar'
 import { TEXTO_DO_CONSENTIMENTO } from '../lib/newsletter/inscricao'
 
 let falhas = 0
@@ -96,5 +98,37 @@ ok(msg.html.includes(`href="${kit.guia}"`) && msg.texto.includes(kit.guia), 'a m
 ok(msg.html.includes('Não foi você?') && msg.texto.includes('Não foi você?'), 'e diz o que fazer a quem não pediu')
 ok(msg.texto.includes(urlBaixar), 'a versão em texto tem o endereço de baixar por extenso')
 
-console.log(falhas ? `\n${falhas} falha(s)` : `\nTudo certo: ${todas.length} matérias com a caixa (${variantes.map((v) => `${MATERIAS_COM_A_LISTA_DO_KIT[v].length} de ${v}`).join(', ')}).`)
-process.exit(falhas ? 1 : 0)
+// ---------------------------------------------------------------- a trava do arquivo
+const semArquivo = montarPaginaDoArtigo({ ...base, slug: 'plano-familiar-de-emergencia-no-rio', semCaixaDeMaterial: true })
+ok(!semArquivo.includes('news-material') && !semArquivo.includes('kit_pedir'), 'com a trava ligada, a matéria da lista sai sem a caixa, sem estilo e sem script')
+
+async function trava() {
+  const chamadas: { url: string; metodo?: string }[] = []
+  const responde = (status: number, tipo: string): typeof fetch => (async (url: RequestInfo | URL, init?: RequestInit) => {
+    chamadas.push({ url: String(url), metodo: init?.method })
+    return new Response(null, { status, headers: { 'content-type': tipo } })
+  }) as typeof fetch
+  const cai: typeof fetch = (async () => { throw new Error('sem rede') }) as typeof fetch
+  let relogio = 1_000_000
+  const agora = () => relogio
+
+  esquecerMateriaisConferidos()
+  ok(await materialNoAr(kit, responde(200, 'application/pdf'), agora) === true && chamadas[0]?.url === kit.arquivo && chamadas[0]?.metodo === 'HEAD', 'arquivo no ar (200, PDF): a caixa entra; a conferência é um HEAD no endereço do arquivo')
+  ok(await materialNoAr(kit, responde(404, 'text/html'), agora) === true && chamadas.length === 1, 'a resposta boa fica guardada: a rodada inteira faz uma leitura só')
+  relogio += 11 * 60_000
+  ok(await materialNoAr(kit, responde(404, 'text/html'), agora) === false && chamadas.length === 2, 'passados 10 minutos, confere de novo; 404 é "não está no ar"')
+  relogio += 30_000
+  ok(await materialNoAr(kit, responde(200, 'application/pdf'), agora) === false && chamadas.length === 2, 'a falha fica guardada por um minuto (não martela o site)')
+  relogio += 61_000
+  ok(await materialNoAr(kit, responde(200, 'text/html; charset=utf-8'), agora) === false, '200 com página HTML não é o arquivo')
+  relogio += 61_000
+  ok(await materialNoAr(kit, cai, agora) === false, 'site fora do ar ou tempo esgotado: "não", sem lançar erro')
+  relogio += 61_000
+  ok(await materialNoAr(kit, responde(200, 'application/pdf'), agora) === true, 'e volta a "sim" quando o arquivo responde')
+  esquecerMateriaisConferidos()
+}
+
+trava().then(() => {
+  console.log(falhas ? `\n${falhas} falha(s)` : `\nTudo certo: ${todas.length} matérias com a caixa (${variantes.map((v) => `${MATERIAS_COM_A_LISTA_DO_KIT[v].length} de ${v}`).join(', ')}).`)
+  process.exit(falhas ? 1 : 0)
+})

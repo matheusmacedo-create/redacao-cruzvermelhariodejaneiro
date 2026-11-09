@@ -22,6 +22,10 @@
  *    diz que compressa atrapalha); saúde mental e violência; história, direito humanitário, voluntariado e notícias
  *    datadas.
  *
+ * A CAIXA SÓ SOBE COM O ARQUIVO NO AR. O PDF é publicado pelo repositório do site; na hora de gerar a página, a
+ * publicação confere se ele responde (lib/site/material-no-ar.ts) e, se não, a página sai sem a caixa, com o motivo
+ * no aviso. A prévia do hub mostra a caixa sempre: ela não confere o site.
+ *
  * Módulo puro (roda também no navegador, na prévia do hub). Conferido em scripts/conferir-caixa-de-material.ts.
  */
 import { escapar } from '@/lib/site/esqueleto'
