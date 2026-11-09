@@ -11,9 +11,12 @@
  *  1. O TEXTO DO ACEITE É DO MATERIAL. Quem pede a lista autoriza duas coisas, a lista e depois as notícias, e é esse
  *     texto, e não o da home, que fica gravado na linha da pessoa (LGPD, art. 8º, § 2º). Por isso ele mora ao lado do
  *     material: a caixa mostra e a rota grava a mesma constante.
- *  2. QUEM JÁ ESTÁ NA LISTA NÃO RECEBE OUTRA MENSAGEM. A regra de lib/newsletter/decisao.ts continua valendo: um
- *     formulário público não manda e-mail a quem já confirmou, senão vira ferramenta de importunar. Para a promessa
- *     não ficar no ar, o recado depois do envio aponta o guia do site, onde o mesmo arquivo está aberto a todos.
+ *  2. QUEM JÁ ESTÁ NA LISTA TAMBÉM RECEBE, UMA VEZ POR DIA. Quem já confirmou não recebe convite, mas recebe o
+ *     material que pediu, numa mensagem sem confirmação e sem mexer no registro dela, no máximo uma a cada 24 horas
+ *     (lib/newsletter/decisao.ts, `entregar`). Até 09/11/2026 não recebia nada, e o primeiro pedido de verdade foi
+ *     justamente de um inscrito antigo: a caixa disse "a lista vai para o seu e-mail" e nada chegou. O link do guia,
+ *     que a caixa mostra depois do envio, continua: é o caminho de quem pede de novo no mesmo dia e de quando o
+ *     e-mail não sai.
  *  3. O ARQUIVO É PÚBLICO. O PDF está no site institucional, sem senha. O e-mail em troca da lista é um convite, não
  *     uma cerca: nada aqui depende de o arquivo ser secreto, e por isso o link de baixar pode sempre terminar nele.
  *

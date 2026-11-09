@@ -682,9 +682,16 @@ e-mail, o aceite e o botão. O formulário manda para `app/api/newsletter/inscre
 (`lib/newsletter/materiais.ts`). É a inscrição da newsletter, com as mesmas quatro defesas e três diferenças: o aceite
 gravado em `consentimento_texto` é o do material, a `origem` é `materia` e, no lugar do convite, sai `emailDoMaterial`,
 com o botão “Baixar a lista em PDF”. Esse botão é o link de confirmação com `&m=`: `app/newsletter/confirmar` confirma
-e redireciona para o PDF do site, e todo desfecho termina no arquivo (link vencido só não confirma). Quem já confirmou
-não recebe mensagem (a regra de `decisao.ts` não mudou): depois do envio, a caixa mostra o link do guia
-`/kit-de-emergencia/#baixar`, onde o PDF está aberto a todos. O PDF e o guia são do repositório do site
+e redireciona para o PDF do site, e todo desfecho termina no arquivo (link vencido só não confirma). Quem já está na
+lista também recebe o arquivo, numa mensagem sem confirmação (o botão vai direto ao PDF) e sem mudar nada no registro
+dela, no máximo uma vez a cada 24 horas (`decisao.ts`, ação `entregar`). O relógio dessa janela é o `updated_at` da
+linha, que a rota marca antes de enviar, numa atualização que só passa se a última mudança tem mais de um dia: é o
+banco que impede dois pedidos simultâneos de virarem duas mensagens. Não há coluna própria para a entrega, e isso tem
+dois custos conhecidos: quem confirmou a inscrição há menos de um dia também espera (a confirmação mexe na linha), e
+um envio que falha gasta a janela. Nos dois casos a pessoa chega ao arquivo pelo link do guia
+`/kit-de-emergencia/#baixar`, que a caixa mostra depois de todo pedido e onde o PDF está aberto a todos. Convite
+continua não indo a quem já confirmou, e o limite por IP não conta essas entregas (a trava delas é a janela por
+endereço). O PDF e o guia são do repositório do site
 (`scripts/gerar_pdf_kit.py`); se o arquivo mudar de endereço, mude em `materiais.ts`. **Trava do arquivo**
 (`lib/site/material-no-ar.ts`): ao gerar a página, a publicação e a regeração conferem com um HEAD se o PDF responde no
 site (leitura guardada por 10 minutos; por 1, quando falha); sem ele a página sai sem a caixa e o aviso da publicação

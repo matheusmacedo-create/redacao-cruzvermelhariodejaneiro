@@ -10,7 +10,7 @@ import {
 import { emailDeConfirmacao, emailDoMaterial } from '@/lib/newsletter/modelo'
 import { materialPorId } from '@/lib/newsletter/materiais'
 import { enviarEmail, emailConfigurado, semChave } from '@/lib/newsletter/resend'
-import { decidirInscricao, LIMITE_POR_IP, type InscritoExistente } from '@/lib/newsletter/decisao'
+import { decidirInscricao, LIMITE_POR_IP, HORAS_ENTRE_ENTREGAS, type InscritoExistente } from '@/lib/newsletter/decisao'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -52,8 +52,17 @@ export const dynamic = 'force-dynamic'
  * diferenças: o texto do aceite gravado é o do material (a pessoa autorizou a
  * lista e depois as notícias), a origem é "materia" e o convite é a mensagem
  * que entrega o arquivo, cujo botão confirma a inscrição
- * (lib/newsletter/materiais.ts). Quem já confirmou continua sem receber nada
- * daqui: a caixa mostra o link do guia, onde o arquivo está aberto a todos.
+ * (lib/newsletter/materiais.ts). Quem já está na lista também recebe o
+ * arquivo, numa mensagem sem convite e sem mexer no registro dela, no máximo
+ * uma vez por dia (decisao.ts, `entregar`). No primeiro pedido de verdade,
+ * em 09/11/2026, um inscrito antigo pediu a lista e não recebeu nada: a caixa
+ * tinha prometido o que a regra não deixava cumprir.
+ *
+ * A trava dessa entrega é a janela de um dia POR ENDEREÇO, e não o limite por
+ * IP: a entrega não grava o IP de quem pediu (seria reescrever o registro do
+ * consentimento de outra pessoa), então a defesa 2 não a conta. O pior que um
+ * robô consegue com ela é uma mensagem por dia, com a lista, a quem já
+ * escolheu receber mensagens da filial.
  */
 
 /** A mesma resposta para todo caminho de sucesso — inclusive os que não gravam. */
@@ -195,6 +204,7 @@ export async function POST(request: NextRequest) {
   const decisao = decidirInscricao({
     existente: (existente ?? null) as InscritoExistente,
     inscricoesDoIpNaHora,
+    pedeMaterial: Boolean(material),
   })
 
   // Defesa 3: todo caminho silenciado responde igual ao de sucesso. O motivo
@@ -202,6 +212,58 @@ export async function POST(request: NextRequest) {
   if (decisao.acao === 'silenciar') {
     if (decisao.porque === 'limite-de-ip') {
       console.warn(`[newsletter] limite de ${LIMITE_POR_IP} inscrições/hora atingido pelo IP ${ip}`)
+    }
+    return responder(true, recado)
+  }
+
+  // Já está na lista e pediu o material: recebe só o arquivo. Nada do registro dela muda (nem o aceite, nem a origem).
+  if (decisao.acao === 'entregar') {
+    // `entregar` só sai com material; a conferência é para o compilador e para um engano futuro na decisão.
+    if (!material) return responder(true, recado)
+    if (!emailConfigurado()) {
+      console.warn('[newsletter] material pedido por quem já está na lista, mas RESEND_API_KEY não está configurada')
+      return responder(true, recadoSemEnvio)
+    }
+    // A hora da entrega é marcada ANTES de enviar, e é ela que fecha a janela de um dia (decisao.ts). Não há coluna
+    // própria para isso: a marca é o updated_at da linha, e nenhum outro valor dela muda.
+    //
+    // A marca leva a regra junto, de propósito: só grava se a linha CONTINUA confirmada (quem saiu da lista entre a
+    // leitura e agora não é tocado) e se a última mudança dela tem mais de um dia. É o banco que decide, e não a
+    // leitura feita acima: dois pedidos que chegam juntos leram a mesma hora antiga, e só o primeiro consegue marcar.
+    // Sem a marca nada é enviado, e a resposta é a de sempre.
+    //
+    // O custo de marcar antes: se o envio falhar, a janela já fechou e a pessoa só recebe pedindo de novo amanhã
+    // (o gatilho newsletter_inscritos_touch não deixa devolver a hora antiga). O recado desse caso diz que o envio
+    // está fora do ar e aponta o guia, onde o arquivo está.
+    const limite = new Date(Date.now() - HORAS_ENTRE_ENTREGAS * 3600_000).toISOString()
+    const { data: marcado, error: erroDaMarca } = await admin
+      .from('newsletter_inscritos')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', decisao.inscrito).eq('estado', 'confirmado').lt('updated_at', limite)
+      .select('token_descadastro').maybeSingle()
+    if (erroDaMarca) {
+      console.error('[newsletter] falha ao marcar a entrega do material:', erroDaMarca.message)
+      return responder(true, recadoSemEnvio)
+    }
+    if (!marcado) return responder(true, recado)
+    try {
+      const modelo = emailDoMaterial({
+        material,
+        // Sem confirmação a fazer, o botão vai direto ao arquivo.
+        urlBaixar: material.arquivo,
+        urlDeSaida: urlDeSaida(marcado.token_descadastro as string),
+        jaInscrito: true,
+      })
+      await enviarEmail({
+        para: email,
+        assunto: modelo.assunto,
+        html: modelo.html,
+        texto: modelo.texto,
+        urlDeSaidaEmUmClique: urlDeSaidaEmUmClique(marcado.token_descadastro as string),
+      })
+    } catch (causa) {
+      console.error('[newsletter] material não saiu:', semChave(causa instanceof Error ? causa.message : String(causa)))
+      return responder(true, recadoSemEnvio)
     }
     return responder(true, recado)
   }

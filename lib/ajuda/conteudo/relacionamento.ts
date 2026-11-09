@@ -196,7 +196,7 @@ const NEWSLETTER: GuiaDaArea = {
     {
       id: 'origem-materia',
       pergunta: 'De onde vêm as pessoas com origem “Materia”?',
-      resposta: 'Da caixa “Receba a lista do kit de emergência no seu e-mail”, que fica no fim de algumas matérias do site: as de emergência, Defesa Civil e primeiros socorros em casa. A pessoa deixa o e-mail, marca a autorização e recebe uma mensagem com o botão “Baixar a lista em PDF”.\n\nO toque nesse botão baixa a lista e confirma a inscrição. Até lá ela fica “Aguardando confirmação”, como qualquer outra. Quem já está confirmado não recebe a mensagem de novo: a caixa mostra o link do guia do kit de emergência, no site, onde a lista também está.',
+      resposta: 'Da caixa “Receba a lista do kit de emergência no seu e-mail”, que fica no fim de algumas matérias do site: as de emergência, Defesa Civil e primeiros socorros em casa. A pessoa deixa o e-mail, marca a autorização e recebe uma mensagem com o botão “Baixar a lista em PDF”.\n\nO toque nesse botão baixa a lista e confirma a inscrição. Até lá ela fica “Aguardando confirmação”, como qualquer outra.\n\nQuem já está confirmado também recebe a lista, no máximo uma vez por dia, mas não muda na tabela: continua com a origem de antes e não aparece como inscrição nova. Quem pede de novo no mesmo dia (ou confirmou a inscrição há menos de um dia) não recebe outra mensagem: o caminho é o link do guia do kit de emergência, que a caixa mostra depois do pedido e onde a lista também está.',
       termos: ['kit de emergência', 'lista do kit', 'pdf', 'origem', 'matéria', 'materia', 'caixa', 'isca', 'baixar a lista'],
     },
     {
