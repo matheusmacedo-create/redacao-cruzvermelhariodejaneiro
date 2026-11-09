@@ -40,6 +40,8 @@ igual(mensagemDeErro('x is not defined', 'chrome-extension://abc/content.js'), n
 igual(mensagemDeErro({ message: 'The operation was aborted.' }), null, 'navegação cancelada')
 igual(mensagemDeErro(null), null, 'sem mensagem')
 igual(mensagemDeErro(new Error('An error occurred in the Server Components render. The specific message is omitted in production builds to avoid leaking sensitive details.')), 'Erro no servidor ao montar a tela (a mensagem fica no registro da Vercel; veja o código do erro).', 'erro do servidor vira frase curta')
+igual(mensagemDeErro(new Error('Minified React error #441; visit https://react.dev/errors/441 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.')), 'Erro no servidor ao montar a tela (a mensagem fica no registro da Vercel; veja o código do erro).', 'o mesmo erro, minificado (produção)')
+igual(mensagemDeErro(new Error('Minified React error #418; visit https://react.dev/errors/418')), 'Minified React error #418; visit https://react.dev/errors/418', 'outro erro minificado fica como veio')
 igual(ramoDoErro('1a2b3c4d-5e6f-7a8b-9c0d-112233445566'), 'claude/erro-1a2b3c4d', 'ramo do erro')
 igual(linkDaCorrecao('1a2b3c4d-5e6f-7a8b-9c0d-112233445566'), 'https://github.com/matheusmacedo-create/redacao-cruzvermelhariodejaneiro/pulls?q=is%3Apr%20head%3Aclaude%2Ferro-1a2b3c4d', 'link da correção')
 

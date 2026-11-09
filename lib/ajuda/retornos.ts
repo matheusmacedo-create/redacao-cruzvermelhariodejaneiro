@@ -106,7 +106,8 @@ export function mensagemDeErro(bruto: unknown, origem?: string): string | null {
     : bruto && typeof bruto === 'object' && 'message' in bruto && typeof bruto.message === 'string' ? bruto.message
     : '').replace(/\s+/g, ' ').trim()
   if (!m || /^(Uncaught )?Script error\.?$/i.test(m) || /ResizeObserver loop/i.test(m) || /^NEXT_(REDIRECT|NOT_FOUND)/.test(m) || /AbortError|The operation was aborted/i.test(m)) return null
-  if (/^An error occurred in the Server Components render/i.test(m)) return 'Erro no servidor ao montar a tela (a mensagem fica no registro da Vercel; veja o código do erro).'
+  // Em produção o React manda o erro do servidor como "Minified React error #441" (a mesma frase, minificada).
+  if (/^An error occurred in the Server Components render|^Minified React error #441\b/i.test(m)) return 'Erro no servidor ao montar a tela (a mensagem fica no registro da Vercel; veja o código do erro).'
   return m.slice(0, TAMANHO_DO_ERRO)
 }
 
