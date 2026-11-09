@@ -7,6 +7,7 @@ import { BrandMark } from '@/components/app/brand-mark'
 import { Ouvir } from '@/components/ajuda/ouvir'
 import { CartaoDoVideo } from '@/components/ajuda/cartao-do-video'
 import { BotaoDeImprimir, EscolhaDoGuia, MarcarGuiaVisto } from '@/components/comecar/partes'
+import { AssistenteDoComeco } from '@/components/comecar/assistente'
 import {
   A_TELA, COMO_ENTRAR, ESCOLHA_DO_ACESSO, ESCOLHA_DO_EMAIL, E_SEGURO, O_QUE_E, O_QUE_E_DA_ESCOLA, SETORES_DO_GUIA, SE_TRAVAR,
   coisasParaOSetor, itensPara, setorPelaCoordenacao, setorPeloSlug, textoDaCoisa, textoDaLista, textoDaParte, textoDoNao, textoDoSim, videosParaOSetor,
@@ -47,6 +48,9 @@ const ouvirGrande = 'min-h-12 px-4 text-base [&_svg]:size-5 sm:min-h-12'
  *
  * Sem login, mostra tudo o que é do setor. Com login, só o que a pessoa abre, as respostas do passo 2 já vêm como "sim",
  * e abrir o guia marca o item dos "Primeiros passos".
+ *
+ * Por cima, o assistente (components/comecar/assistente.tsx): janelas em sequência que entendem quem está chegando e
+ * mostram o caminho dela; a página continua aqui embaixo para quem prefere ler tudo.
  */
 export default async function ComecarPage({ searchParams }: { searchParams: Promise<{ whatsapp?: string; setor?: string }> }) {
   const { whatsapp, setor: setorPedido } = await searchParams
@@ -83,7 +87,12 @@ export default async function ComecarPage({ searchParams }: { searchParams: Prom
             <h1 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl">Comece por aqui</h1>
             <p className={cn(texto, 'mt-3 text-muted-foreground')}>O Palácio Virtual, passo a passo e com calma. Em cada parte, o botão “Ouvir” lê o texto em voz alta.</p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row print:hidden">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap print:hidden">
+            {/* O assistente (docs/AJUDA.md §16): abre sozinho na primeira visita, uma pergunta de cada vez. */}
+            <AssistenteDoComeco
+              logado={context ? { nome, setorSlug: setorPelaCoordenacao(coordenacao)?.slug ?? null, escola } : null}
+              setorDoEndereco={setorPeloSlug(setorPedido)?.slug ?? null}
+            />
             {context
               ? <Link href={escola ? '/escola' : '/dashboard'} className={botaoPrincipal}>Ir para o Palácio<ArrowRight className="size-5" aria-hidden="true" /></Link>
               : <Link href="/" className={botaoPrincipal}><LogIn className="size-5" aria-hidden="true" />Entrar no Palácio</Link>}

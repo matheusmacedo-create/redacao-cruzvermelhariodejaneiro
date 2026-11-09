@@ -1230,7 +1230,29 @@ são `VIDEOS_PARA_COMECAR`, na ordem; o cartão de cada um é `components/ajuda/
 **Na mesma conferência**, a pergunta do robô sobre o e-mail pessoal dizia que a senha provisória chegava nele; desde
 23/10/2026 ela vai pelo WhatsApp, e o e-mail é a reserva. A pergunta agora diz isso.
 
-**A conferência** (`scripts/conferir-ajuda.ts`) acusa vídeo de começo que não está no catálogo, "Quero…" de área que não
+**O assistente (09/11/2026).** "Essa primeira página precisa ser melhor: uma sequência de pop-ups com vídeos
+enquanto apresenta e entende quem está acessando, para mostrar o caminho para ela." A página inteira, de uma vez,
+assustava no celular. Agora, por cima dela, há janelas em sequência (`components/comecar/assistente.tsx`, com o texto
+em `ASSISTENTE`, em `lib/ajuda/comecar.ts`). Cada janela tem uma pergunta, botões de 56 px, o "Ouvir" e o "Voltar":
+
+1. as boas-vindas, com o vídeo "Por que o Palácio existe" (§18);
+2. "Quem é você?":
+   - "Trabalho num setor da filial";
+   - "Quero ser voluntário", que leva à inscrição (`/participe`);
+   - "Só quero conhecer", que leva ao vídeo das trancas e a `/seguranca`;
+3. "Qual é o seu setor?": os 12 setores em botões. Escolher troca o endereço (`?setor=`), e a página por trás passa a
+   mostrar o que é do setor;
+4. "Você já tem o e-mail da Cruz Vermelha?". Se não tem, "Pedir pelo WhatsApp", com o setor na frase;
+5. "Você já entra no Palácio?". Se não entra, o convite da coordenação, com o vídeo "Seus dados estão seguros?";
+6. "O seu caminho": o que já foi feito e o que falta, "Ver agora" (leva a "O que dá para fazer") e os vídeos de
+   começo do setor, que tocam ali mesmo (no celular, a versão em pé, com legenda).
+
+O assistente abre sozinho na primeira visita. A marca fica no aparelho (`palacio:comecar-assistente`); depois disso,
+ele abre pelo botão "Começar com o assistente", no alto do guia. O link do setor (`/comecar?setor=juridico`) pula
+"Quem é você?" e o setor. Quem está logado ("Olá, Ana!") vai direto ao caminho. No celular, o assistente ocupa a tela
+toda; no computador, é uma janela no meio.
+
+**A conferência** (`scripts/conferir-ajuda.ts`) acusa vídeo do assistente que não está no catálogo, vídeo de começo que não está no catálogo, "Quero…" de área que não
 existe no menu (ou repetido na mesma lista), passo a passo citado que não existe e setor que não é um dos oficiais.
 
 ## 17. "Achei um erro": o aviso que chega ao Claude (09/11/2026)

@@ -27,7 +27,7 @@ import { join } from 'node:path'
 import { GLOSSARIO, GUIAS, MAIS_PERGUNTADAS, SO_DA_REDACAO, TOPICOS_GERAIS, alvosCitados, buscarNaAjuda, perguntaDaAjuda } from '../lib/ajuda'
 import { resumoEDetalhe } from '../lib/ajuda/texto'
 import { textoDaTarefa } from '../lib/ajuda/ouvir'
-import { COISAS_DE_TODOS, COISAS_DO_SETOR, SETORES_DO_GUIA, VIDEOS_PARA_COMECAR, textosDoGuia } from '../lib/ajuda/comecar'
+import { COISAS_DE_TODOS, COISAS_DO_SETOR, SETORES_DO_GUIA, VIDEOS_DO_ASSISTENTE, VIDEOS_PARA_COMECAR, textosDoGuia } from '../lib/ajuda/comecar'
 import { VIDEOS_DA_SEGURANCA, textoExplicadoPeloVideo } from '../lib/ajuda/seguranca'
 import catalogoDosVideos from '../lib/ajuda/videos.json'
 import { GUIAS_DO_MEMBRO, BOAS_VINDAS_DO_MEMBRO, TOPICOS_DO_MEMBRO } from '../lib/ajuda/membro'
@@ -210,6 +210,8 @@ for (const v of VIDEOS_PARA_COMECAR) {
   if (!VIDEOS[v.id]) erros.push(`guia para começar: o vídeo "${v.id}" não está em lib/ajuda/videos.json`)
   for (const nome of v.setores ?? []) if (!nomesDosSetores.has(nome)) erros.push(`guia para começar: o vídeo "${v.id}" cita um setor que não existe (${nome})`)
 }
+// O assistente do guia (docs/AJUDA.md §16): os vídeos das janelas precisam estar no catálogo.
+for (const id of VIDEOS_DO_ASSISTENTE) if (id && !VIDEOS[id]) erros.push(`assistente do guia: o vídeo "${id}" não está em lib/ajuda/videos.json`)
 for (const nome of Object.keys(COISAS_DO_SETOR)) if (!nomesDosSetores.has(nome)) erros.push(`guia para começar: “O que dá para fazer” de um setor que não existe (${nome})`)
 for (const c of COISAS_DE_TODOS) for (const nome of c.foraDe ?? []) if (!nomesDosSetores.has(nome)) erros.push(`guia para começar: “${c.quero}” fica fora de um setor que não existe (${nome})`)
 for (const [onde, lista] of [['de todos', COISAS_DE_TODOS] as const, ...Object.entries(COISAS_DO_SETOR)]) {
