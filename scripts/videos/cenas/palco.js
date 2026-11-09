@@ -1,7 +1,8 @@
 /*
  * O palco dos vídeos de explicação (docs/AJUDA.md §18). Cada vídeo é um arquivo de cenas (<id>.js, com window.CENAS),
  * aberto por palco.html?v=<id>; o gravador (scripts/videos/gravar.ts) chama palco.ir(n) a cada fala do roteiro.
- * Tipos de cena: capa, numero, numeros, barras, citacao, lista, comparacao, rede e chamada. Todo número vem com a fonte.
+ * Tipos de cena: capa, numero, numeros, barras, citacao, lista, comparacao, dupla, passos, rede e chamada. Todo número
+ * vem com a fonte.
  */
 ;(function () {
   const fmt = (n, decimais, ano) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: decimais || 0, maximumFractionDigits: decimais || 0, useGrouping: !ano }).format(n)
@@ -14,7 +15,7 @@
 
   const MOLDES = {
     capa: (c) => `${el(0, `<p class="etiqueta">${esc(c.etiqueta)}</p><div class="filete"></div>`)}${el(1, `<h1>${md(c.titulo)}</h1>`)}${c.texto ? el(2, `<p class="texto">${md(c.texto)}</p>`) : ''}${fonte(c)}`,
-    numero: (c) => `${c.antes ? el(0, `<p class="etiqueta">${esc(c.antes)}</p><div class="filete"></div>`) : ''}${el(1, `<p class="numero ${fmt(c.valor, c.decimais, c.ano).length + (c.prefixo ? 2 : 0) > 4 ? 'longo' : ''}">${c.prefixo ? `<span class="prefixo">${esc(c.prefixo)}</span>` : ''}${contador(c.valor, c.decimais, c.ano)}${c.sufixo ? `<span class="sufixo">${esc(c.sufixo)}</span>` : ''}</p>`)}${el(2, `<p class="rotulo">${md(c.rotulo)}</p>`)}${c.detalhe ? el(3, `<p class="detalhe">${md(c.detalhe)}</p>`) : ''}${fonte(c)}`,
+    numero: (c) => `${c.antes ? el(0, `<p class="etiqueta">${esc(c.antes)}</p><div class="filete"></div>`) : ''}${el(1, `<p class="numero ${fmt(c.valor, c.decimais, c.ano).length + (c.prefixo ? 2 : 0) > 4 ? 'longo' : ''}">${c.prefixo ? `<span class="prefixo">${esc(c.prefixo)}</span>` : ''}${contador(c.valor, c.decimais, c.ano)}${c.sufixo ? `<span class="sufixo ${c.sufixo.length > 3 ? 'longo' : ''}">${esc(c.sufixo)}</span>` : ''}</p>`)}${el(2, `<p class="rotulo">${md(c.rotulo)}</p>`)}${c.detalhe ? el(3, `<p class="detalhe">${md(c.detalhe)}</p>`) : ''}${fonte(c)}`,
     numeros: (c) => `${el(0, `<p class="titulo">${md(c.titulo)}</p>`)}<div class="grade" style="--colunas:${c.itens.length > 3 ? 2 : c.itens.length}">${c.itens.map((x, i) => el(i + 1, `<div class="caixa"><span class="numero-da-caixa">${contador(x.valor, x.decimais)}${x.sufixo ? `<span class="sufixo">${esc(x.sufixo)}</span>` : ''}</span><p class="rotulo">${md(x.rotulo)}</p></div>`)).join('')}</div>${fonte(c)}`,
     barras: (c) => `${el(0, `<p class="titulo">${md(c.titulo)}</p>`)}<div class="barras">${c.itens.map((x, i) => el(i + 1, `<div class="barra ${x.fraca ? 'fraca' : ''}"><p class="nome"><span>${esc(x.rotulo)}</span><b>${fmt(x.valor, x.decimais)}${esc(c.sufixo || '')}</b></p><div class="trilho"><div class="cheio" data-largura="${Math.min(100, (x.valor / (c.maximo || 100)) * 100)}"></div></div></div>`)).join('')}</div>${fonte(c)}`,
     citacao: (c) => `${el(0, '<p class="aspas">“</p>')}${el(1, `<p class="citacao">${md(c.texto)}</p>`)}${el(2, `<p class="autor">${md(c.autor)}</p>`)}${fonte(c)}`,
@@ -31,6 +32,10 @@
       // No computador, o Palácio no meio e os setores em volta; no celular (palco.css), o Palácio em cima e os setores em grade.
       return `<div class="lado-a-lado">${c.titulo ? el(0, `<p class="titulo">${md(c.titulo)}</p>${c.texto ? `<p class="texto">${md(c.texto)}</p>` : ''}`) : ''}<div class="rede"><svg viewBox="0 0 100 100" preserveAspectRatio="none">${linhas}</svg><div class="centro"><span>${esc(c.centro)}</span></div><div class="nos">${nos}</div></div></div>`
     },
+    // Dois cartões lado a lado, os dois do bem (✓): quem faz o quê. A comparação (✗ × ✓) é para antes e depois.
+    dupla: (c) => `${c.titulo ? el(0, `<p class="titulo">${md(c.titulo)}</p>`) : ''}<div class="lados">${[c.esquerda, c.direita].map((l, k) => el(k + 1, `<div class="lado par ${k ? 'depois' : ''}"><h2>${esc(l.titulo)}</h2>${l.subtitulo ? `<p class="subtitulo">${md(l.subtitulo)}</p>` : ''}<ul>${l.itens.map((x) => `<li>${md(x)}</li>`).join('')}</ul></div>`)).join('')}</div>`,
+    // Um caminho numerado: cada passo entra depois do outro.
+    passos: (c) => `${c.titulo ? el(0, `<p class="titulo">${md(c.titulo)}</p>`) : ''}<ol class="passos">${c.itens.map((x, i) => `<li class="e" style="--i:${i + 1}"><span class="n">${i + 1}</span><span>${md(x)}</span></li>`).join('')}</ol>${c.rodape ? el(c.itens.length + 1, `<p class="rodape">${md(c.rodape)}</p>`) : ''}`,
     chamada: (c) => `<div class="chamada">${el(0, `<p class="etiqueta">${esc(c.etiqueta || 'Palácio Virtual')}</p><div class="filete"></div>`)}${el(1, `<p class="titulo">${md(c.titulo)}</p>`)}${c.texto ? el(2, `<p class="texto">${md(c.texto)}</p>`) : ''}</div>`,
   }
 

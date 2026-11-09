@@ -47,6 +47,7 @@ h1, .titulo { font-size: 7.4vmin; line-height: 1.08; font-weight: 800; letter-sp
 .numero .sufixo { font-size: 11vmin; }
 .numero .prefixo { font-size: 9vmin; align-self: flex-start; margin-top: 3vmin; }
 .numero.longo .valor { font-size: 18vmin; }
+.numero .sufixo.longo { font-size: 7vmin; letter-spacing: -0.01em; }
 .numero.longo .prefixo { font-size: 7vmin; margin-top: 2vmin; }
 .rotulo { font-size: 4.4vmin; font-weight: 700; line-height: 1.25; margin-top: 2.4vmin; max-width: 30ch; }
 .detalhe { font-size: 3.2vmin; color: var(--cinza); margin-top: 2vmin; max-width: 50ch; line-height: 1.4; }
@@ -92,6 +93,17 @@ h1, .titulo { font-size: 7.4vmin; line-height: 1.08; font-weight: 800; letter-sp
 .lado.antes li::before { content: '✗'; color: #a8a29e; font-weight: 900; }
 .lado.depois li::before { content: '✓'; color: var(--vermelho); font-weight: 900; }
 
+/* Dupla: os dois lados do bem */
+.lado.par { background: var(--cartao); border: 0.3vmin solid var(--linha); color: var(--tinta); }
+.lado.par.depois { border: 0.4vmin solid var(--vermelho); }
+.lado.par li::before { content: '✓'; color: var(--vermelho); font-weight: 900; }
+.lado .subtitulo { font-size: 3vmin; color: var(--cinza); margin: -1vmin 0 2vmin; }
+
+/* Passos numerados */
+.passos { list-style: none; display: flex; flex-direction: column; gap: 2vmin; margin-top: 3.6vmin; }
+.passos li { display: flex; align-items: center; gap: 2.4vmin; font-size: 3.8vmin; font-weight: 600; line-height: 1.25; }
+.passos .n { flex: none; display: grid; place-items: center; width: 6vmin; height: 6vmin; border-radius: 50%; background: var(--vermelho); color: #fff; font-weight: 900; font-size: 3.2vmin; }
+
 /* O mapa dos setores: no computador, o título à esquerda e o Palácio no meio dos setores, à direita. */
 .lado-a-lado { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6vmin; }
 .cena-rede .titulo { font-size: 6.4vmin; }
@@ -136,6 +148,9 @@ h1, .titulo { font-size: 7.4vmin; line-height: 1.08; font-weight: 800; letter-sp
   .rodape { font-size: 5vmin; }
   .lados { grid-template-columns: 1fr; }
   .lado h2 { font-size: 5.6vmin; }
+  .lado .subtitulo { font-size: 4.2vmin; }
+  .passos li { font-size: 5vmin; }
+  .passos .n { width: 8vmin; height: 8vmin; font-size: 4.4vmin; }
   .lado li { font-size: 4.6vmin; }
   .lado-a-lado { grid-template-columns: 1fr; gap: 4vmin; }
   .cena-rede { padding-top: 20vmin; }
@@ -148,6 +163,7 @@ h1, .titulo { font-size: 7.4vmin; line-height: 1.08; font-weight: 800; letter-sp
   .no { position: static; transform: scale(0.8); width: auto; font-size: 4.2vmin; padding: 1.8vmin 1.6vmin; }
   .cena.ativa .no { animation-name: aparecer-grade; animation-delay: calc(var(--i, 0) * 140ms + 900ms); }
   .numero.longo .valor { font-size: 19vmin; }
+  .numero .sufixo.longo { font-size: 9vmin; }
   .numero.longo .prefixo { font-size: 8vmin; }
   .fonte { font-size: 3vmin; bottom: 5vmin; left: 7vmin; right: 7vmin; }
   .marca span { font-size: 3.2vmin; }

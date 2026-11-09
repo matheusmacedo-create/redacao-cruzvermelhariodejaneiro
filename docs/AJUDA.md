@@ -1375,15 +1375,15 @@ texto muda depois da gravação. A página mostra, em "Prefere ver em vídeo?", 
 (`VIDEOS_DA_SEGURANCA`). O cartão de abertura diz "Palácio Virtual · Por dentro" (não é passo a passo nem usa dados
 fictícios) e o de fechamento aponta para a página.
 
-| Vídeo | Computador e celular (09/11/2026) |
+| Vídeo (cenas, 09/11/2026) | Duração |
 | --- | --- |
-| "Por que o Palácio existe" | 76 s |
-| "Por que cada setor é importante" | 76 s |
-| "Seus dados estão seguros?" (as trancas) | 93 s |
-| "Como o Palácio é construído, com o Claude" (a governança) | 99 s |
-| "O registro que ninguém apaga" (a transparência, só com login) | 67 s |
+| "Por que o Palácio existe": 1908, os 60+ na internet, as organizações sociais, a IFRC, o Ad Grants e o que ele exige, a confiança de quem doa, os números do Palácio | 82 s |
+| "Por que cada setor é importante": os 50+ no voluntariado, os 12 setores, papel × Palácio, o registro, "não sei usar" e o guia | 71 s |
+| "Seus dados estão seguros?": a multa da LGPD, as organizações cuidando dela, as trancas, 100% das tabelas, a chave técnica | 74 s |
+| "Como o Palácio é construído, com o Claude": a obra, as três regras, o exemplo real, o caminho de toda mudança, 386 mudanças registradas | 82 s |
+| "O registro que ninguém apaga" (só com login): a confiança nas ONGs, a IFRC, a lei das parcerias, o lacre diário | 71 s |
 
-Gravados sobre o preview do PR da página (`PALACIO_URL`), porque ela ainda não estava no ar.
+A primeira rodada (a página rolando, de 67 a 99 s) foi trocada por estas.
 
 **Vídeos de cenas (09/11/2026, pedido depois da primeira rodada).** "Achei muito tipo só lendo: faltou gráficos,
 dados, organogramas, conteúdo externo que valide a nossa visão. Não é só falar o que somos, é mostrar com dados [...]
