@@ -3,7 +3,12 @@
  * tela, se uma resposta da ajuda ajudou, a dúvida que ficou, o problema e a
  * sugestão. Tipos, rótulos, a leitura do que chega da tela e as contas da
  * página de retornos. Módulo puro — conferido por scripts/conferir-retornos.ts.
+ *
+ * O problema ("Achei um erro", §17) vai também para o Claude: de hora em hora
+ * uma sessão agendada lê os novos e, quando é defeito do código, abre um PR
+ * no ramo `ramoDoErro(id)`. Nada vai ao ar sem a administração mesclar.
  */
+import { REPOSITORIO } from '@/lib/versao'
 
 export const TIPOS_DE_RETORNO = ['tela', 'pergunta', 'duvida', 'problema', 'sugestao', 'elogio'] as const
 export type TipoDeRetorno = (typeof TIPOS_DE_RETORNO)[number]
@@ -35,7 +40,17 @@ export const NOTAS = [
 export type Contexto = {
   largura?: number; altura?: number; celular?: boolean; toque?: boolean
   navegador?: string; sistema?: string; idioma?: string; tema?: 'claro' | 'escuro'
+  /** Só no problema: as últimas mensagens de erro da aba ("/tela — mensagem"), da mais antiga para a mais nova. */
+  erros?: string[]
+  /** O código do erro do servidor (o `digest` da tela de erro), para achar o registro na Vercel. */
+  digest?: string
+  /** O commit no ar quando a pessoa mandou. Quem põe é o servidor (enviarRetorno), não o navegador. */
+  versao?: string
 }
+
+/** Quantas mensagens de erro vão junto com um problema, e o tamanho de cada uma. */
+export const ERROS_NO_RETORNO = 3
+export const TAMANHO_DO_ERRO = 240
 
 /** Navegador e sistema a partir do user-agent, só o nome (sem versão completa nem identificador). */
 export function aparelhoDoAgente(ua: string): { navegador: string; sistema: string } {
@@ -59,8 +74,50 @@ export function lerContexto(bruto: unknown): Contexto {
     toque: typeof b.toque === 'boolean' ? b.toque : undefined,
     navegador: texto(b.navegador, 30), sistema: texto(b.sistema, 30), idioma: texto(b.idioma, 20),
     tema: b.tema === 'claro' || b.tema === 'escuro' ? b.tema : undefined,
+    erros: Array.isArray(b.erros) ? lerErros(b.erros) : undefined,
+    digest: typeof b.digest === 'string' && /^[\w-]{1,64}$/.test(b.digest) ? b.digest : undefined,
+    versao: typeof b.versao === 'string' && /^[0-9a-f]{7,40}$/.test(b.versao) ? b.versao.slice(0, 7) : undefined,
   }
   return Object.fromEntries(Object.entries(c).filter(([, v]) => v !== undefined)) as Contexto
+}
+
+/** As mensagens de erro: só texto, sem quebra de linha, as últimas ERROS_NO_RETORNO, cada uma cortada. */
+function lerErros(lista: unknown[]): string[] | undefined {
+  const limpas = lista
+    .filter((e): e is string => typeof e === 'string')
+    .map((e) => e.replace(/\s+/g, ' ').trim().slice(0, TAMANHO_DO_ERRO))
+    .filter(Boolean)
+    .slice(-ERROS_NO_RETORNO)
+  return limpas.length ? limpas : undefined
+}
+
+/**
+ * A mensagem de um erro que a tela deu, para guardar e mandar junto com o
+ * problema — ou null quando é ruído que não ajuda a corrigir: erro de outro
+ * site ("Script error."), o aviso do ResizeObserver, erro de extensão do
+ * navegador, a navegação cancelada. O erro do servidor chega ao navegador
+ * sem a mensagem (a Vercel esconde em produção): vira uma frase curta, e o
+ * que serve é o `digest`.
+ */
+export function mensagemDeErro(bruto: unknown, origem?: string): string | null {
+  if (origem && /^(chrome|moz|safari|safari-web)-extension:/.test(origem)) return null
+  const m = (bruto instanceof Error ? (bruto.name && bruto.name !== 'Error' ? `${bruto.name}: ${bruto.message}` : bruto.message)
+    : typeof bruto === 'string' ? bruto
+    : bruto && typeof bruto === 'object' && 'message' in bruto && typeof bruto.message === 'string' ? bruto.message
+    : '').replace(/\s+/g, ' ').trim()
+  if (!m || /^(Uncaught )?Script error\.?$/i.test(m) || /ResizeObserver loop/i.test(m) || /^NEXT_(REDIRECT|NOT_FOUND)/.test(m) || /AbortError|The operation was aborted/i.test(m)) return null
+  if (/^An error occurred in the Server Components render/i.test(m)) return 'Erro no servidor ao montar a tela (a mensagem fica no registro da Vercel; veja o código do erro).'
+  return m.slice(0, TAMANHO_DO_ERRO)
+}
+
+/** O ramo do PR que o Claude abre para um problema: `claude/erro-` e os 8 primeiros caracteres do retorno. */
+export function ramoDoErro(id: string): string {
+  return `claude/erro-${id.slice(0, 8)}`
+}
+
+/** A busca dos PRs daquele ramo no GitHub (aberto, mesclado ou fechado). */
+export function linkDaCorrecao(id: string): string {
+  return `${REPOSITORIO}/pulls?q=${encodeURIComponent(`is:pr head:${ramoDoErro(id)}`)}`
 }
 
 /** "Celular · 390×844 · Chrome no Android". */

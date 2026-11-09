@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Download, MessageSquareHeart, ThumbsDown } from 'lucide-react'
+import { Bug, Download, GitPullRequest, MessageSquareHeart, ThumbsDown } from 'lucide-react'
 import { PageHeader } from '@/components/app/page-header'
 import { Card } from '@/components/ui/card'
 import { ResponderRetorno } from '@/components/app/ajuda/responder-retorno'
@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/server'
 import { areaDoCaminho } from '@/lib/navegacao'
 import { perguntaDaAjuda } from '@/lib/ajuda'
 import {
-  ESTADOS_DO_RETORNO, NOTAS, ROTULO_DO_ESTADO, ROTULO_DO_TIPO, TIPOS_DE_RETORNO, contextoLegivel, lerContexto, menosUteis, resumoPorTela,
+  ESTADOS_DO_RETORNO, NOTAS, ROTULO_DO_ESTADO, ROTULO_DO_TIPO, TIPOS_DE_RETORNO, contextoLegivel, lerContexto, linkDaCorrecao, menosUteis, ramoDoErro, resumoPorTela,
   type EstadoDoRetorno, type RetornoLido, type TipoDeRetorno, type VotoDaPergunta,
 } from '@/lib/ajuda/retornos'
 import { cn } from '@/lib/utils'
@@ -36,7 +36,9 @@ const nomeDaTela = (caminho: string) => {
  * Os retornos do beta (docs/AJUDA.md §10), para a administração: as telas com
  * pior avaliação, as respostas da ajuda que não ajudaram e cada retorno, com
  * o contexto do aparelho, para responder e marcar a situação. Quem mandou vê
- * a resposta no sino e em "Seus retornos", na Central.
+ * a resposta no sino e em "Seus retornos", na Central. No problema ("Achei um
+ * erro", §17), também as mensagens de erro, o código do erro, a versão e o
+ * link para a correção que o Claude abre no GitHub.
  */
 export default async function RetornosDoBetaPage({ searchParams }: { searchParams: Promise<{ tipo?: string; estado?: string; tela?: string }> }) {
   const context = await requireWorkspace()
@@ -165,11 +167,17 @@ export default async function RetornosDoBetaPage({ searchParams }: { searchParam
             {TIPOS_DE_RETORNO.filter((t) => t !== 'pergunta').map((t) => <Link key={t} href={link({ tipo: t })} className={pilula(tipo === t)}>{ROTULO_DO_TIPO[t]}</Link>)}
             {tela && <Link href={link({ tela: null })} className={pilula(false)}>Todas as telas ✕</Link>}
           </nav>
+          <p className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-sm leading-relaxed text-muted-foreground" data-erros-para-o-claude>
+            <Bug className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />
+            <span>Os problemas (“Achei um erro”) vão também para o Claude: de hora em hora ele lê os novos, procura a causa e, quando é defeito do código, abre um PR no GitHub com a correção. O link “Correção” de cada problema leva até ele. Nada vai ao ar antes de alguém da administração mesclar; depois, marque como resolvido e responda à pessoa.</span>
+          </p>
         </div>
         {lista.length === 0 ? <Card className="p-6 text-center text-sm text-muted-foreground">Nada por aqui.</Card> : (
           <ul className="flex flex-col gap-3" data-lista-de-retornos>
             {lista.map((r) => {
-              const ctx = contextoLegivel(lerContexto(r.contexto))
+              const c = lerContexto(r.contexto)
+              const ctx = contextoLegivel(c)
+              const tecnico = [c.digest && `Código do erro: ${c.digest}`, c.versao && `Versão: ${c.versao}`].filter(Boolean).join(' · ')
               return (
                 <li key={r.id} id={`retorno-${r.id}`} className="scroll-mt-6 rounded-xl border border-border bg-card p-4 shadow-xs target:border-primary/60 target:ring-2 target:ring-primary/20">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
@@ -181,6 +189,19 @@ export default async function RetornosDoBetaPage({ searchParams }: { searchParam
                     {ctx && <span className="w-full sm:w-auto">· {ctx}</span>}
                   </div>
                   {r.texto && <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{r.texto}</p>}
+                  {r.tipo === 'problema' && (
+                    <div className="mt-2 flex flex-col gap-1.5 text-xs text-muted-foreground" data-detalhes-do-erro>
+                      {(c.erros?.length || tecnico) ? (
+                        <div className="rounded-lg bg-muted/50 px-3 py-2">
+                          {c.erros?.map((e, i) => <p key={i} className="break-words font-mono">{e}</p>)}
+                          {tecnico && <p className={cn(c.erros?.length && 'mt-1')}>{tecnico}</p>}
+                        </div>
+                      ) : null}
+                      <a href={linkDaCorrecao(r.id)} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1.5 self-start font-medium text-primary hover:underline">
+                        <GitPullRequest className="size-3.5" aria-hidden="true" />Correção do Claude ({ramoDoErro(r.id)})
+                      </a>
+                    </div>
+                  )}
                   <ResponderRetorno id={r.id} estado={r.estado} resposta={r.resposta} />
                 </li>
               )

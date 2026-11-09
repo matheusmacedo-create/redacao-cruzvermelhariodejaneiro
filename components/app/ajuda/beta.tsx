@@ -7,29 +7,37 @@ import { Bug, Check, HeartHandshake, Lightbulb, Loader2, MessageCircleQuestion, 
 import { enviarRetorno, votarPergunta } from '@/app/actions/beta'
 import { NOTAS, aparelhoDoAgente, type Contexto, type TipoDeRetorno } from '@/lib/ajuda/retornos'
 import { cn } from '@/lib/utils'
+import { errosRecentes } from './erros-da-aba'
 
 /**
  * O beta com a equipe (docs/AJUDA.md §10), nas telas:
- *  - FormularioDoBeta: problema, ideia, dúvida ou elogio, com a nota da tela se
- *    quiser. É um só, em dois lugares: o "Beta" do topo (BotaoBeta) e "Conte
- *    para a equipe", no fim do painel "?" (painel-conteudo.tsx). Antes havia
+ *  - FormularioDoBeta: erro, ideia, dúvida ou elogio, com a nota da tela se
+ *    quiser. É o "Beta" do topo (BotaoBeta) e, sem o erro, "Conte para a
+ *    equipe", no fim do painel "?" (painel-conteudo.tsx): lá o erro tem a
+ *    entrada dele, "Achei um erro" (achei-um-erro.tsx, §17). Antes havia
  *    também "O que achou desta tela?" e "Pergunte à equipe", três formulários
  *    parecidos enfileirados no painel (§11);
  *  - IssoAjudou: o voto em cada pergunta da ajuda.
- * Junto vai o contexto do aparelho (tamanho da janela, celular ou não, navegador), para reproduzir.
+ * Junto vai o contexto do aparelho (tamanho da janela, celular ou não, navegador), para reproduzir;
+ * no erro, também as últimas mensagens de erro da aba (erros-da-aba.tsx).
  */
 
-function contextoDoAparelho(): Contexto {
+export function contextoDoAparelho({ comErros = false }: { comErros?: boolean } = {}): Contexto {
   if (typeof window === 'undefined') return {}
   const { navegador, sistema } = aparelhoDoAgente(navigator.userAgent)
+  const erros = comErros ? errosRecentes() : []
   return {
     largura: window.innerWidth, altura: window.innerHeight,
     celular: window.matchMedia('(max-width: 767px)').matches,
     toque: window.matchMedia('(pointer: coarse)').matches,
     navegador, sistema, idioma: navigator.language,
     tema: document.documentElement.classList.contains('dark') ? 'escuro' : 'claro',
+    ...(erros.length ? { erros } : {}),
   }
 }
+
+/** O que acontece com um erro, dito igual no Beta, no painel e na tela de erro. */
+export const ERRO_VAI_PARA_O_CLAUDE = 'Vai direto para o Claude, o assistente que cuida do código do Palácio: ele procura a causa e prepara a correção, que a administração confere antes de ir ao ar.'
 
 const campo = 'w-full rounded-lg border border-border bg-background px-3 py-2 text-base outline-none focus:border-ring focus:ring-2 focus:ring-ring/30 sm:text-sm'
 const botaoPrincipal = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60 sm:min-h-9'
@@ -96,7 +104,7 @@ export function IssoAjudou({ perguntaId, area }: { perguntaId: string; area: str
 }
 
 const TIPOS_DO_BETA: { tipo: TipoDeRetorno; rotulo: string; icone: typeof Bug; dica: string }[] = [
-  { tipo: 'problema', rotulo: 'Algo deu errado', icone: Bug, dica: 'O que você fez, o que esperava e o que aconteceu. Ex.: “Toquei em Salvar na proposta e a tela ficou em branco.”' },
+  { tipo: 'problema', rotulo: 'Achei um erro', icone: Bug, dica: 'O que você fez, o que esperava e o que aconteceu. Ex.: “Toquei em Salvar na proposta e a tela ficou em branco.”' },
   { tipo: 'sugestao', rotulo: 'Tenho uma ideia', icone: Lightbulb, dica: 'O que faria o seu trabalho ficar mais fácil. Ex.: “Seria bom avisar o setor quando a compra chegar.”' },
   { tipo: 'duvida', rotulo: 'Tenho uma dúvida', icone: MessageCircleQuestion, dica: 'O que você queria fazer e não achou como. A resposta volta no sino.' },
   { tipo: 'elogio', rotulo: 'Gostei!', icone: HeartHandshake, dica: 'Conte o que funcionou bem — ajuda a saber o que manter.' },
@@ -124,17 +132,22 @@ export function BotaoBeta({ className }: { className?: string }) {
   )
 }
 
-/** O formulário do beta: no diálogo do topo e em "Conte para a equipe", no fim do painel "?" (que começa em "dúvida"). */
-export function FormularioDoBeta({ aoFechar, area = null, noPainel = false, tipoInicial = 'problema' }: { aoFechar?: () => void; area?: string | null; noPainel?: boolean; tipoInicial?: TipoDeRetorno }) {
+/**
+ * O formulário do beta: no diálogo do topo e em "Conte para a equipe", no fim
+ * do painel "?" (que começa em "dúvida" e deixa o erro para "Achei um erro":
+ * `tipos` escolhe quais aparecem).
+ */
+export function FormularioDoBeta({ aoFechar, area = null, noPainel = false, tipoInicial = 'problema', tipos }: { aoFechar?: () => void; area?: string | null; noPainel?: boolean; tipoInicial?: TipoDeRetorno; tipos?: TipoDeRetorno[] }) {
   const caminho = usePathname()
   const id = useId()
-  const [tipo, setTipo] = useState<TipoDeRetorno>(tipoInicial)
+  const opcoes = tipos ? TIPOS_DO_BETA.filter((t) => tipos.includes(t.tipo)) : TIPOS_DO_BETA
+  const [tipo, setTipo] = useState<TipoDeRetorno>(opcoes.some((t) => t.tipo === tipoInicial) ? tipoInicial : opcoes[0].tipo)
   const [texto, setTexto] = useState('')
   const [nota, setNota] = useState<number | null>(null)
   const [erro, setErro] = useState('')
   const [feito, setFeito] = useState(false)
   const [ocupado, iniciar] = useTransition()
-  const escolhido = TIPOS_DO_BETA.find((t) => t.tipo === tipo)!
+  const escolhido = opcoes.find((t) => t.tipo === tipo)!
   const Titulo = noPainel ? 'p' : Dialog.Title
   if (feito) {
     return (
@@ -149,7 +162,7 @@ export function FormularioDoBeta({ aoFechar, area = null, noPainel = false, tipo
       e.preventDefault()
       iniciar(async () => {
         setErro('')
-        const r = await enviarRetorno({ tipo, caminho, area, texto, contexto: contextoDoAparelho() })
+        const r = await enviarRetorno({ tipo, caminho, area, texto, contexto: contextoDoAparelho({ comErros: tipo === 'problema' }) })
         if (r.erro) { setErro(r.erro); return }
         // A nota, se veio, vira também a opinião sobre a tela.
         if (nota !== null) await enviarRetorno({ tipo: 'tela', caminho, area, nota, contexto: contextoDoAparelho() })
@@ -164,7 +177,7 @@ export function FormularioDoBeta({ aoFechar, area = null, noPainel = false, tipo
         {aoFechar && <Dialog.Close aria-label="Fechar" className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"><X className="size-[18px]" aria-hidden="true" /></Dialog.Close>}
       </div>
       <div role="radiogroup" aria-label="O que você quer contar" className="grid grid-cols-2 gap-2">
-        {TIPOS_DO_BETA.map((t) => {
+        {opcoes.map((t) => {
           const Icone = t.icone
           return (
             <label key={t.tipo} className={cn('flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/50', tipo === t.tipo ? 'border-primary bg-primary/[0.07] text-primary' : 'border-border hover:bg-muted')}>
@@ -178,11 +191,12 @@ export function FormularioDoBeta({ aoFechar, area = null, noPainel = false, tipo
         {tipo === 'elogio' ? 'O que você gostou? (opcional)' : 'Conte com as suas palavras'}
         <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={4} maxLength={4000} className={campo} placeholder={escolhido.dica} />
       </label>
+      {tipo === 'problema' && <p className="-mt-2 text-xs leading-relaxed text-muted-foreground" data-erro-vai-para-o-claude>{ERRO_VAI_PARA_O_CLAUDE}</p>}
       <div className="flex flex-col gap-2">
         <p className="text-sm font-medium">E esta tela, de modo geral? <span className="font-normal text-muted-foreground">(opcional)</span></p>
         <EscolhaDaNota nota={nota} aoEscolher={setNota} nome={`${id}-nota`} />
       </div>
-      <p className="text-xs text-muted-foreground">Vai junto: o endereço da tela ({caminho}), o tamanho da janela e o navegador. Não vai nada do que está digitado na tela.</p>
+      <p className="text-xs text-muted-foreground">Vai junto: o endereço da tela ({caminho}), o tamanho da janela e o navegador{tipo === 'problema' ? ' e, se a tela deu erro, a mensagem técnica dele' : ''}. Não vai nada do que está digitado na tela.</p>
       {erro && <p className="text-sm text-destructive" role="alert">{erro}</p>}
       <button type="submit" disabled={ocupado || (tipo !== 'elogio' && texto.trim().length < 3)} className={cn(botaoPrincipal, 'self-end')}>
         {ocupado ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Send className="size-4" aria-hidden="true" />}Enviar

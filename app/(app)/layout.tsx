@@ -18,6 +18,7 @@ import { AjudaProvider } from '@/components/app/ajuda/ajuda'
 import { BoasVindas } from '@/components/app/ajuda/boas-vindas'
 import { DicaDaTela } from '@/components/app/ajuda/dica'
 import { PainelDeAjuda } from '@/components/app/ajuda/painel'
+import { GuardaDeErros } from '@/components/app/ajuda/erros-da-aba'
 import { lerProgresso } from '@/lib/ajuda/progresso'
 import { indiceDaAjuda } from '@/lib/ajuda'
 import { lerVersao } from '@/lib/versao'
@@ -125,6 +126,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <PainelDeAjuda />
       <DicaDaTela />
       <BoasVindas />
+      {/* Os últimos erros da aba, para irem junto com "Achei um erro" (docs/AJUDA.md §17). */}
+      <GuardaDeErros />
     </AjudaProvider>
     </AppShellProvider>
     </ChatAoVivo>

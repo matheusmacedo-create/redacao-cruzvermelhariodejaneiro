@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 import { AlertTriangle, RotateCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { AvisarOErro } from '@/components/app/ajuda/achei-um-erro'
 
 export default function AppError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
@@ -31,6 +32,8 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
           Ir para o Início
         </Button>
       </div>
+      {/* "Achei um erro" (docs/AJUDA.md §17): o aviso leva o código do erro (digest) para achar o registro na Vercel. */}
+      <AvisarOErro error={error} />
     </div>
   )
 }

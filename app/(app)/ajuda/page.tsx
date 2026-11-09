@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowRight, BookA, BookOpen, ChevronRight, CircleHelp, Compass, Flame, Footprints, Inbox, Keyboard, LifeBuoy, MessageSquareHeart, MessagesSquare, Sparkles, ThumbsUp } from 'lucide-react'
+import { ArrowRight, BookA, BookOpen, Bug, ChevronRight, CircleHelp, Compass, Flame, Footprints, Inbox, Keyboard, LifeBuoy, MessageSquareHeart, MessagesSquare, Sparkles, ThumbsUp } from 'lucide-react'
 import { PageHeader } from '@/components/app/page-header'
 import { buttonVariants } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -180,10 +180,11 @@ export default async function CentralDeAjudaPage() {
           <Card className="p-5">
             <h3 className="flex items-center gap-2 font-semibold"><LifeBuoy className="size-4 text-primary" aria-hidden="true" />Como pedir ajuda</h3>
             <ul className="mt-3 flex flex-col gap-3 text-sm leading-relaxed text-muted-foreground">
-              <li className="flex gap-2.5"><CircleHelp className="mt-0.5 size-4 shrink-0 text-foreground/70" aria-hidden="true" /><span>O botão <strong className="font-medium text-foreground">“?”</strong>, no alto de cada tela, mostra a ajuda daquela tela e o tour dela. No fim, “Conte para a equipe” manda uma dúvida, um problema ou uma ideia, e a resposta volta no sino.</span></li>
+              <li className="flex gap-2.5"><CircleHelp className="mt-0.5 size-4 shrink-0 text-foreground/70" aria-hidden="true" /><span>O botão <strong className="font-medium text-foreground">“?”</strong>, no alto de cada tela, mostra a ajuda daquela tela e o tour dela. No fim, “Conte para a equipe” manda uma dúvida ou uma ideia, e a resposta volta no sino.</span></li>
+              <li className="flex gap-2.5" data-central-achei-um-erro><Bug className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" /><span>Achou um erro? No fim do <strong className="font-medium text-foreground">“?”</strong>, toque em “Achei um erro” e conte o que aconteceu. O aviso vai para o Claude, o assistente que cuida do código do Palácio: ele procura a causa e prepara a correção, que a administração confere antes de ir ao ar.</span></li>
               <li className="flex gap-2.5"><MessageSquareHeart className="mt-0.5 size-4 shrink-0 text-foreground/70" aria-hidden="true" /><span>Estamos em <strong className="font-medium text-foreground">beta</strong>: o botão “Beta”, no alto, é o mesmo formulário, para qualquer tela. No celular, que não tem o botão, use o “?”.</span></li>
               <li className="flex gap-2.5"><BookOpen className="mt-0.5 size-4 shrink-0 text-foreground/70" aria-hidden="true" /><span>Esta Central junta a ajuda de todas as áreas. A busca (⌘K) também acha as respostas daqui.</span></li>
-              {!escola && <li className="flex gap-2.5"><LifeBuoy className="mt-0.5 size-4 shrink-0 text-foreground/70" aria-hidden="true" /><span>Algo não funciona? <Link href="/chamados/novo?fila=ti" className="font-medium text-primary hover:underline">Abra um chamado para a TI</Link> contando o que tentou fazer.</span></li>}
+              {!escola && <li className="flex gap-2.5"><LifeBuoy className="mt-0.5 size-4 shrink-0 text-foreground/70" aria-hidden="true" /><span>Computador, impressora ou internet com problema? <Link href="/chamados/novo?fila=ti" className="font-medium text-primary hover:underline">Abra um chamado para a TI</Link> contando o que tentou fazer.</span></li>}
               <li className="flex gap-2.5"><MessagesSquare className="mt-0.5 size-4 shrink-0 text-foreground/70" aria-hidden="true" /><span>Dúvida sobre o trabalho? Pergunte à equipe no <Link href="/chat" className="font-medium text-primary hover:underline">Chat</Link>.</span></li>
             </ul>
           </Card>

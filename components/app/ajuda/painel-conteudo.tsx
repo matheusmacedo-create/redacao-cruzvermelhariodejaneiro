@@ -17,6 +17,7 @@ import { useAjuda } from './ajuda'
 import { avisarResposta } from './ancora'
 import { HistoriaRecolhida, PerguntaRecolhida, ResultadosDaAjuda, TarefaRecolhida, TermoRecolhido, tituloDeSecao } from './blocos'
 import { FormularioDoBeta } from './beta'
+import { AcheiUmErroNoPainel } from './achei-um-erro'
 
 /**
  * O miolo do painel "?" (./painel.tsx): fica num arquivo à parte porque traz
@@ -25,9 +26,9 @@ import { FormularioDoBeta } from './beta'
  * A ordem, de cima para baixo, é uma coisa de cada vez (docs/AJUDA.md §11):
  * a busca; os "Primeiros passos" (só enquanto faltam); a área, numa frase,
  * com o tour e o "Na prática"; "Como fazer" e "Dúvidas" em abas, com seis
- * itens à vista e o resto atrás de "Mostrar as outras"; e, no fim, um único
- * lugar para falar com a equipe ("Conte para a equipe"). Numa tela sem
- * guia, a ajuda geral, um tópico por vez.
+ * itens à vista e o resto atrás de "Mostrar as outras"; e, no fim, "Achei
+ * um erro" (§17) e um único lugar para falar com a equipe ("Conte para a
+ * equipe"). Numa tela sem guia, a ajuda geral, um tópico por vez.
  */
 export function ConteudoDoPainel() {
   const { grupos, equipeDaEscola } = useShell()
@@ -81,6 +82,7 @@ export function ConteudoDoPainel() {
           <div className="flex flex-col gap-6">
             <PrimeirosPassos />
             {daTela?.guia ? <AjudaDaArea key={daTela.area.href} daTela={daTela} /> : <AjudaGeral daTela={daTela} />}
+            <AcheiUmErroNoPainel area={daTela?.area.href ?? null} />
             <ConteParaAEquipe area={daTela?.area.href ?? null} />
           </div>
         )}
@@ -95,7 +97,7 @@ export function ConteudoDoPainel() {
         {/* A equipe da escola não abre chamados (a página manda de volta para a Escola): para ela, o Chat. */}
         {pessoa.equipeDaEscola
           ? <Link href="/chat" onClick={fecharPainel} className={linkDoRodape}><MessagesSquare className="size-4" aria-hidden="true" />Falar com a equipe no Chat</Link>
-          : <Link href="/chamados/novo?fila=ti" onClick={fecharPainel} className={linkDoRodape}><LifeBuoy className="size-4" aria-hidden="true" />Algo não funciona? Abra um chamado para a TI</Link>}
+          : <Link href="/chamados/novo?fila=ti" onClick={fecharPainel} className={linkDoRodape}><LifeBuoy className="size-4" aria-hidden="true" />Computador, impressora ou internet? Chamado para a TI</Link>}
       </footer>
     </>
   )
@@ -268,21 +270,22 @@ function TopicoRecolhido({ topico }: { topico: TopicoGeral }) {
 }
 
 /**
- * O único lugar do painel para falar com a equipe: dúvida, problema, ideia
- * ou elogio, com a nota da tela se quiser. É o mesmo formulário do "Beta" do
- * topo (que no celular não existe: o topo não tem espaço). Antes eram três
- * formulários parecidos enfileirados — o Beta, "O que achou desta tela?" e
- * "Pergunte à equipe" —, e ninguém sabia qual usar.
+ * O único lugar do painel para falar com a equipe: dúvida, ideia ou elogio,
+ * com a nota da tela se quiser. É o formulário do "Beta" do topo (que no
+ * celular não existe: o topo não tem espaço), sem o erro, que tem a entrada
+ * dele logo acima ("Achei um erro"). Antes eram três formulários parecidos
+ * enfileirados — o Beta, "O que achou desta tela?" e "Pergunte à equipe" —,
+ * e ninguém sabia qual usar.
  */
 function ConteParaAEquipe({ area }: { area: string | null }) {
   return (
     <details className="group rounded-xl border border-primary/30 bg-primary/[0.04]" data-conte-para-a-equipe>
       <summary className="flex min-h-11 cursor-pointer list-none items-start gap-2.5 px-4 py-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
         <MessageSquareHeart className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-        <span className="min-w-0 flex-1"><span className="block font-semibold text-primary">Não achou? Conte para a equipe</span><span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">Uma dúvida, um problema, uma ideia ou um elogio sobre esta tela. A resposta chega no sino.</span></span>
+        <span className="min-w-0 flex-1"><span className="block font-semibold text-primary">Não achou? Conte para a equipe</span><span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">Uma dúvida, uma ideia ou um elogio sobre esta tela. A resposta chega no sino.</span></span>
         <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
       </summary>
-      <div className="border-t border-primary/20 px-4 py-4"><FormularioDoBeta noPainel area={area} tipoInicial="duvida" /></div>
+      <div className="border-t border-primary/20 px-4 py-4"><FormularioDoBeta noPainel area={area} tipoInicial="duvida" tipos={['duvida', 'sugestao', 'elogio']} /></div>
     </details>
   )
 }

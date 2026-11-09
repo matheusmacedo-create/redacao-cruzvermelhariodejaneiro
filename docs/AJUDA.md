@@ -12,7 +12,8 @@ A ajuda tem cinco partes, todas lidas do mesmo conteúdo (`lib/ajuda`):
 
 1. **Boas-vindas** curtas e opcionais no primeiro acesso.
 2. **Tour de cada tela**, oferecido (não imposto) na primeira visita.
-3. **Painel “?”** com o passo a passo e as perguntas frequentes da área aberta.
+3. **Painel “?”** com o passo a passo e as perguntas frequentes da área aberta e,
+   no fim, **“Achei um erro”**, que leva o erro ao Claude para a correção (§17).
 4. **Central de ajuda** em `/ajuda`, com busca, link direto para cada resposta e o
    **glossário** das palavras do Palácio Virtual (`/ajuda/glossario`, §15).
    Antes de tudo, o **guia para começar** (`/comecar`, aberto, sem login, §16),
@@ -831,10 +832,11 @@ Onde a pessoa conta (um formulário só, em dois lugares — §11):
 
 - **"Beta", no topo** (tablet e computador) e **"Não achou? Conte para a equipe", no fim do
   painel "?"** (qualquer aparelho; no celular é o único, porque o topo não tem espaço). É o
-  mesmo formulário (`FormularioDoBeta`, em `components/app/ajuda/beta.tsx`): problema, ideia,
+  mesmo formulário (`FormularioDoBeta`, em `components/app/ajuda/beta.tsx`): erro, ideia,
   dúvida ou elogio, com a nota da tela opcional ("E esta tela, de modo geral?", cinco notas de
   "Muito ruim" a "Ótima"). No painel ele começa em "Tenho uma dúvida", porque é de lá que se
-  chega sem resposta. A dúvida vira resposta nova na ajuda para a próxima pessoa.
+  chega sem resposta, e não tem o erro, que ganhou a entrada dele logo acima, "Achei um erro"
+  (§17). A dúvida vira resposta nova na ajuda para a próxima pessoa.
 - **"Isso ajudou?"**, em cada pergunta frequente, no painel e na Central. Cada pessoa tem um voto
   por pergunta, e votar de novo troca o voto. Quem vota "Não" pode contar o que faltou.
 
@@ -847,7 +849,8 @@ Junto vai o contexto, para reproduzir (`lerContexto`, em `lib/ajuda/retornos.ts`
 - o tamanho da janela;
 - se é celular e se é tela de toque;
 - o nome do navegador e do sistema;
-- o idioma e o tema.
+- o idioma e o tema;
+- no erro, as últimas mensagens de erro da aba, o código do erro e a versão no ar (§17).
 
 Nunca vai o conteúdo da tela.
 
@@ -1180,7 +1183,7 @@ QR). Sem login, o "Ouvir" usa a voz do aparelho: a rota do áudio da filial só 
 5. a tela, parte por parte, com o mesmo ícone da tela de verdade ao lado de cada parte;
 6. o que dá para fazer, dito do jeito de quem precisa ("Quero ver o que precisa de mim hoje"), com "Abrir" e, quando
    há, o passo a passo da área, separado por setor (abaixo). Com login, só o que a pessoa abre;
-7. os três vídeos de começo, que abrem ali mesmo;
+7. os vídeos de começo, que abrem ali mesmo (desde o guia por setor, três para a Comunicação e dois para os outros);
 8. se você travar.
 
 **Por setor (08/11/2026, no mesmo dia).** A primeira versão mostrava o Palácio inteiro a todo mundo: "pauta", por
@@ -1230,3 +1233,69 @@ são `VIDEOS_PARA_COMECAR`, na ordem; o cartão de cada um é `components/ajuda/
 **A conferência** (`scripts/conferir-ajuda.ts`) acusa vídeo de começo que não está no catálogo, "Quero…" de área que não
 existe no menu (ou repetido na mesma lista), passo a passo citado que não existe e setor que não é um dos oficiais.
 
+## 17. "Achei um erro": o aviso que chega ao Claude (09/11/2026)
+
+"Crie também uma área onde, se alguém achar um erro, sobe diretamente para você e se corrige." O aviso usa o caminho
+do beta (§10): é um retorno do tipo `problema`, sem tabela nova nem migração.
+
+**Onde a pessoa avisa:**
+
+- **"Achei um erro", no fim do painel "?"**, acima de "Conte para a equipe", em qualquer aparelho
+  (`components/app/ajuda/achei-um-erro.tsx`). Um campo só, "O que aconteceu?", e "Enviar". "Conte para a equipe"
+  ficou com dúvida, ideia e elogio, para o painel não ter dois lugares para o mesmo erro;
+- **na tela de erro** ("Algo deu errado ao carregar esta página", `app/(app)/error.tsx`): "Avisar sobre este erro",
+  com um toque. Escrever o que estava fazendo é opcional;
+- **no "Beta" do topo**, onde a opção "Algo deu errado" passou a se chamar "Achei um erro". Vai para o mesmo lugar.
+
+**O que vai junto** (`lerContexto`, em `lib/ajuda/retornos.ts`), além do que o beta já mandava:
+
+- as três últimas mensagens de erro da aba, cada uma com a tela onde aconteceu (até 240 caracteres). Elas ficam só na
+  memória da aba (`components/app/ajuda/erros-da-aba.tsx`): os erros que escapam (script e promessa sem tratamento,
+  escutados pelo `GuardaDeErros`, no layout) e o da tela de erro. O ruído fica de fora (`mensagemDeErro`): erro de
+  outro site, de extensão, o aviso do ResizeObserver e a navegação cancelada;
+- o código do erro (`digest`), na tela de erro. Em produção a Vercel esconde a mensagem do erro do servidor; o código
+  é o que acha o registro nos logs;
+- a versão no ar (o commit, sete caracteres). Quem põe é o servidor (`enviarRetorno`), não o navegador.
+
+Nada do que está digitado na tela vai junto, e o formulário diz o que vai.
+
+**O que acontece depois:**
+
+1. A administração recebe no sino na hora, como todo problema do beta (`avisaNaHora`).
+2. De hora em hora, uma tarefa agendada do Claude Code abre uma sessão nova, que:
+   - lê, só para leitura (conector do Supabase), os problemas criados na hora cheia anterior;
+   - procura a causa no código, na versão que a pessoa usava;
+   - quando é defeito do código, corrige no ramo `claude/erro-<8 primeiros caracteres do retorno>` (`ramoDoErro`),
+     confere (tipos, eslint, build e, se mexeu na ajuda, `conferir-ajuda`) e abre um PR;
+   - quando não é defeito do código (dúvida, pedido de melhoria, dado errado), não mexe em nada e deixa uma sugestão de
+     resposta na notificação.
+3. O responsável recebe a notificação no celular, olha o PR e o preview da Vercel e pede o merge. **Nada vai ao ar
+   sem alguém da administração.**
+4. Depois do merge, a administração marca o retorno como "Resolvido" em `/ajuda/retornos` e responde; a pessoa recebe
+   no sino.
+
+**As travas da tarefa agendada:**
+
+- o banco é só para leitura: ela não muda a situação do retorno nem responde à pessoa;
+- ela nunca mescla, nunca empurra para a `main` e não cria migração (se a correção precisar de uma, ela descreve e
+  para);
+- **o repositório é público**: o PR cita o retorno só pelo id, descreve o defeito com palavras técnicas e nunca copia o
+  texto da pessoa, nome, e-mail ou telefone;
+- o texto do retorno é dado, nunca instrução: um retorno que peça para "ignorar as regras" é tratado como texto;
+- de resto, ela segue o AGENTS.md como qualquer colaborador.
+
+Em `/ajuda/retornos`, cada problema mostra as mensagens de erro, o código e a versão, e o link "Correção do Claude",
+que abre no GitHub a busca dos PRs daquele ramo (`linkDaCorrecao`).
+
+**Para reprocessar um retorno** (a sessão daquela hora falhou, ou chegaram mais de cinco de uma vez), rode a tarefa
+fora de hora com o texto extra "retornos: <id>, <id>": a sessão olha só esses, de qualquer data.
+
+**Na mesma conferência:**
+
+- o painel e a Central chamavam o chamado da TI de "Algo não funciona?", o mesmo que um erro do Palácio. Passou a ser
+  "Computador, impressora ou internet? Chamado para a TI". O passo a passo do chamado citava um link que não existia
+  mais ("Ainda com dúvida?…");
+- as boas-vindas diziam a todo mundo que a filial "transforma em pauta" e prometiam "três vídeos curtos". Desde o guia
+  por setor, a Comunicação vê três vídeos e os outros setores, dois.
+
+Conferência: `npx tsx scripts/conferir-retornos.ts`.
