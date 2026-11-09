@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { materialPorId } from '@/lib/newsletter/materiais'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -18,16 +19,28 @@ export const dynamic = 'force-dynamic'
  * organização dele — irrita, não prejudica terceiros. Já um GET que
  * descadastra tiraria da lista quem nunca pediu para sair. O atrito fica só do
  * lado em que ele protege alguém.
+ *
+ * COM MATERIAL (`&m=`, 09/11/2026). O link vem do botão "Baixar a lista em PDF"
+ * da mensagem que entrega um material (lib/newsletter/materiais.ts). A
+ * confirmação é a mesma; o que muda é o destino: TODO desfecho termina no
+ * arquivo, inclusive link já usado, vencido ou com falha do nosso lado. Quem
+ * tocou em "baixar" quer a lista, e reabrir a mensagem semanas depois para
+ * imprimir de novo é o uso mais comum que ela vai ter. Não há o que proteger
+ * com uma tela de erro: o arquivo é público. O link vencido só não confirma.
+ * O destino sai da lista de materiais, nunca do endereço: `m` desconhecido é
+ * ignorado, e a rota não redireciona para onde alguém mandar.
  */
 
 const TOKEN_VALIDO = /^[0-9a-f]{48}$/
 
 export async function GET(request: NextRequest) {
   const origem = request.nextUrl.origin
+  // O arquivo do material, quando o link é o de "baixar": com ele, os dois desfechos abaixo terminam no arquivo.
+  const arquivo = materialPorId(request.nextUrl.searchParams.get('m'))?.arquivo
   const paraErro = (motivo: string) =>
-    NextResponse.redirect(new URL(`/newsletter/erro?motivo=${encodeURIComponent(motivo)}`, origem))
+    NextResponse.redirect(arquivo ?? new URL(`/newsletter/erro?motivo=${encodeURIComponent(motivo)}`, origem))
   const paraConfirmado = (ja = false) =>
-    NextResponse.redirect(new URL(`/newsletter/confirmado${ja ? '?ja=1' : ''}`, origem))
+    NextResponse.redirect(arquivo ?? new URL(`/newsletter/confirmado${ja ? '?ja=1' : ''}`, origem))
 
   const token = request.nextUrl.searchParams.get('t')?.trim() ?? ''
   if (!TOKEN_VALIDO.test(token)) {

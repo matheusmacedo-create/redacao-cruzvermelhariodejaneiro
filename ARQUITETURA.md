@@ -674,6 +674,20 @@ todas as matérias no ar com o modelo atual, em rodadas de até 40 s que continu
 onde pararam, e no fim o índice e o sitemap. Pula a matéria editada depois da última
 publicação (texto não revisado não vai ao ar sem querer).
 
+**Caixa da lista do kit** (09/11/2026). Nas matérias listadas em `lib/site/caixa-de-material.ts` (18 na ronda de
+09/11: emergências, Defesa Civil e primeiros socorros em casa; a lista é por endereço, e matéria nova só entra quando
+alguém a acrescenta), a página ganha, depois do texto, a caixa “Receba a lista do kit de emergência no seu e-mail”: o
+e-mail, o aceite e o botão. O formulário manda para `app/api/newsletter/inscrever` com `material=kit-de-emergencia`
+(`lib/newsletter/materiais.ts`). É a inscrição da newsletter, com as mesmas quatro defesas e três diferenças: o aceite
+gravado em `consentimento_texto` é o do material, a `origem` é `materia` e, no lugar do convite, sai `emailDoMaterial`,
+com o botão “Baixar a lista em PDF”. Esse botão é o link de confirmação com `&m=`: `app/newsletter/confirmar` confirma
+e redireciona para o PDF do site, e todo desfecho termina no arquivo (link vencido só não confirma). Quem já confirmou
+não recebe mensagem (a regra de `decisao.ts` não mudou): depois do envio, a caixa mostra o link do guia
+`/kit-de-emergencia/#baixar`, onde o PDF está aberto a todos. O PDF e o guia são do repositório do site
+(`scripts/gerar_pdf_kit.py`); se o arquivo mudar de endereço, mude em `materiais.ts`. Medição: `kit_pedir` (`origem` =
+`materia`, `tipo` = a variante da caixa) pelo gtag da página. Matéria que já está no ar só ganha a caixa com “Regerar
+as páginas das matérias”. Conferência: `npx tsx scripts/conferir-caixa-de-material.ts`.
+
 **Chat.** As páginas usam a versão (`?v=`) que a home usa, lida da home na hora
 (`chat-do-site.ts`); sem ela, saem sem o chat. **Redirecionamentos** 301 de notícias:
 `REDIRECIONAMENTOS_DAS_NOTICIAS` em `cache-do-site.ts` (vazio até alguém preencher).

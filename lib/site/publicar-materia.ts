@@ -235,6 +235,8 @@ export async function gerarPaginaDaMateria(a: {
     registro,
     chat: a.chat,
     audio: narracao.audio,
+    // A caixa da lista do kit (só nas matérias de lib/site/caixa-de-material.ts) manda para a rota da newsletter.
+    rotaDeInscricao: `${urlBase()}/api/newsletter/inscrever`,
   })
   const problemas = problemasDaPagina(html)
   if (problemas.length) throw new PaginaRecusada(problemas)
