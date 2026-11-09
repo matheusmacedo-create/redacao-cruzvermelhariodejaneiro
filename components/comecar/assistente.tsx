@@ -225,7 +225,7 @@ export function AssistenteDoComeco({ logado, setorDoEndereco }: {
                       {!logado && acesso === 'sim' && <Link href="/" className="font-semibold text-primary underline underline-offset-4">Entrar agora</Link>}
                     </Etapa>
                     <Etapa feito={false} titulo={setor ? `O que dá para fazer em ${setor.nome}` : 'O que dá para fazer'}>
-                      <button type="button" onClick={() => irPara('fazer')} className="font-semibold text-primary underline underline-offset-4">Ver agora</button>
+                      <button type="button" onClick={() => irPara('fazer')} className="self-start font-semibold text-primary underline underline-offset-4">Ver agora</button>
                     </Etapa>
                   </ol>
                   {videosParaOSetor(setor).length > 0 && (
