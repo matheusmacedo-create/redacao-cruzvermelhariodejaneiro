@@ -55,5 +55,100 @@
       "capa": "pautas-criar-pauta-celular-e0fee87d.jpg",
       "legenda": "pautas-criar-pauta.celular.vtt"
     }
+  },
+  "seguranca-as-trancas": {
+    "titulo": "Seus dados estão seguros?",
+    "area": "/seguranca",
+    "tarefa": "trancas",
+    "duracao": 93.2,
+    "gravadoEm": "2026-11-09",
+    "impressao": "1197b94c88b835be1f4b72c3",
+    "video": "seguranca-as-trancas-29ec560c.mp4",
+    "capa": "seguranca-as-trancas-29ec560c.jpg",
+    "legenda": "seguranca-as-trancas.vtt",
+    "celular": {
+      "duracao": 93.2,
+      "gravadoEm": "2026-11-09",
+      "impressao": "1197b94c88b835be1f4b72c3",
+      "video": "seguranca-as-trancas-celular-8493857e.mp4",
+      "capa": "seguranca-as-trancas-celular-8493857e.jpg",
+      "legenda": "seguranca-as-trancas.celular.vtt"
+    }
+  },
+  "seguranca-cada-setor": {
+    "titulo": "Por que cada setor é importante",
+    "area": "/seguranca",
+    "tarefa": "cada-setor",
+    "duracao": 76,
+    "gravadoEm": "2026-11-09",
+    "impressao": "16ce606dc5901fc57fccd7b8",
+    "video": "seguranca-cada-setor-dcc36f8d.mp4",
+    "capa": "seguranca-cada-setor-dcc36f8d.jpg",
+    "legenda": "seguranca-cada-setor.vtt",
+    "celular": {
+      "duracao": 76,
+      "gravadoEm": "2026-11-09",
+      "impressao": "16ce606dc5901fc57fccd7b8",
+      "video": "seguranca-cada-setor-celular-0177a9f9.mp4",
+      "capa": "seguranca-cada-setor-celular-0177a9f9.jpg",
+      "legenda": "seguranca-cada-setor.celular.vtt"
+    }
+  },
+  "seguranca-como-construimos": {
+    "titulo": "Como o Palácio é construído, com o Claude",
+    "area": "/seguranca",
+    "tarefa": "nao-faz-tudo",
+    "duracao": 99,
+    "gravadoEm": "2026-11-09",
+    "impressao": "d89374f9eb953f6f7293ad51",
+    "video": "seguranca-como-construimos-c3196560.mp4",
+    "capa": "seguranca-como-construimos-c3196560.jpg",
+    "legenda": "seguranca-como-construimos.vtt",
+    "celular": {
+      "duracao": 99,
+      "gravadoEm": "2026-11-09",
+      "impressao": "d89374f9eb953f6f7293ad51",
+      "video": "seguranca-como-construimos-celular-f7f19516.mp4",
+      "capa": "seguranca-como-construimos-celular-f7f19516.jpg",
+      "legenda": "seguranca-como-construimos.celular.vtt"
+    }
+  },
+  "seguranca-por-que-existe": {
+    "titulo": "Por que o Palácio existe",
+    "area": "/seguranca",
+    "tarefa": "por-que-existe",
+    "duracao": 76.1,
+    "gravadoEm": "2026-11-09",
+    "impressao": "36f058e18a3693d71ee96981",
+    "video": "seguranca-por-que-existe-255ebb92.mp4",
+    "capa": "seguranca-por-que-existe-255ebb92.jpg",
+    "legenda": "seguranca-por-que-existe.vtt",
+    "celular": {
+      "duracao": 76.1,
+      "gravadoEm": "2026-11-09",
+      "impressao": "36f058e18a3693d71ee96981",
+      "video": "seguranca-por-que-existe-celular-2bec9c61.mp4",
+      "capa": "seguranca-por-que-existe-celular-2bec9c61.jpg",
+      "legenda": "seguranca-por-que-existe.celular.vtt"
+    }
+  },
+  "seguranca-transparencia": {
+    "titulo": "O registro que ninguém apaga",
+    "area": "/seguranca",
+    "tarefa": "transparencia",
+    "duracao": 67.3,
+    "gravadoEm": "2026-11-09",
+    "impressao": "7e015f8329a68c86fbb2061b",
+    "video": "seguranca-transparencia-afed7a5a.mp4",
+    "capa": "seguranca-transparencia-afed7a5a.jpg",
+    "legenda": "seguranca-transparencia.vtt",
+    "celular": {
+      "duracao": 67.3,
+      "gravadoEm": "2026-11-09",
+      "impressao": "7e015f8329a68c86fbb2061b",
+      "video": "seguranca-transparencia-celular-b0da3c39.mp4",
+      "capa": "seguranca-transparencia-celular-b0da3c39.jpg",
+      "legenda": "seguranca-transparencia.celular.vtt"
+    }
   }
 }

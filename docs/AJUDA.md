@@ -1372,5 +1372,16 @@ construído (a governança digital) e a transparência (só com login, como a pa
 (`scripts/videos/roteiros.ts`), `explica` traz o texto da página que o vídeo conta (`textoExplicadoPeloVideo`), e a
 impressão vem dele. No catálogo, `area` é `/seguranca` e `tarefa` é o id da parte. A conferência avisa quando esse
 texto muda depois da gravação. A página mostra, em "Prefere ver em vídeo?", só os vídeos que já estão no catálogo
-(`VIDEOS_DA_SEGURANCA`).
+(`VIDEOS_DA_SEGURANCA`). O cartão de abertura diz "Palácio Virtual · Por dentro" (não é passo a passo nem usa dados
+fictícios) e o de fechamento aponta para a página.
+
+| Vídeo | Computador e celular (09/11/2026) |
+| --- | --- |
+| "Por que o Palácio existe" | 76 s |
+| "Por que cada setor é importante" | 76 s |
+| "Seus dados estão seguros?" (as trancas) | 93 s |
+| "Como o Palácio é construído, com o Claude" (a governança) | 99 s |
+| "O registro que ninguém apaga" (a transparência, só com login) | 67 s |
+
+Gravados sobre o preview do PR da página (`PALACIO_URL`), porque ela ainda não estava no ar.
 
