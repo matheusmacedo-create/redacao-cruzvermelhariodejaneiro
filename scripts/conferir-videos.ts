@@ -7,13 +7,15 @@
  * - as legendas gravadas em public/tutoriais (cabeçalho e tempos);
  * - o tempo no botão e os endereços do vídeo, da capa e da legenda, nas versões de computador e de celular
  *   (lib/ajuda/videos.ts);
- * - cada roteiro (scripts/videos/roteiros.ts) aponta para uma tarefa que existe.
+ * - cada roteiro (scripts/videos/roteiros.ts) aponta para uma tarefa que existe (ou, no vídeo de explicação, para uma
+ *   parte da página, contando o texto dela).
  * A ligação tarefa ↔ vídeo e o aviso de vídeo velho ficam em scripts/conferir-ajuda.ts.
  */
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { guiaDaArea } from '../lib/ajuda'
 import { ENDERECO_DOS_VIDEOS, duracaoLegivel, todosOsVideos, videoDaAjuda } from '../lib/ajuda/videos'
+import { VIDEOS_DA_SEGURANCA, textoExplicadoPeloVideo } from '../lib/ajuda/seguranca'
 import { legendaWebVtt, linhasDaLegenda, trechosDaLegenda } from './videos/montar'
 import { ROTEIROS } from './videos/roteiros'
 
@@ -73,6 +75,13 @@ for (const v of todosOsVideos()) {
   }
 }
 for (const r of ROTEIROS) {
+  // O vídeo de explicação de uma página (docs/AJUDA.md §18) não tem tarefa: aponta para uma parte da página e conta o
+  // texto dela (o mesmo de textoExplicadoPeloVideo, de onde vem a impressão).
+  if (r.explica) {
+    confere(`roteiro ${r.id}: está em VIDEOS_DA_SEGURANCA com a parte ${r.tarefa}`, VIDEOS_DA_SEGURANCA.some((v) => v.id === r.id && v.parte === r.tarefa), true)
+    confere(`roteiro ${r.id}: conta o texto da página`, r.explica === textoExplicadoPeloVideo(r.id), true)
+    continue
+  }
   confere(`roteiro ${r.id}: a tarefa ${r.area}#${r.tarefa} existe`, Boolean(guiaDaArea(r.area)?.tarefas.some((t) => t.id === r.tarefa)), true)
 }
 
