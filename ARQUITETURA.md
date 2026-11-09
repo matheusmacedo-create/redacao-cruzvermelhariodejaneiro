@@ -3864,6 +3864,35 @@ do Supabase mostram 404 em `portaria_visitas` e `portaria_config` (16h26), em
 perdeu porque as telas novas só liam, mas a lição continua: **enquanto o check
 não for obrigatório na proteção da `main`, ele só avisa.**
 
+**E de novo em 09/11/2026**, por outro caminho: o PR
+[#395](https://github.com/matheusmacedo-create/redacao-cruzvermelhariodejaneiro/pull/395)
+(campanhas de imprensa em fila, §7.39) foi aberto direto no GitHub, sem passar
+por rascunho, e mesclado um minuto e meio depois (18h12 e 18h13, horário de
+Brasília), com o check vermelho e a caixa vazia. O deploy subiu entre 18h16 e
+18h25, e a migração `20261109120000_cvrj_envio_em_fila` só entrou às 20h22.
+Nessas duas horas `/imprensa` abriria **vazia**, e não com erro: a página trata
+a leitura que falha como lista sem linhas, o que na tela parece perda de dados.
+Enviar campanha falharia. Os logs da API do Supabase não mostram nenhuma leitura
+com erro nas tabelas de imprensa no intervalo: ninguém abriu a tela, e nada se
+perdeu.
+
+O que este caso acrescenta:
+
+- **O rascunho só protege o PR que nasce rascunho.** A skill `entregar` cobre o
+  PR aberto pelo agente; aberto por outro caminho, ele nasce pronto para
+  mesclar, e o check continua só avisando.
+- **Pedir a migração depois de abrir o PR é tarde.** Vários PRs recentes foram
+  mesclados de 10 a 20 segundos depois de abertos, e o branch empurrado já
+  oferece o botão de abrir o PR. Como a migração só acrescenta e convive com o
+  código que está no ar, o agente pede a autorização e aplica **antes de
+  empurrar o código que depende dela**.
+- **Aplicar pelo MCP do Supabase tem dois detalhes.** O MCP recebe o SQL
+  digitado, não o arquivo: embrulhe o texto num bloco `do` que confere o md5
+  contra o arquivo do repositório e só então executa, para que um erro de cópia
+  não chegue ao banco. E ele pede confirmação na tela de quem conversa com o
+  agente, desistindo em cerca de 4 minutos: combine antes que a pessoa esteja
+  na tela.
+
 ### 10.8 Consulta que "traz tudo" e traz só mil linhas
 
 A API do Supabase devolve **no máximo 1000 linhas por pedido**, e
