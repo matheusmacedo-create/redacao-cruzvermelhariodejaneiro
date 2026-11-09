@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Building2, ChevronRight, Footprints, GraduationCap, Megaphone, TriangleAlert, Users } from 'lucide-react'
+import { Building2, ChevronRight, Footprints, GraduationCap, Megaphone, ShieldCheck, TriangleAlert, Users } from 'lucide-react'
 import { BrandMark } from '@/components/app/brand-mark'
 import { LoginForm } from '@/components/auth/login-form'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -124,6 +124,14 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             <Link href="/comecar" className="mt-8 flex min-h-14 items-center gap-3 rounded-xl border-2 border-border bg-card px-4 py-3 outline-none hover:border-primary/50 focus-visible:ring-4 focus-visible:ring-ring/40" data-primeira-vez>
               <Footprints className="size-6 shrink-0 text-primary" aria-hidden="true" />
               <span className="min-w-0 flex-1"><span className="block text-base font-semibold">Primeira vez aqui?</span><span className="block text-sm text-muted-foreground">Veja como conseguir o acesso e começar, passo a passo.</span></span>
+              <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+            </Link>
+          )}
+          {/* A segurança explicada com calma, para quem tem medo de entrar (docs/AJUDA.md §18). */}
+          {!needsBootstrap && (
+            <Link href="/seguranca" className="mt-3 flex min-h-14 items-center gap-3 rounded-xl border-2 border-border bg-card px-4 py-3 outline-none hover:border-primary/50 focus-visible:ring-4 focus-visible:ring-ring/40" data-seguranca-na-entrada>
+              <ShieldCheck className="size-6 shrink-0 text-primary" aria-hidden="true" />
+              <span className="min-w-0 flex-1"><span className="block text-base font-semibold">Seus dados estão seguros?</span><span className="block text-sm text-muted-foreground">Veja como o Palácio protege a filial e quem pode ver o quê.</span></span>
               <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
             </Link>
           )}

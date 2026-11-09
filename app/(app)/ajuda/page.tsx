@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowRight, BookA, BookOpen, Bug, ChevronRight, CircleHelp, Compass, Flame, Footprints, Inbox, Keyboard, LifeBuoy, MessageSquareHeart, MessagesSquare, Sparkles, ThumbsUp } from 'lucide-react'
+import { ArrowRight, BookA, BookOpen, Bug, ChevronRight, CircleHelp, Compass, Flame, Footprints, Inbox, Keyboard, LifeBuoy, MessageSquareHeart, MessagesSquare, ShieldCheck, Sparkles, ThumbsUp } from 'lucide-react'
 import { PageHeader } from '@/components/app/page-header'
 import { buttonVariants } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -97,11 +97,19 @@ export default async function CentralDeAjudaPage() {
         <h2 id="secao-comece-por-aqui" className="text-lg font-semibold">Comece por aqui</h2>
         <p className="mt-1 text-sm text-muted-foreground">Para quem está chegando, ou quer rever o básico com calma.</p>
         <div className={videosDeComeco.length ? 'mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]' : 'mt-4 max-w-md'}>
-          <Link href="/comecar" className="group flex flex-col rounded-xl border border-primary/30 bg-primary/[0.04] p-5 shadow-xs outline-none hover:bg-primary/[0.07] focus-visible:ring-2 focus-visible:ring-ring/50" data-guia-para-comecar>
-            <span className="flex items-center gap-2 font-semibold"><Footprints className="size-4 text-primary" aria-hidden="true" />Guia para começar</span>
-            <span className="mt-2 text-sm leading-relaxed text-muted-foreground">O Palácio explicado com calma: como conseguir o e-mail da Cruz Vermelha e o acesso, como entrar, onde fica cada coisa e o que dá para fazer. Com letra grande, áudio e versão para imprimir.</span>
-            <span className="mt-auto inline-flex items-center gap-1.5 pt-4 text-sm font-semibold text-primary">Abrir o guia<ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden="true" /></span>
-          </Link>
+          <div className="flex flex-col gap-4">
+            <Link href="/comecar" className="group flex flex-1 flex-col rounded-xl border border-primary/30 bg-primary/[0.04] p-5 shadow-xs outline-none hover:bg-primary/[0.07] focus-visible:ring-2 focus-visible:ring-ring/50" data-guia-para-comecar>
+              <span className="flex items-center gap-2 font-semibold"><Footprints className="size-4 text-primary" aria-hidden="true" />Guia para começar</span>
+              <span className="mt-2 text-sm leading-relaxed text-muted-foreground">O Palácio explicado com calma: como conseguir o e-mail da Cruz Vermelha e o acesso, como entrar, onde fica cada coisa e o que dá para fazer. Com letra grande, áudio e versão para imprimir.</span>
+              <span className="mt-auto inline-flex items-center gap-1.5 pt-4 text-sm font-semibold text-primary">Abrir o guia<ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden="true" /></span>
+            </Link>
+            {/* A segurança explicada com calma (docs/AJUDA.md §18). */}
+            <Link href="/seguranca" className="group flex flex-col rounded-xl border border-border bg-card p-5 shadow-xs outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/50" data-central-seguranca>
+              <span className="flex items-center gap-2 font-semibold"><ShieldCheck className="size-4 text-primary" aria-hidden="true" />Segurança do Palácio</span>
+              <span className="mt-2 text-sm leading-relaxed text-muted-foreground">Como o Palácio protege os seus dados, quem pode ver o quê e como ele é construído, com o Claude.</span>
+              <span className="mt-auto inline-flex items-center gap-1.5 pt-4 text-sm font-semibold text-primary">Ler com calma<ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden="true" /></span>
+            </Link>
+          </div>
           {videosDeComeco.length > 0 && (
             <ol className="grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label="Vídeos para começar, em ordem">
               {videosDeComeco.map((v, i) => <li key={v.id}><CartaoDoVideo id={v.id} numero={i + 1} onde={nomeDaArea.get(v.area)} /></li>)}

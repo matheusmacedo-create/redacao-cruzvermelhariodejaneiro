@@ -1308,3 +1308,62 @@ fora de hora com o texto extra "retornos: <id>, <id>": a sessão olha só esses,
   por setor, a Comunicação vê três vídeos e os outros setores, dois.
 
 Conferência: `npx tsx scripts/conferir-retornos.ts`.
+
+## 18. A segurança do Palácio, explicada com calma (09/11/2026)
+
+"Precisamos ter uma parte dedicada explicando a segurança do Palácio, o que é construir com você e por que temos
+segurança. Eles têm muito medo de eu e você roubarmos dados. [...] Você não faz o que eu simplesmente quero, você segue
+o mercado." Boa parte da equipe tem mais de 60 anos, e o medo é concreto: quem constrói o sistema poderia tirar os
+dados das pessoas?
+
+**Onde fica.** `/seguranca`, uma página aberta, sem login, no jeito do guia para começar (§16): letra grande, "Ouvir"
+em cada parte, "Imprimir esta página" e um índice no alto ("Nesta página"). O texto mora em `lib/ajuda/seguranca.ts`.
+Chegam até ela:
+
+- a tela de entrada, pelo cartão "Seus dados estão seguros?";
+- o guia para começar, pela parte "Seus dados estão seguros?", antes de "Se você travar";
+- a Central de ajuda, em "Comece por aqui", pelo cartão "Segurança do Palácio";
+- a ajuda geral, pelo tópico "Segurança e privacidade" (respostas curtas, achadas pela busca, pelo ⌘K e pelo "?").
+
+**As partes.** Em poucas palavras; por que tanta segurança; as trancas; quem pode ver o quê; como o Palácio é
+construído, com o Claude; por que o Claude não faz tudo o que pedem; como uma mudança chega ao Palácio (a governança
+digital); a trilha pública e o portal da transparência (só com login); a inteligência artificial dentro do Palácio;
+as perguntas que a equipe faz; e o que fazer se desconfiar de alguma coisa.
+
+**Honestidade antes de tudo.** A página não promete o que o sistema não cumpre. À pergunta "E quem cuida do sistema,
+pode?", a resposta é que quem cuida de qualquer sistema tem a chave técnica dele, como o síndico tem a da casa de
+máquinas. Por isso a página mostra as travas: a senha que ninguém vê, o livro de entradas que anota até quem o
+consulta, o código aberto, o registro de cada mudança e a LGPD.
+
+**De onde vem cada afirmação** (conferido em 09/11/2026):
+
+| Na página | No sistema |
+| --- | --- |
+| Ninguém vê a senha; a administração só cria uma nova | Senha guardada pelo Supabase Auth com bcrypt; "Redefinir senha" gera uma temporária, trocada no primeiro acesso (`trocar_senha`) |
+| Mínimo de letras e números, sem o nome; trocar encerra as outras sessões | `SENHA_MINIMO` e `problemaDaSenha` (`lib/usuarios/senha.ts`), `components/auth/trocar-senha-form.tsx` |
+| Um porteiro em cada sala, em todas as tabelas | RLS ligado em todas as tabelas do schema `public` (207 de 207 em 09/11/2026); ARQUITETURA §6 |
+| A conta tranca depois de senhas erradas | `LIMITE_POR_CONTA` e `JANELA_MIN` (`lib/acessos/regras.ts`) |
+| Aviso de entrada nova no e-mail e no WhatsApp confirmados | `avisarAPessoa` (`lib/acessos/servidor.ts`): aparelho ou país novo; sem o IP |
+| Livro de entradas que só a administração lê, e a consulta fica anotada | `/acessos` (ARQUITETURA §7.13): `acessos_leitores` (só o Matheus) e `acessos.consultados` em `activity_log` |
+| Cadeado na conexão e dados guardados embaralhados | HTTPS na Vercel; criptografia em repouso do Supabase |
+| Duas etapas, se quiser | `lib/usuarios/verificacao.ts`; obrigatória só para os papéis em `mfa_obrigatorio_para` (nenhum na Produção hoje) |
+| Cópia de segurança todo dia, com trava | `.github/workflows/backup-banco.yml` (docs/backup.md), cifrada, no R2 com trava |
+| As chaves ficam num cofre, e o Claude não pode pedir, ler ou escrever o valor | Variáveis da Vercel; AGENTS.md, regra 1; ARQUITETURA §10.6 |
+| Toda mudança: cópia à parte, verificações, versão de teste, aprovação, registro | AGENTS.md, regras 5 e 6; o check "conferir"; o preview da Vercel; o histórico do GitHub |
+| O código é aberto | O repositório é público (`REPOSITORIO`, `lib/versao.ts`) |
+| O exemplo das duas travas | §16, "Duas travas ficaram de propósito" |
+| O exemplo do "Achei um erro" | §17, "As travas da tarefa agendada" |
+| A IA do Palácio e o documento do candidato | `lib/ia/`, `lib/whatsapp/assistente/`, `lib/participantes/verificacao/documento.ts` (o termo avisa, LGPD arts. 20 e 33) |
+| Dados num centro de dados no Canadá | O projeto do Supabase fica em `ca-central-1` |
+| A trilha pública e o portal da transparência | ARQUITETURA §7.9 e docs/auditoria-publica.md (lote diário lacrado, prova fora da filial, espelho com trava) |
+
+**Só com login: a trilha pública e o portal da transparência.** Os dois estão em lançamento oculto (docs/auditoria-
+publica.md §1): nada visível ao público até o Matheus decidir abrir. Por isso a parte deles só aparece para quem está
+logado. Na abertura, é só tirar a condição em `app/seguranca/page.tsx`.
+
+**Quando algo aqui mudar** (uma trava nova, a verificação em duas etapas obrigatória, o banco em outra região), mude
+`lib/ajuda/seguranca.ts` e esta tabela no mesmo PR. Os números (tamanho da senha, tentativas) já vêm das regras.
+
+**Os vídeos.** A página é também o roteiro dos vídeos curtos sobre segurança, governança digital e transparência
+(pedido de 09/11/2026), no mesmo jeito dos vídeos da ajuda (§14).
+

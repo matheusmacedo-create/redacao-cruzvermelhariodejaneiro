@@ -2,13 +2,13 @@ import Link from 'next/link'
 import QRCode from 'qrcode'
 import type { Metadata } from 'next'
 import type { LucideIcon } from 'lucide-react'
-import { ArrowRight, Bell, BookOpen, CircleHelp, House, LogIn, Menu, MessageCircle, Plus, Search, UserRound } from 'lucide-react'
+import { ArrowRight, Bell, BookOpen, CircleHelp, House, LogIn, Menu, MessageCircle, Plus, Search, ShieldCheck, UserRound } from 'lucide-react'
 import { BrandMark } from '@/components/app/brand-mark'
 import { Ouvir } from '@/components/ajuda/ouvir'
 import { CartaoDoVideo } from '@/components/ajuda/cartao-do-video'
 import { BotaoDeImprimir, EscolhaDoGuia, MarcarGuiaVisto } from '@/components/comecar/partes'
 import {
-  A_TELA, COMO_ENTRAR, ESCOLHA_DO_ACESSO, ESCOLHA_DO_EMAIL, O_QUE_E, O_QUE_E_DA_ESCOLA, SETORES_DO_GUIA, SE_TRAVAR,
+  A_TELA, COMO_ENTRAR, ESCOLHA_DO_ACESSO, ESCOLHA_DO_EMAIL, E_SEGURO, O_QUE_E, O_QUE_E_DA_ESCOLA, SETORES_DO_GUIA, SE_TRAVAR,
   coisasParaOSetor, itensPara, setorPelaCoordenacao, setorPeloSlug, textoDaCoisa, textoDaLista, textoDaParte, textoDoNao, textoDoSim, videosParaOSetor,
   type CoisaQueDaParaFazer, type EscolhaDoGuia as Escolha, type ItemDaTela,
 } from '@/lib/ajuda/comecar'
@@ -195,6 +195,12 @@ export default async function ComecarPage({ searchParams }: { searchParams: Prom
             </ol>
           </section>
         )}
+
+        <Parte id={E_SEGURO.id} titulo={E_SEGURO.titulo} ouvir={textoDaParte(E_SEGURO)}>
+          {E_SEGURO.frases.map((f) => <p key={f} className={texto}>{f}</p>)}
+          <Link href="/seguranca" className={cn(botaoSecundario, 'self-start print:hidden')}><ShieldCheck className="size-5" aria-hidden="true" />Segurança do Palácio</Link>
+          <p className="hidden text-base print:block">{DOMINIO_DO_PALACIO}/seguranca</p>
+        </Parte>
 
         <Parte id={SE_TRAVAR.id} titulo={SE_TRAVAR.titulo} ouvir={textoDaLista(SE_TRAVAR, escola)}>
           <ul className="flex list-disc flex-col gap-3 pl-6 marker:text-primary">
