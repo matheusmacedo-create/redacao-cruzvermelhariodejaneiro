@@ -1291,6 +1291,11 @@ Em `/ajuda/retornos`, cada problema mostra o endereço com os filtros, as mensag
 link "Correção do Claude",
 que abre no GitHub a busca dos PRs daquele ramo (`linkDaCorrecao`).
 
+**A tarefa agendada** chama-se "Achei um erro: ler avisos e abrir PR" (claude.ai, tarefas agendadas). Ela roda aos 37
+minutos de cada hora, numa sessão nova, e avisa no celular do responsável. Precisa do conector do Supabase ligado
+nela: sem ele, termina com "Sem acesso ao banco" e não tenta outro caminho (conferido em 09/11/2026). O texto da
+tarefa repete as travas acima.
+
 **Para reprocessar um retorno** (a sessão daquela hora falhou, ou chegaram mais de cinco de uma vez), rode a tarefa
 fora de hora com o texto extra "retornos: <id>, <id>": a sessão olha só esses, de qualquer data.
 
