@@ -40,6 +40,8 @@ export const NOTAS = [
 export type Contexto = {
   largura?: number; altura?: number; celular?: boolean; toque?: boolean
   navegador?: string; sistema?: string; idioma?: string; tema?: 'claro' | 'escuro'
+  /** Só no problema: o resto do endereço, sem o "?" (os filtros da tela: "aba=historico&dia=2026-11-09"), para reproduzir. */
+  consulta?: string
   /** Só no problema: as últimas mensagens de erro da aba ("/tela — mensagem"), da mais antiga para a mais nova. */
   erros?: string[]
   /** O código do erro do servidor (o `digest` da tela de erro), para achar o registro na Vercel. */
@@ -74,6 +76,7 @@ export function lerContexto(bruto: unknown): Contexto {
     toque: typeof b.toque === 'boolean' ? b.toque : undefined,
     navegador: texto(b.navegador, 30), sistema: texto(b.sistema, 30), idioma: texto(b.idioma, 20),
     tema: b.tema === 'claro' || b.tema === 'escuro' ? b.tema : undefined,
+    consulta: typeof b.consulta === 'string' && b.consulta.replace(/^\?/, '').trim() ? b.consulta.replace(/^\?/, '').replace(/\s+/g, '').slice(0, 300) : undefined,
     erros: Array.isArray(b.erros) ? lerErros(b.erros) : undefined,
     digest: typeof b.digest === 'string' && /^[\w-]{1,64}$/.test(b.digest) ? b.digest : undefined,
     versao: typeof b.versao === 'string' && /^[0-9a-f]{7,40}$/.test(b.versao) ? b.versao.slice(0, 7) : undefined,

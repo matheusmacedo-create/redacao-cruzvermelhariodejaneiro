@@ -19,19 +19,22 @@ import { errosRecentes } from './erros-da-aba'
  *    parecidos enfileirados no painel (§11);
  *  - IssoAjudou: o voto em cada pergunta da ajuda.
  * Junto vai o contexto do aparelho (tamanho da janela, celular ou não, navegador), para reproduzir;
- * no erro, também as últimas mensagens de erro da aba (erros-da-aba.tsx).
+ * no erro, também os filtros do endereço e as últimas mensagens de erro da aba (erros-da-aba.tsx).
  */
 
-export function contextoDoAparelho({ comErros = false }: { comErros?: boolean } = {}): Contexto {
+/** O aparelho; num erro (`doErro`), também os filtros do endereço e as últimas mensagens de erro da aba. */
+export function contextoDoAparelho({ doErro = false }: { doErro?: boolean } = {}): Contexto {
   if (typeof window === 'undefined') return {}
   const { navegador, sistema } = aparelhoDoAgente(navigator.userAgent)
-  const erros = comErros ? errosRecentes() : []
+  const erros = doErro ? errosRecentes() : []
+  const consulta = doErro ? window.location.search.slice(1) : ''
   return {
     largura: window.innerWidth, altura: window.innerHeight,
     celular: window.matchMedia('(max-width: 767px)').matches,
     toque: window.matchMedia('(pointer: coarse)').matches,
     navegador, sistema, idioma: navigator.language,
     tema: document.documentElement.classList.contains('dark') ? 'escuro' : 'claro',
+    ...(consulta ? { consulta } : {}),
     ...(erros.length ? { erros } : {}),
   }
 }
@@ -162,7 +165,7 @@ export function FormularioDoBeta({ aoFechar, area = null, noPainel = false, tipo
       e.preventDefault()
       iniciar(async () => {
         setErro('')
-        const r = await enviarRetorno({ tipo, caminho, area, texto, contexto: contextoDoAparelho({ comErros: tipo === 'problema' }) })
+        const r = await enviarRetorno({ tipo, caminho, area, texto, contexto: contextoDoAparelho({ doErro: tipo === 'problema' }) })
         if (r.erro) { setErro(r.erro); return }
         // A nota, se veio, vira também a opinião sobre a tela.
         if (nota !== null) await enviarRetorno({ tipo: 'tela', caminho, area, nota, contexto: contextoDoAparelho() })
@@ -196,7 +199,7 @@ export function FormularioDoBeta({ aoFechar, area = null, noPainel = false, tipo
         <p className="text-sm font-medium">E esta tela, de modo geral? <span className="font-normal text-muted-foreground">(opcional)</span></p>
         <EscolhaDaNota nota={nota} aoEscolher={setNota} nome={`${id}-nota`} />
       </div>
-      <p className="text-xs text-muted-foreground">Vai junto: o endereço da tela ({caminho}), o tamanho da janela e o navegador{tipo === 'problema' ? ' e, se a tela deu erro, a mensagem técnica dele' : ''}. Não vai nada do que está digitado na tela.</p>
+      <p className="text-xs text-muted-foreground">Vai junto: o endereço da tela ({caminho}{tipo === 'problema' ? ', com os filtros' : ''}), o tamanho da janela e o navegador{tipo === 'problema' ? ' e, se a tela deu erro, a mensagem técnica dele' : ''}. Não vai nada do que está digitado na tela.</p>
       {erro && <p className="text-sm text-destructive" role="alert">{erro}</p>}
       <button type="submit" disabled={ocupado || (tipo !== 'elogio' && texto.trim().length < 3)} className={cn(botaoPrincipal, 'self-end')}>
         {ocupado ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Send className="size-4" aria-hidden="true" />}Enviar

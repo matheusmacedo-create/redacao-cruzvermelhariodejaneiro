@@ -37,8 +37,8 @@ const nomeDaTela = (caminho: string) => {
  * pior avaliação, as respostas da ajuda que não ajudaram e cada retorno, com
  * o contexto do aparelho, para responder e marcar a situação. Quem mandou vê
  * a resposta no sino e em "Seus retornos", na Central. No problema ("Achei um
- * erro", §17), também as mensagens de erro, o código do erro, a versão e o
- * link para a correção que o Claude abre no GitHub.
+ * erro", §17), também os filtros do endereço, as mensagens de erro, o código
+ * do erro, a versão e o link para a correção que o Claude abre no GitHub.
  */
 export default async function RetornosDoBetaPage({ searchParams }: { searchParams: Promise<{ tipo?: string; estado?: string; tela?: string }> }) {
   const context = await requireWorkspace()
@@ -177,7 +177,7 @@ export default async function RetornosDoBetaPage({ searchParams }: { searchParam
             {lista.map((r) => {
               const c = lerContexto(r.contexto)
               const ctx = contextoLegivel(c)
-              const tecnico = [c.digest && `Código do erro: ${c.digest}`, c.versao && `Versão: ${c.versao}`].filter(Boolean).join(' · ')
+              const tecnico = [c.consulta && `Endereço: ${r.caminho}?${c.consulta}`, c.digest && `Código do erro: ${c.digest}`, c.versao && `Versão: ${c.versao}`].filter(Boolean).join(' · ')
               return (
                 <li key={r.id} id={`retorno-${r.id}`} className="scroll-mt-6 rounded-xl border border-border bg-card p-4 shadow-xs target:border-primary/60 target:ring-2 target:ring-primary/20">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
@@ -194,7 +194,7 @@ export default async function RetornosDoBetaPage({ searchParams }: { searchParam
                       {(c.erros?.length || tecnico) ? (
                         <div className="rounded-lg bg-muted/50 px-3 py-2">
                           {c.erros?.map((e, i) => <p key={i} className="break-words font-mono">{e}</p>)}
-                          {tecnico && <p className={cn(c.erros?.length && 'mt-1')}>{tecnico}</p>}
+                          {tecnico && <p className={cn('break-words', c.erros?.length && 'mt-1')}>{tecnico}</p>}
                         </div>
                       ) : null}
                       <a href={linkDaCorrecao(r.id)} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1.5 self-start font-medium text-primary hover:underline">
