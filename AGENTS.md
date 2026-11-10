@@ -34,18 +34,24 @@ Postgres com RLS) + Vercel (deploy, Blob, crons) + Resend. Gerenciador: **pnpm**
    `.env.local` com a chave de serviço aponta para os dados reais. Não rode SQL
    de escrita, `supabase db push` nem scripts que gravem dados sem o
    responsável pedir explicitamente.
-3. **Migração só acrescenta.** Arquivo novo em `supabase/migrations/`, com
-   versão maior que a última (`ls supabase/migrations | tail -1`). Coluna ou
-   tabela só sai num deploy posterior, depois que o código parou de usá-la.
-   Toda tabela nova tem RLS. Detalhes: skill `migracao`.
-   **PR com migração não é mesclado antes de ela estar em produção**: abra o PR
-   como rascunho e marque "Migração aplicada em produção" na descrição só
-   depois de aplicar e conferir; o check "Migração aplicada?" fica vermelho até lá.
+3. **Migração só acrescenta, e entra antes do código.** Arquivo novo em
+   `supabase/migrations/`, com versão maior que a última
+   (`ls supabase/migrations | tail -1`). Coluna ou tabela só sai num deploy
+   posterior, depois que o código parou de usá-la. Toda tabela nova tem RLS.
+   Detalhes: skill `migracao`.
+   **Código que depende de migração não é empurrado antes de ela estar em
+   produção.** Antes do push, mostre o SQL ao responsável, peça a autorização
+   (regra 2) e só siga com a migração aplicada e conferida; o PR já nasce com
+   "Migração aplicada em produção" marcada. Sem autorização, pare antes do
+   push e diga o que ficou esperando. O porquê: aqui o merge costuma vir
+   segundos depois do PR, o branch empurrado já oferece o botão de abrir o PR,
+   e todo merge publica na hora (ARQUITETURA §10.7).
 4. **pnpm, nunca npm.** `npm install` cria um lockfile concorrente e quebra o
    build da Vercel.
 5. **Antes de todo push:** `npx tsc --noEmit`, eslint nos arquivos alterados e
    `pnpm build` (se o `.next` estiver com tipos velhos: `rm -rf .next`).
-   Skill `validar` faz tudo isso.
+   Skill `validar` faz tudo isso. Com migração nova, ela também já precisa
+   estar em produção (regra 3).
 6. **Nunca direto na `main`.** Trabalhe num branch, abra PR, confira o preview
    da Vercel. Todo merge na `main` publica em produção na hora.
 7. **Relate o que aconteceu de verdade**: o que passou, o que falhou, o que não

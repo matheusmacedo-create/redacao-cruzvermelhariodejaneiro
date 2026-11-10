@@ -15,18 +15,25 @@ ninguém — pessoa ou agente — faz push direto na `main`.
 3. **Commit em português**, título curto dizendo o que muda para quem usa;
    corpo com o porquê e o que foi conferido. Não inclua arquivos `.env*`,
    `.next/`, scripts avulsos de teste ou `tsconfig.tsbuildinfo`.
-4. **Push** do branch: `git push -u origin <branch>`.
-5. **Pull request** para a `main` com:
+4. **Migração nova? Ela entra em produção antes do push** (skill `migracao`,
+   "Aplicar em produção"). Mostre o SQL ao responsável, peça a autorização e
+   confira que entrou. Sem autorização, **pare aqui**: deixe o commit local e
+   diga o que ficou esperando. Empurrar o branch já oferece o botão de abrir o
+   PR, e aqui o merge costuma vir em segundos: o código chegaria à produção
+   sem a migração (ARQUITETURA §10.7).
+5. **Push** do branch: `git push -u origin <branch>`.
+6. **Pull request** para a `main` com:
    - o que muda e por quê;
-   - migração nova, se houver, e a caixa "Migração aplicada em produção"
-     (já está no modelo do PR). **Com migração, abra o PR como rascunho**;
-     ele só fica pronto para revisão depois de a migração ser aplicada e
-     conferida (skill `migracao`) e a caixa marcada. O check "Migração
-     aplicada?" fica vermelho enquanto a caixa estiver vazia;
+   - migração nova, se houver: o nome do arquivo e a caixa "Migração aplicada
+     em produção" (já está no modelo do PR) **marcada**, com o dia e a hora em
+     que entrou. Se, por exceção, o responsável pedir para ver o PR antes de
+     aplicar, abra-o como **rascunho**, com a caixa vazia, e avise na conversa
+     que ele ainda não pode ser mesclado; o check "Migração aplicada?" fica
+     vermelho enquanto a caixa estiver vazia;
    - variáveis de ambiente novas (só os **nomes**);
    - como foi validado e **o que não foi testado**.
-6. **Preview**: a Vercel comenta no PR com o link do preview. Percorra a tela
+7. **Preview**: a Vercel comenta no PR com o link do preview. Percorra a tela
    que mudou por lá. O preview usa o banco de produção e **não envia e-mail**
    (a chave do Resend só existe em produção).
-7. O merge fica com quem revisa. Depois do merge, confira que o deploy de
+8. O merge fica com quem revisa. Depois do merge, confira que o deploy de
    produção subiu.

@@ -43,11 +43,64 @@ ignorados; os da sua migração, não.
 
 ## Aplicar em produção
 
+**A migração entra em produção antes do push do código que depende dela.**
+Como ela só acrescenta, convive com o código que está no ar. O contrário não
+vale: código novo sem a migração quebra a tela, e isso já aconteceu mais de uma
+vez (ARQUITETURA §10.7). Empurrar o branch já oferece o botão de abrir o PR, e
+aqui o merge costuma vir em segundos.
+
 **Não aplique você mesmo** a menos que o responsável peça explicitamente. O
-caminho normal: a migração vai no PR, **aberto como rascunho**; alguém com
-acesso de administrador ao Supabase aplica (MCP do Supabase ou painel)
-**antes** do merge, confere com uma consulta ao `information_schema` e em
-`supabase_migrations.schema_migrations`, marca "Migração aplicada em
-produção" na descrição e tira o PR do rascunho. O check "Migração aplicada?"
-(`.github/workflows/migracao-pendente.yml`) fica vermelho até a caixa ser
-marcada. Merge antes disso já derrubou telas no ar duas vezes (ARQUITETURA §10.7).
+caminho:
+
+1. Teste num Postgres descartável (acima).
+2. **Assim que a migração estiver pronta e testada, e não no fim do trabalho**,
+   mostre ao responsável o arquivo e um resumo do que ele cria, e peça a
+   autorização. Em sessão na nuvem o ambiente expira: quanto antes, melhor.
+3. O responsável roda o arquivo no SQL Editor do Supabase, ou pede que o
+   agente aplique pelo MCP do Supabase (abaixo). Só quem administra o banco
+   tem a conexão com escrita (`docs/COLABORAR-COM-CLAUDE-CODE.md`). Quem não
+   administra pode empurrar **só a migração** (o arquivo e o teste dela, sem o
+   código que depende) num PR em rascunho, para o responsável ler e aplicar.
+4. Confira com uma consulta ao `information_schema` e em
+   `supabase_migrations.schema_migrations`. Pelo MCP, a versão gravada é a hora
+   da aplicação, e não a do arquivo: procure pelo **nome** (`cvrj_<assunto>`).
+5. Só então empurre o branch e abra o PR, com "Migração aplicada em produção"
+   marcada (skill `entregar`).
+
+Sem autorização, não empurre o código que depende dela: deixe o commit local e
+diga o que ficou esperando. O check "Migração aplicada?"
+(`.github/workflows/migracao-pendente.yml`) continua valendo para o PR que, por
+exceção, nascer com a migração pendente: fica vermelho até a caixa ser marcada.
+
+### Pelo MCP do Supabase
+
+- Use `apply_migration`, com o nome do arquivo sem a versão (`cvrj_<assunto>`).
+- **O MCP recebe o SQL digitado, e não o arquivo.** Para um erro de cópia não
+  chegar ao banco, embrulhe o texto num bloco que confere o md5 contra o
+  arquivo (`md5sum`) e só então executa:
+  ```sql
+  do $trava$
+  declare
+    v text := $sql$-- a primeira linha do arquivo começa aqui, colada na marca
+  …o arquivo inteiro, sem tirar nem pôr…
+  -- a última linha do arquivo
+  $sql$;
+  begin
+    if md5(v) <> '<md5 do arquivo>' then
+      raise exception 'o texto difere do arquivo: md5 %', md5(v);
+    end if;
+    execute v;
+  end
+  $trava$;
+  ```
+  No comando de verdade o conteúdo do arquivo vai sem o recuo deste exemplo. A
+  marca de abertura (`$sql$`) fica colada no primeiro caractere do arquivo, e a
+  de fechamento vem no começo da linha seguinte à última. Use marcas que não
+  apareçam no arquivo. Arquivo grande: divida em partes, com o md5 de cada uma,
+  para saber qual difere. Ensaie o embrulho no Postgres descartável antes.
+  Não serve para o que não roda dentro de transação (`create index
+  concurrently`): aí o responsável aplica pelo SQL Editor.
+- **O MCP pede confirmação na tela de quem conversa com o agente** e desiste
+  em poucos minutos (cerca de 4). Combine antes que a pessoa esteja na tela. Se
+  o pedido expirar, nada foi aplicado: confira e peça de novo, sem contornar a
+  confirmação por outra ferramenta.
