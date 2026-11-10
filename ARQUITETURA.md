@@ -699,6 +699,17 @@ diz por quê. Publicado o PDF, a caixa entra na regeração seguinte. Medição:
 a variante da caixa) pelo gtag da página. Matéria que já está no ar só ganha a caixa com “Regerar as páginas das
 matérias”. Conferência: `npx tsx scripts/conferir-caixa-de-material.ts`.
 
+**“Conferir envio” e a chave só de envio** (09/11/2026). A `RESEND_API_KEY` de produção é do tipo “só de envio”
+(*Sending access*), o mais seguro para ficar no servidor: envia, e não lista os domínios da conta (o Resend responde
+401 `restricted_api_key` ao `GET /domains`). O diagnóstico da Newsletter (`/api/admin/newsletter-check`) tratava essa
+recusa como “o domínio não está verificado” e acusava um problema que não existia, com o envio funcionando. Agora o
+veredito é um módulo puro, `lib/newsletter/diagnostico.ts`, com uma regra: só afirma o que conferiu. São três
+respostas, com três tons na tela: conferido e certo (`ok`), conferido e errado ou com erro a tratar (`atencao`), e
+não deu para consultar (`neutro`, o da chave só de envio; `dominioVerificado` vai `null`, nunca `false`). Envio
+recusado de verdade não depende desse botão: `chamar()` avisa a administração (§8.5). `?so=formulario` devolve só a
+leitura da home, que é o que o cartão “Formulário do site” pede a cada abertura da tela, sem chamar o Resend.
+Conferência: `npx tsx scripts/conferir-newsletter-diagnostico.ts`.
+
 **Chat.** As páginas usam a versão (`?v=`) que a home usa, lida da home na hora
 (`chat-do-site.ts`); sem ela, saem sem o chat. **Redirecionamentos** 301 de notícias:
 `REDIRECIONAMENTOS_DAS_NOTICIAS` em `cache-do-site.ts` (vazio até alguém preencher).

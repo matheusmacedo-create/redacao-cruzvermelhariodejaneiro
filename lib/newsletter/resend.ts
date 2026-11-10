@@ -1,5 +1,6 @@
 import 'server-only'
 import { motivoDaFalhaDoEmail } from '@/lib/integracoes/alertas-regras'
+import { recusaDeChaveSoDeEnvio, type ListagemDeDominios } from '@/lib/newsletter/diagnostico'
 
 /**
  * O conector do Resend: entregar e-mail.
@@ -233,19 +234,31 @@ export function emLotes<T>(itens: T[], tamanho = TAMANHO_DO_LOTE): T[][] {
   return lotes
 }
 
-/** Diagnóstico: os domínios verificados na conta. Não envia nada. */
-export async function dominiosVerificados(): Promise<{ nome: string; estado: string }[]> {
-  const chave = chaveDoResend()
-  const res = await fetch(`${BASE}/domains`, { headers: { Authorization: `Bearer ${chave}` } })
-  const bruto = await res.text()
-  let dados: unknown = null
-  try { dados = bruto ? JSON.parse(bruto) : null } catch { dados = null }
-  if (!res.ok) {
-    const daApi = (dados as { message?: string })?.message
-    throw new EmailError(semChave(daApi || bruto.trim().slice(0, 300) || 'Não foi possível listar os domínios.'), res.status)
+/**
+ * Diagnóstico: os domínios da conta, ou por que não deu para listar. Não envia nada e nunca lança.
+ *
+ * A chave "só de envio" (Sending access) não lista domínios: o Resend responde 401 "restricted_api_key". Essa
+ * resposta volta com nome próprio, e não como erro, porque ela diz que a chave é válida, e não que o domínio está com
+ * problema (lib/newsletter/diagnostico.ts conta o alarme falso que isso já causou).
+ */
+export async function listarDominios(): Promise<ListagemDeDominios> {
+  try {
+    const chave = chaveDoResend()
+    const res = await fetch(`${BASE}/domains`, { headers: { Authorization: `Bearer ${chave}` }, signal: AbortSignal.timeout(15_000) })
+    const bruto = await res.text()
+    let dados: unknown = null
+    try { dados = bruto ? JSON.parse(bruto) : null } catch { dados = null }
+    if (!res.ok) {
+      if (recusaDeChaveSoDeEnvio(res.status, dados)) return { tipo: 'chave-so-de-envio' }
+      const daApi = (dados as { message?: string } | null)?.message
+      return { tipo: 'erro', mensagem: semChave(daApi || bruto.trim().slice(0, 300) || 'Não foi possível listar os domínios.') }
+    }
+    const lista = (dados as { data?: { name?: string; status?: string }[] } | null)?.data ?? []
+    return { tipo: 'lista', dominios: lista.map((d) => ({ nome: d.name ?? '', estado: d.status ?? '' })) }
+  } catch (causa) {
+    if (causa instanceof Error && causa.name === 'TimeoutError') return { tipo: 'erro', mensagem: 'o Resend não respondeu a tempo.' }
+    return { tipo: 'erro', mensagem: semChave(causa instanceof Error ? causa.message : String(causa)) }
   }
-  const lista = (dados as { data?: { name?: string; status?: string }[] })?.data ?? []
-  return lista.map((d) => ({ nome: d.name ?? '', estado: d.status ?? '' }))
 }
 
 /**
