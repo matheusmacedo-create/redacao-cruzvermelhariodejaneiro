@@ -665,6 +665,17 @@ confira em `/api/admin/ftp-check`.
 o “Ouça esta matéria” abaixo do cabeçalho, com o aviso de voz gerada por IA, os botões de velocidade
 (1×, 1,25×, 1,5×, 2×; `playbackRate`, sem guardar nada no navegador) e o `AudioObject` no JSON-LD. O player manda ao GA4, pelo `gtag` do site (com o modo de consentimento), `audio_play`, `audio_25`, `audio_50`, `audio_75`, `audio_completo` (95%, só tempo tocado; arrastar a barra não conta) e `audio_velocidade`, cada um uma vez por visita (`SCRIPT_DO_OUVIR` em `lib/site/artigo-html.ts`, 06/11/2026); a matéria é a página do evento. A publicação gera; a regeração só reaproveita o que já está no ar.
 
+**Índice de notícias** (`/noticias/`, `lib/site/indice-noticias.ts`, redesenhado em 10/11/2026 a
+partir de um levantamento de primeiras páginas de jornal). `montarEdicao` distribui as matérias, cada
+uma uma vez só: manchete, três chamadas com foto e a coluna “Últimas”; depois um caderno por editoria
+(3 a 5 matérias, a primeira em destaque) e o arquivo “Mais notícias”, em linhas compactas, que o
+botão “Ver mais notícias” abre de dez em dez (todas já estão no HTML; o script só recolhe). O banco
+não guarda editoria: `lib/site/editorias.ts` a lê do título e do endereço, por palavras, e é dela o
+chapéu de cada chamada. Matéria de `MATERIAS_DE_CURSO` não entra na primeira página. Assunto novo
+que caia sempre em “Rio de Janeiro” pede uma palavra a mais nas regras; confira com
+`npx tsx scripts/conferir-indice-noticias.ts`. A página no ar só muda na próxima publicação ou em
+Configurações → site → regerar.
+
 **Datas.** `site_published_at` é a primeira publicação e não muda mais; o
 `dateModified` e o `lastmod` do sitemap são a última edição do texto (`updated_at`,
 nunca antes da publicação). Republicar não mexe em nenhuma das duas — por isso a nova
