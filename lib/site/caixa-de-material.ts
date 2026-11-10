@@ -151,7 +151,7 @@ export const SCRIPT_DA_CAIXA_DE_MATERIAL = `<script>
           var b = f.querySelector('button[type=submit]'), rotulo = b.textContent, d = new FormData(f);
           b.disabled = true; b.textContent = 'Enviando…'; r.removeAttribute('data-erro'); r.textContent = '';
           fetch(f.action, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: d.get('email'), site: d.get('site'), consentimento: d.get('consentimento') === '1', material: d.get('material') }) })
+            body: JSON.stringify({ email: d.get('email'), site: d.get('site'), consentimento: d.get('consentimento') === '1', material: d.get('material'), origem: 'materia' }) })
             .then(function(x){ return x.json().catch(function(){ return {}; }); })
             .then(function(resp){
               if (resp && resp.ok) {

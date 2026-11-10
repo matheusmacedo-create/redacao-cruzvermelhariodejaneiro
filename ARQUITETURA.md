@@ -686,6 +686,14 @@ todas as matérias no ar com o modelo atual, em rodadas de até 40 s que continu
 onde pararam, e no fim o índice e o sitemap. Pula a matéria editada depois da última
 publicação (texto não revisado não vai ao ar sem querer).
 
+**Convites da matéria** (10/11/2026, `lib/site/convites-da-materia.ts`). Toda matéria que não é advertorial termina
+com: (1) um convite do assunto dela, pela editoria (`lib/site/editorias.ts`) — a Escola só em Primeiros socorros,
+Cuidado com idosos e Cursos (achado C7 do Ad Grants: sem preço, depois do texto), ser voluntário em Voluntariado,
+História e Rio, e o guia do kit em Emergências; (2) a caixa “Receba as notícias no seu e-mail”, quando a página não
+tem a caixa do kit — é a inscrição comum da rota, com `origem=materia` e o evento `newsletter_inscrever` no GA4; e
+(3) “Como ajudar” na coluna lateral, com doação e voluntariado em botões. O chapéu da matéria passou a ser a editoria.
+Matéria já no ar só ganha isso ao ser regerada. `npx tsx scripts/conferir-convites-da-materia.ts` confere.
+
 **Caixa da lista do kit** (09/11/2026). Nas matérias listadas em `lib/site/caixa-de-material.ts` (18 na ronda de
 09/11: emergências, Defesa Civil e primeiros socorros em casa; a lista é por endereço, e matéria nova só entra quando
 alguém a acrescenta), a página ganha, depois do texto, a caixa “Receba a lista do kit de emergência no seu e-mail”: o
