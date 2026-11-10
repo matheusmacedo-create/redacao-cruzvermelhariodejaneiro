@@ -84,8 +84,10 @@ ok(primeirosSocorros.includes('Receba a lista do kit de primeiros socorros no se
 const comRota = montarPaginaDoArtigo({ ...base, slug: 'plano-familiar-de-emergencia-no-rio', rotaDeInscricao: 'https://exemplo.org/api/newsletter/inscrever?a=1&b="2"' })
 ok(comRota.includes('action="https://exemplo.org/api/newsletter/inscrever?a=1&amp;b=&quot;2&quot;"'), 'a rota informada entra no formulário, escapada')
 
-ok(!semCaixa.includes('news-material') && !semCaixa.includes('kit_pedir') && !semCaixa.includes('name="material"'), 'matéria fora da lista: nada da caixa, nem estilo, nem script')
-ok(semCaixa === montarPaginaDoArtigo({ ...base, slug: 'lei-do-voluntariado-o-que-diz-a-lei-9608', rotaDeInscricao: 'https://exemplo.org/x' }), 'e a rota informada não muda uma página sem caixa')
+// Desde 10/11/2026 a matéria fora da lista leva a caixa da newsletter (lib/site/convites-da-materia.ts), que usa as
+// mesmas classes; o que ela não pode levar é o pedido do material.
+ok(!semCaixa.includes('class="news-material"') && !semCaixa.includes('data-evento="kit_pedir"') && !semCaixa.includes('name="material"'), 'matéria fora da lista: nada da caixa do kit (sem o material e sem o evento dele)')
+ok(semCaixa.replace(ROTA_DE_INSCRICAO_PADRAO, 'https://exemplo.org/x') === montarPaginaDoArtigo({ ...base, slug: 'lei-do-voluntariado-o-que-diz-a-lei-9608', rotaDeInscricao: 'https://exemplo.org/x' }), 'e a rota informada só muda o destino do formulário da newsletter')
 
 const caixaSolta = htmlDaCaixaDeMaterial({ material: kit, variante: 'emergencia' })
 ok(!/<script/i.test(caixaSolta) && !/\son[a-z]+=/i.test(caixaSolta), 'o HTML da caixa não leva script nem atributo de evento (o script é um bloco só, no fim da página)')
@@ -153,7 +155,7 @@ ok(msg.html !== msgInscrito.html && msg.html.includes('você baixa a lista e con
 
 // ---------------------------------------------------------------- a trava do arquivo
 const semArquivo = montarPaginaDoArtigo({ ...base, slug: 'plano-familiar-de-emergencia-no-rio', semCaixaDeMaterial: true })
-ok(!semArquivo.includes('news-material') && !semArquivo.includes('kit_pedir'), 'com a trava ligada, a matéria da lista sai sem a caixa, sem estilo e sem script')
+ok(!semArquivo.includes('class="news-material"') && !semArquivo.includes('data-evento="kit_pedir"') && !semArquivo.includes('name="material"'), 'com a trava ligada, a matéria da lista sai sem a caixa do kit (fica a da newsletter)')
 
 async function trava() {
   const chamadas: { url: string; metodo?: string }[] = []

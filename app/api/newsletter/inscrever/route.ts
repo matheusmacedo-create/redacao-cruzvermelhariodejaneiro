@@ -83,7 +83,7 @@ const RECADO = 'Quase lá! Enviamos um e-mail para você confirmar a inscrição
  */
 const RECADO_SEM_ENVIO = 'Recebemos seu cadastro! O e-mail de confirmação será enviado assim que nosso envio de newsletter entrar no ar.'
 
-type Campos = { email: unknown; nome: unknown; armadilha: unknown; consentimento: unknown; material: unknown }
+type Campos = { email: unknown; nome: unknown; armadilha: unknown; consentimento: unknown; material: unknown; origem: unknown }
 
 /**
  * Aceita JSON e formulário comum.
@@ -96,7 +96,7 @@ async function lerCampos(request: NextRequest): Promise<Campos> {
   const tipo = request.headers.get('content-type') ?? ''
   if (tipo.includes('application/json')) {
     const corpo = await request.json().catch(() => ({})) as Record<string, unknown>
-    return { email: corpo.email, nome: corpo.nome, armadilha: corpo.site, consentimento: corpo.consentimento, material: corpo.material }
+    return { email: corpo.email, nome: corpo.nome, armadilha: corpo.site, consentimento: corpo.consentimento, material: corpo.material, origem: corpo.origem }
   }
   const form = await request.formData().catch(() => null)
   return {
@@ -105,6 +105,7 @@ async function lerCampos(request: NextRequest): Promise<Campos> {
     armadilha: form?.get('site') ?? undefined,
     consentimento: form?.get('consentimento') ?? undefined,
     material: form?.get('material') ?? undefined,
+    origem: form?.get('origem') ?? undefined,
   }
 }
 
@@ -279,8 +280,9 @@ export async function POST(request: NextRequest) {
     // Quem saiu e voltou tem o registro de saída limpo: o pedido novo é dela,
     // e a confirmação em duas etapas prova que é.
     descadastrado_em: null,
-    // De onde veio: a caixa de material fica no fim das matérias; a inscrição comum, na home.
-    origem: material ? ('materia' as const) : ('home' as const),
+    // De onde veio: a caixa de material e a caixa "Receba as notícias" (lib/site/convites-da-materia.ts, que manda
+    // origem=materia) ficam no fim das matérias; a inscrição comum, na home. Qualquer outro valor conta como home.
+    origem: material || campos.origem === 'materia' ? ('materia' as const) : ('home' as const),
     // O texto que a pessoa leu e aceitou: o do material, quando o pedido veio da caixa dele.
     consentimento_texto: material?.consentimento ?? TEXTO_DO_CONSENTIMENTO,
     consentimento_ip: ip,

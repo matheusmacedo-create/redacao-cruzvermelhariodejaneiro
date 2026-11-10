@@ -7,6 +7,8 @@ import { svgDaMarca } from '@/lib/marcas'
 import { alternativasDaPagina } from '@/lib/site/traducoes'
 import { ehAudioDeNarracao } from '@/lib/voz/regras'
 import { CSS_DA_CAIXA_DE_MATERIAL, SCRIPT_DA_CAIXA_DE_MATERIAL, caixaDaMateria, htmlDaCaixaDeMaterial } from '@/lib/site/caixa-de-material'
+import { CSS_DOS_CONVITES, conviteDaMateria, htmlDaCaixaDeNoticias, htmlDeComoAjudar, htmlDoConvite } from '@/lib/site/convites-da-materia'
+import { editoriaDaMateria } from '@/lib/site/editorias'
 export { escapar } from '@/lib/site/esqueleto'
 
 /**
@@ -432,7 +434,14 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
 
   // A caixa "Receba a lista do kit de emergência no seu e-mail": só nas matérias da lista (caixa-de-material.ts).
   const caixa = dados.semCaixaDeMaterial ? null : caixaDaMateria(dados.slug)
-  const htmlDaCaixa = caixa ? htmlDaCaixaDeMaterial(caixa, dados.rotaDeInscricao?.trim() || undefined) : ''
+  const rotaDeInscricao = dados.rotaDeInscricao?.trim() || undefined
+  // Os convites do fim da leitura (lib/site/convites-da-materia.ts): o do assunto da matéria e, sem a caixa do kit,
+  // a caixa da newsletter. Advertorial sai sem nenhum: ali o clique é o do botão de matrícula.
+  const editoria = editoriaDaMateria(titulo, dados.slug)
+  const advertorial = Boolean(dados.rastreio)
+  const convite = advertorial ? null : conviteDaMateria(editoria, Boolean(caixa))
+  const caixaDeNoticias = !advertorial && !caixa
+  const htmlDaCaixa = `${convite ? htmlDoConvite(convite) : ''}${caixa ? htmlDaCaixaDeMaterial(caixa, rotaDeInscricao) : caixaDeNoticias ? htmlDaCaixaDeNoticias(editoria, rotaDeInscricao) : ''}`
 
   const organizacao = noDaOrganizacao()
   const jsonLd = {
@@ -476,7 +485,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
   }).format(publicadoEm).replace(/\. de /g, ' ').replace('.', '').toUpperCase()
   // Advertorial da escola sai identificado como divulgação de curso (promessa
   // da página "Como produzimos nosso conteúdo").
-  const kicker = dados.kicker?.trim() || (dados.rastreio ? 'Divulgação de curso' : 'Notícias')
+  const kicker = dados.kicker?.trim() || (dados.rastreio ? 'Divulgação de curso' : editoria.nome)
 
   // Os ícones de share saem das marcas oficiais embutidas (é o que garante o
   // X no lugar do pássaro, sem depender de biblioteca de ícones).
@@ -517,7 +526,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
             <li>A filial forma os próprios voluntários, na sede, no Centro do Rio.</li>
           </ul>
         </section>
-        <p class="rail-cta"><a href="/voluntariado/">Seja voluntário no Rio →</a><br><a href="/doe/">Doe para a filial →</a></p>
+        ${htmlDeComoAjudar()}
       </aside>`
 
   const maisNoticias = daFaixa.length
@@ -525,7 +534,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
         <h2>Mais notícias</h2>
         <div class="cartoes">
           ${daFaixa.map((n) => `<a href="${hrefDaIrma(n.url)}">
-            <span class="kicker">Notícias</span>
+            <span class="kicker">${escapar(editoriaDaMateria(n.titulo, n.url).nome)}</span>
             <span class="t">${escapar(n.titulo)}</span>
             <time datetime="${n.publicadaEm.toISOString()}">${escapar(formatoCurto(n.publicadaEm))}</time>
           </a>`).join('\n          ')}
@@ -559,7 +568,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
       ${maisNoticias}
     </div>`
 
-  const scripts = `${dados.rastreio ? `${blocoDeRastreio(dados.rastreio)}\n    ` : ''}${audioDaMateria ? `${SCRIPT_DO_OUVIR}\n    ` : ''}${caixa ? `${SCRIPT_DA_CAIXA_DE_MATERIAL}\n    ` : ''}<script>
+  const scripts = `${dados.rastreio ? `${blocoDeRastreio(dados.rastreio)}\n    ` : ''}${audioDaMateria ? `${SCRIPT_DO_OUVIR}\n    ` : ''}${caixa || caixaDeNoticias ? `${SCRIPT_DA_CAIXA_DE_MATERIAL}\n    ` : ''}<script>
       document.querySelector('.copiar-link')?.addEventListener('click', async function() {
         try { await navigator.clipboard.writeText(this.dataset.url); } catch { return; }
         this.classList.add('copiado');
@@ -575,7 +584,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
     caminho: `${canonica.slice(origem.length)}`,
     origem,
     corpo,
-    cssExtra: `${dados.rastreio ? CSS_DO_BOTAO : ''}${audioDaMateria ? CSS_DO_OUVIR : ''}${caixa ? CSS_DA_CAIXA_DE_MATERIAL : ''}`,
+    cssExtra: `${dados.rastreio ? CSS_DO_BOTAO : ''}${audioDaMateria ? CSS_DO_OUVIR : ''}${caixa || caixaDeNoticias ? CSS_DA_CAIXA_DE_MATERIAL : ''}${CSS_DOS_CONVITES}`,
     jsonLd,
     ...(alternativas ? { alternativas } : {}),
     ativo: 'noticias',
