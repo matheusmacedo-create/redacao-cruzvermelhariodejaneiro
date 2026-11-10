@@ -102,12 +102,21 @@ body{background:var(--news-paper)}
 /* O cabeçalho do jornal: linha de data, o nome centrado e o filete duplo. */
 .jornal-topo{text-align:center;padding-top:14px}
 .jornal-data{display:flex;justify-content:space-between;gap:6px 16px;flex-wrap:wrap;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);border-top:3px solid var(--brand);border-bottom:1px solid var(--news-line);padding:10px 0}
-.jornal-topo h1{font-family:var(--serif);font-weight:800;font-size:clamp(44px,8vw,76px);letter-spacing:-.03em;line-height:1;margin:22px 0 8px;color:var(--news-ink)}
+/* O brasão: a cruz da marca entre dois filetes, e o nome da filial sobre o título.
+   A cruz sai como no logotipo — vermelha, sobre branco, sem enfeite. */
+.jornal-brasao{display:flex;align-items:center;gap:18px;margin:26px 0 14px}
+.jornal-brasao::before,.jornal-brasao::after{content:'';flex:1;height:5px;border-top:1px solid var(--news-ink);border-bottom:1px solid var(--news-ink)}
+.jornal-brasao svg{width:44px;height:44px;flex:none;display:block}
+.jornal-casa{font-size:13px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--news-ink);margin:0}
+.jornal-casa b{color:var(--brand);font-weight:700}
+.jornal-topo h1{font-family:var(--serif);font-weight:800;font-size:clamp(52px,9vw,92px);letter-spacing:-.035em;line-height:1;margin:6px 0 10px;color:var(--news-ink)}
 .jornal-topo .lema{font-family:var(--serif);font-style:italic;color:var(--news-muted);margin:0 0 20px;font-size:17px;line-height:1.4}
 .cadernos-nav{border-top:1px solid var(--news-ink);border-bottom:3px double var(--news-ink)}
-.cadernos-nav ul{list-style:none;margin:0;padding:0 4px;display:flex;flex-wrap:wrap;justify-content:center;gap:0 26px}
+.cadernos-nav ul{list-style:none;margin:0 auto;padding:0 4px;display:flex;width:max-content;max-width:100%;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .cadernos-nav ul::-webkit-scrollbar{display:none}
-.cadernos-nav a{display:flex;align-items:center;min-height:46px;white-space:nowrap;font-size:14px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--news-ink)}
+.cadernos-nav li{display:flex;align-items:center;flex:none}
+.cadernos-nav li+li::before{content:'';width:5px;height:5px;background:var(--brand);margin:0 11px}
+.cadernos-nav a{display:flex;align-items:center;min-height:48px;white-space:nowrap;font-size:13px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--news-ink)}
 .cadernos-nav a:hover{color:var(--brand)}
 
 /* A primeira página: manchete e chamadas à esquerda, "Últimas" na coluna da direita. */
@@ -176,7 +185,14 @@ body{background:var(--news-paper)}
   .jornal-data{justify-content:center}
   .jornal-data span:not(.quando){display:none}
   .cadernos-nav{margin:0 -20px}
-  .cadernos-nav ul{flex-wrap:nowrap;justify-content:flex-start;padding:0 20px;gap:0 22px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .cadernos-nav ul{padding:0 20px}
+  .cadernos-nav a{font-size:14px;letter-spacing:.04em}
+  .cadernos-nav li+li::before{margin:0 14px}
+  .jornal-brasao{margin:20px 0 12px;gap:14px}
+  .jornal-brasao svg{width:38px;height:38px}
+  .jornal-casa{font-size:13px;letter-spacing:.12em}
+  .jornal-casa b{display:block;margin-top:2px}
+  .jornal-casa i{display:none}
   .capa{display:block;padding-top:22px}
   .manchete h2{margin-bottom:14px}
   .manchete .miolo{grid-template-columns:1fr;gap:14px}
@@ -489,8 +505,10 @@ export function paginaDeNoticias(
   const corpo = `<main class="jornal">
       <header class="jornal-topo">
         ${manchete ? `<p class="jornal-data"><span>Rio de Janeiro</span><span class="quando">Atualizado em ${dataLegivel(manchete.publicadaEm)}</span><span>${ordenadas.length} matérias</span></p>` : ''}
+        <div class="jornal-brasao" aria-hidden="true"><svg viewBox="0 0 48 48"><path fill="#ed1b2e" d="M16 0h16v16h16v16H32v16H16V32H0V16h16z"/></svg></div>
+        <p class="jornal-casa">Cruz Vermelha Brasileira <i>·</i> <b>Rio de Janeiro</b></p>
         <h1>Notícias</h1>
-        <p class="lema">O trabalho da ${NOME_DO_SITE}, contado por quem o faz.</p>
+        <p class="lema">O nosso trabalho no estado do Rio, contado por quem o faz.</p>
         ${barra}
       </header>
       ${miolo}
