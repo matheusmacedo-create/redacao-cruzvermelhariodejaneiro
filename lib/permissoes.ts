@@ -72,6 +72,7 @@ export const PERMISSOES = {
   'site.configurar': { grupo: 'Site e publicação', rotulo: 'Alterar páginas do site, analytics e formulário da newsletter', papeis: ['admin'] },
   'site.republicar': { grupo: 'Site e publicação', rotulo: 'Republicar matérias no site', papeis: ['admin', 'editor'] },
   'imprensa.campanhas': { grupo: 'Site e publicação', rotulo: 'Criar e disparar campanhas de imprensa', papeis: ['admin', 'editor'] },
+  'imprensa.organizar': { grupo: 'Site e publicação', rotulo: 'Juntar e apagar veículos de imprensa e apagar listas de outras pessoas', papeis: ['admin', 'editor'] },
   'newsletter.apagar': { grupo: 'Site e publicação', rotulo: 'Apagar edições e inscritos da newsletter', papeis: ['admin'] },
   'newsletter.exportar': { grupo: 'Site e publicação', rotulo: 'Baixar a lista de inscritos da newsletter (CSV com o consentimento)', papeis: ['admin', 'editor'] },
   'biblioteca.liberar_terceiros': { grupo: 'Site e publicação', rotulo: 'Liberar mídia de terceiros para publicação', papeis: ['admin'] },

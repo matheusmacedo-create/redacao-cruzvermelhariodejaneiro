@@ -12,3 +12,9 @@ export const inputClass = 'w-full rounded-lg border border-border bg-background 
 
 /** O mesmo campo, com a largura do conteúdo — para selects numa linha de filtros. */
 export const selectClass = inputClass.replace('w-full ', 'w-auto ')
+
+/**
+ * O campo das telas pensadas primeiro para o celular: 44 px de altura e letra
+ * de 16 px (com letra menor, o iPhone amplia a página ao tocar no campo).
+ */
+export const campoClass = `min-h-11 ${inputClass.replace('text-sm', 'text-base sm:text-sm')}`

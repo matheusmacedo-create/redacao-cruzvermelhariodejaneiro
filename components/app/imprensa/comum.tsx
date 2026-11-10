@@ -10,7 +10,7 @@ import { motivoDeFora, naoLe } from '@/lib/imprensa/campanha'
 /** Peças comuns às abas de Contatos e de Campanhas. */
 
 // As classes dos campos moram em ./campos (sem 'use client'), para a página do servidor poder usá-las.
-export { inputClass, selectClass } from './campos'
+export { campoClass, inputClass, selectClass } from './campos'
 
 export const quandoLegivel = new Intl.DateTimeFormat('pt-BR', {
   day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
@@ -30,8 +30,8 @@ export const SEGMENTOS = [
 
 export type Segmento = (typeof SEGMENTOS)[number]['id']
 
-export function noSegmento(c: ContatoDeImprensa, segmento: Segmento, lista: string): boolean {
-  if (lista !== 'todas' && !c.tags.includes(lista)) return false
+export function noSegmento(c: ContatoDeImprensa, segmento: Segmento, etiqueta: string): boolean {
+  if (etiqueta !== 'todas' && !c.tags.includes(etiqueta)) return false
   if (segmento === 'engajados') return c.totalAberturas > 0 && c.enviosSemAbertura === 0
   if (segmento === 'le') return c.totalAberturas > 0
   if (segmento === 'nunca') return c.totalEnvios === 0

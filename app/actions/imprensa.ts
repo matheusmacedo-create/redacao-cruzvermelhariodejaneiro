@@ -22,6 +22,10 @@ import {
   urlDeSaidaEmUmCliqueDoContato, urlDoPixel,
 } from '@/lib/imprensa/fila'
 import { comoEtiqueta, extrairEmail, LOTE_DE_IMPORTACAO } from '@/lib/imprensa/importacao'
+import {
+  baseLegalDaOrigem, comoCanal, comoTipoDeContato, comoTipoDeVeiculo, lerEditorias, lerPraca, limparNome,
+  type BaseLegal, type Canal, type TipoDeContato,
+} from '@/lib/imprensa/vocabulario'
 
 /** Divide ids para filtros `in`: a lista vai na URL, e URL tem limite. */
 function emPedacos<T>(itens: T[], tamanho = 200): T[][] {
@@ -80,10 +84,42 @@ export type ContatoDeImprensa = {
   enviosSemAbertura: number
   totalEnvios: number
   totalAberturas: number
+  /** O veículo do cadastro (press_veiculos). O banco o acha, ou cria, pelo texto de `veiculo`. */
+  veiculoId: string | null
+  editorias: string[]
+  /** Vazia: vale a praça do veículo. */
+  praca: string
+  tipoDeContato: TipoDeContato
+  canalPreferido: Canal
+  /** Só quando é outro número, diferente do telefone. */
+  whatsapp: string
+  origemDoDado: string
+  baseLegal: BaseLegal
 }
 
 function lerTags(bruto: string): string[] {
   return bruto.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean).slice(0, 10)
+}
+
+/**
+ * Os campos da fase 1 que o formulário mandou. Só entra o que veio: um
+ * formulário que não conhece o campo não o apaga do contato.
+ */
+function camposDoCadastro(formData: FormData) {
+  const campos: {
+    editorias?: string[]; praca?: string; tipo_de_contato?: TipoDeContato; canal_preferido?: Canal
+    whatsapp?: string; origem_do_dado?: string; base_legal?: BaseLegal
+  } = {}
+  if (formData.has('editorias')) campos.editorias = lerEditorias(texto(formData, 'editorias'))
+  if (formData.has('praca')) campos.praca = lerPraca(texto(formData, 'praca'))
+  if (formData.has('tipoDeContato')) campos.tipo_de_contato = comoTipoDeContato(texto(formData, 'tipoDeContato'))
+  if (formData.has('canalPreferido')) campos.canal_preferido = comoCanal(texto(formData, 'canalPreferido'))
+  if (formData.has('whatsapp')) campos.whatsapp = texto(formData, 'whatsapp').slice(0, 60)
+  if (formData.has('origemDoDado')) {
+    campos.origem_do_dado = texto(formData, 'origemDoDado').slice(0, 200)
+    campos.base_legal = baseLegalDaOrigem(campos.origem_do_dado)
+  }
+  return campos
 }
 
 /** Cadastro manual — quando o contato já se conhece e não precisa de busca. */
@@ -100,7 +136,8 @@ export async function criarContatoManual(formData: FormData): Promise<{ erro?: s
     const { data, error } = await supabase.from('press_contacts').insert({
       workspace_id: context.workspace.id,
       nome,
-      veiculo: texto(formData, 'veiculo'),
+      // O banco acha o veículo por este texto, ou cria (gatilho press_contacts_liga_veiculo).
+      veiculo: limparNome(texto(formData, 'veiculo')),
       cargo: texto(formData, 'cargo'),
       dominio: texto(formData, 'dominio').toLowerCase(),
       email: email || null,
@@ -109,6 +146,7 @@ export async function criarContatoManual(formData: FormData): Promise<{ erro?: s
       notas: texto(formData, 'notas'),
       fonte: 'manual',
       created_by: context.user.id,
+      ...camposDoCadastro(formData),
     }).select('id').single()
 
     if (error) {
@@ -133,15 +171,22 @@ export async function atualizarContato(formData: FormData): Promise<{ erro?: str
     const email = texto(formData, 'email')
     if (email && !email.includes('@')) throw new Error('O e-mail informado não parece válido.')
 
+    // O veículo só entra na gravação quando a pessoa mexeu nele. O formulário pode ter sido
+    // aberto antes de alguém juntar ou renomear o veículo: mandar o texto antigo de volta
+    // faria o banco recriar o veículo que acabou de sumir e desfazer a junção deste contato.
+    const veiculo = limparNome(texto(formData, 'veiculo'))
+    const veiculoMudou = !formData.has('veiculoAnterior') || limparNome(texto(formData, 'veiculoAnterior')) !== veiculo
+
     const { error } = await supabase.from('press_contacts').update({
       nome: texto(formData, 'nome'),
-      veiculo: texto(formData, 'veiculo'),
+      ...(veiculoMudou ? { veiculo } : {}),
       cargo: texto(formData, 'cargo'),
       dominio: texto(formData, 'dominio').toLowerCase(),
       email: email || null,
       telefone: texto(formData, 'telefone'),
       tags: lerTags(texto(formData, 'tags')),
       notas: texto(formData, 'notas'),
+      ...camposDoCadastro(formData),
     }).eq('id', id).eq('workspace_id', context.workspace.id)
 
     if (error) {
@@ -150,6 +195,7 @@ export async function atualizarContato(formData: FormData): Promise<{ erro?: str
     }
 
     revalidatePath('/imprensa')
+    revalidatePath(`/imprensa/contatos/${id}`)
     return {}
   } catch (causa) {
     return comoErro(causa, 'Não foi possível salvar as alterações.')
@@ -235,7 +281,8 @@ export async function adicionarContatosDaBusca(formData: FormData): Promise<{ er
   try {
     const context = await requireWorkspace()
     const supabase = await createClient()
-    const dominio = texto(formData, 'dominio').toLowerCase()
+    // O campo chega como foi digitado; a busca usou o domínio limpo, e é ele que fica gravado.
+    const dominio = texto(formData, 'dominio').toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
     const veiculo = texto(formData, 'veiculo')
 
     let candidatos: CandidatoDeContato[]
@@ -248,10 +295,11 @@ export async function adicionarContatosDaBusca(formData: FormData): Promise<{ er
 
     let adicionados = 0
     let repetidos = 0
+    let veiculoId: string | null = null
     for (const c of candidatos.slice(0, 50)) {
       const email = typeof c.email === 'string' ? c.email.trim() : ''
       if (!email || !email.includes('@')) continue
-      const { error } = await supabase.from('press_contacts').insert({
+      const { data: gravado, error } = await supabase.from('press_contacts').insert({
         workspace_id: context.workspace.id,
         nome: [c.nome, c.sobrenome].filter(Boolean).join(' ').trim(),
         veiculo,
@@ -262,13 +310,21 @@ export async function adicionarContatosDaBusca(formData: FormData): Promise<{ er
         confianca: typeof c.confianca === 'number' ? Math.round(c.confianca) : null,
         verificado_em: c.status ? new Date().toISOString() : null,
         fonte: 'hunter_dominio',
+        origem_do_dado: 'Hunter.io',
         created_by: context.user.id,
-      })
+      }).select('veiculo_id').single()
       if (error) { if (error.code === '23505') repetidos++; continue }
+      veiculoId = veiculoId ?? gravado?.veiculo_id ?? null
       adicionados++
     }
 
     if (!adicionados) throw new Error(repetidos ? 'Todos os contatos selecionados já estavam cadastrados.' : 'Não foi possível salvar os contatos.')
+
+    // A busca foi pelo domínio do veículo: o cadastro dele guarda esse domínio, se ainda não tinha um.
+    if (veiculoId && dominio) {
+      await createAdminClient().from('press_veiculos').update({ dominio: dominio.slice(0, 200) })
+        .eq('id', veiculoId).eq('workspace_id', context.workspace.id).eq('dominio', '')
+    }
 
     revalidatePath('/imprensa')
     return { adicionados, repetidos }
@@ -311,6 +367,7 @@ export async function encontrarEEcadastrarContato(formData: FormData): Promise<{
       telefone: texto(formData, 'telefone'),
       notas: texto(formData, 'notas'),
       fonte: 'hunter_email_finder',
+      origem_do_dado: 'Hunter.io',
       created_by: context.user.id,
     }).select('id').single()
 
@@ -516,6 +573,9 @@ export async function enviarCampanha(formData: FormData): Promise<{ erro?: strin
 
     const admin = createAdminClient()
     const workspaceId = context.workspace.id
+    // A lista é só o registro de para quem a campanha saiu: os destinatários
+    // são os ids, que a tela resolveu e o banco confere um a um.
+    const listaId = /^[0-9a-f-]{36}$/i.test(texto(formData, 'listaId')) ? texto(formData, 'listaId') : null
 
     const { data: entrada, error: erroDaFila } = await admin.rpc('enfileirar_campanha', {
       p_workspace_id: workspaceId,
@@ -540,6 +600,9 @@ export async function enviarCampanha(formData: FormData): Promise<{ erro?: strin
     const campanhaId = linha.id_da_campanha
     const total = Number(linha.total) || 0
     const deFora = ids.length - total
+    // Lista de outro espaço ou já apagada: a chave estrangeira recusa, e a
+    // campanha segue sem o registro. Rascunho reenviado troca a lista antiga.
+    await admin.from('press_campanhas').update({ lista_id: listaId }).eq('id', campanhaId).eq('workspace_id', workspaceId)
     const foraTexto = deFora > 0 ? ` ${deFora} ficaram de fora (sem e-mail, inválidos ou devolvidos, ou saíram da lista).` : ''
 
     await admin.from('activity_log').insert({
@@ -712,9 +775,11 @@ export async function destinatariosDaCampanha(formData: FormData): Promise<{ err
 
 /**
  * Importa um lote de contatos de uma planilha (lida no navegador). A etiqueta
- * marca de qual lista vieram — é o que permite, depois, segmentar por origem.
- * Não duplica e-mail; quem já existe ganha a etiqueta nova; quem saiu da lista
- * continua fora (a função do banco não toca nisso).
+ * marca de qual planilha vieram. O tipo de contato e a origem do dado valem
+ * para a planilha inteira; editoria, praça e tipo de veículo vêm de cada linha.
+ * Não duplica e-mail; quem já existe ganha a etiqueta nova e só tem
+ * preenchido o que estava vazio; quem saiu da lista continua fora (a função
+ * do banco não toca nisso).
  */
 export async function importarContatos(formData: FormData): Promise<{ erro?: string; inseridos?: number; atualizados?: number; recusados?: number }> {
   try {
@@ -725,26 +790,38 @@ export async function importarContatos(formData: FormData): Promise<{ erro?: str
     if (!Array.isArray(linhas) || !linhas.length) throw new Error('Nenhum contato para importar.')
     if (linhas.length > LOTE_DE_IMPORTACAO) throw new Error(`No máximo ${LOTE_DE_IMPORTACAO} contatos por lote.`)
 
+    const tipoDeContato = comoTipoDeContato(texto(formData, 'tipoDeContato'))
+    const origem = texto(formData, 'origemDoDado').slice(0, 200)
+    // A tela já não deixa importar sem a origem; o servidor confere de novo.
+    if (!origem) throw new Error('Diga de onde veio a planilha antes de importar.')
+    const baseLegal = baseLegalDaOrigem(origem)
+
     const campo = (l: Record<string, unknown>, k: string) => (typeof l[k] === 'string' ? (l[k] as string).trim().slice(0, 200) : '')
     const limpas = linhas
       .filter((l): l is Record<string, unknown> => typeof l === 'object' && l !== null)
       .map((l) => ({
         email: extrairEmail(campo(l, 'email')),
         nome: campo(l, 'nome'),
-        veiculo: campo(l, 'veiculo'),
+        veiculo: limparNome(campo(l, 'veiculo')),
         cargo: campo(l, 'cargo'),
         telefone: campo(l, 'telefone').slice(0, 60),
+        praca: lerPraca(campo(l, 'praca')),
+        editorias: lerEditorias(Array.isArray(l.editorias) ? l.editorias.filter((e): e is string => typeof e === 'string') : []),
+        tipo_de_veiculo: comoTipoDeVeiculo(l.tipoDeVeiculo),
       }))
       .filter((l) => l.email)
     const recusados = linhas.length - limpas.length
     if (!limpas.length) throw new Error('Nenhum e-mail válido neste lote.')
 
     const admin = createAdminClient()
-    const { data, error } = await admin.rpc('importar_contatos', {
+    const { data, error } = await admin.rpc('importar_contatos_de_imprensa', {
       p_workspace_id: context.workspace.id,
       p_autor: context.user.id,
       p_linhas: limpas,
       p_tags: etiqueta ? [etiqueta] : [],
+      p_tipo_de_contato: tipoDeContato,
+      p_origem: origem,
+      p_base_legal: baseLegal,
     })
     if (error) throw new Error('Não foi possível gravar os contatos.')
     const linha = (Array.isArray(data) ? data[0] : data) as { inseridos?: number; atualizados?: number } | null
@@ -756,7 +833,7 @@ export async function importarContatos(formData: FormData): Promise<{ erro?: str
       actor_id: context.user.id,
       action: 'contatos_importados',
       entity_type: 'press_contacts',
-      metadata: { etiqueta, inseridos, atualizados, recusados },
+      metadata: { etiqueta, tipoDeContato, origem, baseLegal, inseridos, atualizados, recusados },
     })
 
     revalidatePath('/imprensa')

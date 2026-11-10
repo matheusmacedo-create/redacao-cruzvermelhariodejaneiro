@@ -8,6 +8,8 @@ import { PainelDeImprensa } from '@/components/app/imprensa/painel'
 import type { CampanhaNaTela } from '@/components/app/imprensa/campanhas'
 import type { ContatoDeImprensa } from '@/app/actions/imprensa'
 import { tituloDaArea } from '@/lib/navegacao'
+import { todasAsLinhas } from '@/lib/supabase/paginar'
+import { COLUNAS_DA_LISTA, COLUNAS_DO_CONTATO, COLUNAS_DO_VEICULO, comoContato, comoLista, comoVeiculo } from '@/lib/imprensa/leitura'
 
 export const metadata = { title: tituloDaArea('/imprensa') }
 
@@ -19,67 +21,50 @@ export const maxDuration = 60
 
 const TETO_NA_TELA = 20000
 
+/** As colunas vêm de uma lista montada em lib/imprensa/leitura.ts: a API não sabe o tipo da linha, e a conversão confere campo a campo. */
+type Linha = Record<string, unknown>
+
 /**
- * Imprensa: o banco de contatos (jornalistas, veículos e qualquer contato
- * relevante), com busca e verificação pela Hunter.io, disparo de campanhas e
- * o histórico de tudo o que saiu — visível a toda a equipe.
+ * Imprensa: o banco de contatos (jornalistas e qualquer contato relevante), o
+ * cadastro dos veículos, as listas salvas, a busca e verificação pela
+ * Hunter.io, o disparo de campanhas e o histórico de tudo o que saiu, visível
+ * a toda a equipe.
  */
 export default async function ImprensaPage() {
   const context = await requireWorkspace()
   const supabase = await createClient()
 
-  const COLUNAS = 'id,nome,veiculo,cargo,dominio,email,email_status,confianca,telefone,tags,notas,fonte,verificado_em,created_by,updated_at,descadastrado_em,devolvido_em,motivo_da_devolucao,ultimo_envio_em,ultima_abertura_em,envios_sem_abertura,total_envios,total_aberturas'
+  const workspaceId = context.workspace.id
   // A API do banco devolve no máximo 1000 linhas por pedido: com listas
   // importadas, o banco passa disso, e o resto sumiria da tela em silêncio.
-  async function todosOsContatos() {
-    const linhas = []
-    for (let de = 0; de < TETO_NA_TELA; de += 1000) {
-      const { data } = await supabase.from('press_contacts').select(COLUNAS)
-        .eq('workspace_id', context.workspace.id)
-        .order('created_at', { ascending: false }).order('id')
-        .range(de, de + 999)
-      linhas.push(...(data ?? []))
-      if (!data || data.length < 1000) break
-    }
-    return linhas
-  }
-
-  const [data, { data: campanhas }, chaveHunter] = await Promise.all([
-    todosOsContatos(),
+  const [{ data }, { data: linhasDeVeiculos }, { data: linhasDeListas }, { data: linhasDeMembros }, { data: campanhas }, chaveHunter] = await Promise.all([
+    todasAsLinhas<Linha>((de, ate) => supabase.from('press_contacts').select(COLUNAS_DO_CONTATO)
+      .eq('workspace_id', workspaceId)
+      .order('created_at', { ascending: false }).order('id')
+      .range(de, ate).overrideTypes<Linha[], { merge: false }>(), TETO_NA_TELA),
+    todasAsLinhas<Linha>((de, ate) => supabase.from('press_veiculos').select(COLUNAS_DO_VEICULO)
+      .eq('workspace_id', workspaceId).order('nome').order('id')
+      .range(de, ate).overrideTypes<Linha[], { merge: false }>(), TETO_NA_TELA),
+    supabase.from('press_listas').select(COLUNAS_DA_LISTA).eq('workspace_id', workspaceId).order('nome').limit(500).overrideTypes<Linha[], { merge: false }>(),
+    todasAsLinhas<{ lista_id: string; contato_id: string }>((de, ate) => supabase.from('press_lista_contatos').select('lista_id,contato_id')
+      .eq('workspace_id', workspaceId).order('lista_id').order('contato_id')
+      .range(de, ate)),
     supabase
       .from('press_campanhas')
-      .select('id,assunto,corpo,link_url,link_rotulo,estado,total_destinatarios,total_enviados,total_falhas,total_aberturas,total_aberturas_brutas,total_cliques,total_cliques_brutos,total_descadastros,total_devolucoes,total_denuncias,agendada_para,created_at,enviada_em,enviada_por,profiles:enviada_por(full_name,username)')
-      .eq('workspace_id', context.workspace.id)
+      .select('id,assunto,corpo,link_url,link_rotulo,estado,total_destinatarios,total_enviados,total_falhas,total_aberturas,total_aberturas_brutas,total_cliques,total_cliques_brutos,total_descadastros,total_devolucoes,total_denuncias,agendada_para,created_at,enviada_em,enviada_por,lista_id,profiles:enviada_por(full_name,username)')
+      .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false })
       .limit(500),
-    obterChave(context.workspace.id, 'hunter'),
+    obterChave(workspaceId, 'hunter'),
   ])
 
-  const contatos: ContatoDeImprensa[] = data.map((c) => ({
-    id: c.id,
-    nome: c.nome,
-    veiculo: c.veiculo,
-    cargo: c.cargo,
-    dominio: c.dominio,
-    email: c.email,
-    emailStatus: c.email_status,
-    confianca: c.confianca,
-    telefone: c.telefone,
-    tags: c.tags ?? [],
-    notas: c.notas,
-    fonte: c.fonte,
-    verificadoEm: c.verificado_em,
-    criadoPor: c.created_by,
-    atualizadoEm: c.updated_at,
-    descadastradoEm: c.descadastrado_em,
-    devolvidoEm: c.devolvido_em,
-    motivoDaDevolucao: c.motivo_da_devolucao ?? '',
-    ultimoEnvioEm: c.ultimo_envio_em,
-    ultimaAberturaEm: c.ultima_abertura_em,
-    enviosSemAbertura: c.envios_sem_abertura ?? 0,
-    totalEnvios: c.total_envios ?? 0,
-    totalAberturas: c.total_aberturas ?? 0,
-  }))
+  const contatos: ContatoDeImprensa[] = data.map(comoContato)
+  const veiculos = linhasDeVeiculos.map(comoVeiculo)
+  const listas = (linhasDeListas ?? []).map(comoLista)
+  // Quem está em cada lista fixa: { idDaLista: [idDoContato, …] }.
+  const membros: Record<string, string[]> = {}
+  for (const m of linhasDeMembros) (membros[m.lista_id] ??= []).push(m.contato_id)
+  const nomeDaLista = new Map(listas.map((l) => [l.id, l.nome]))
 
   // A campanha em envio ainda não tem os totais (eles fecham no fim): o
   // andamento vem da contagem das linhas já enviadas. São raras ao mesmo tempo.
@@ -111,6 +96,7 @@ export default async function ImprensaPage() {
       devolucoes: c.total_devolucoes ?? 0,
       denuncias: c.total_denuncias ?? 0,
       agendadaPara: c.agendada_para,
+      lista: (c.lista_id && nomeDaLista.get(c.lista_id)) || '',
       jaSairam: jaSairam.get(c.id) ?? null,
       criadaEm: c.created_at,
       enviadaEm: c.enviada_em,
@@ -129,15 +115,20 @@ export default async function ImprensaPage() {
     <div>
       <PageHeader
         title="Imprensa e contatos"
-        description="Banco de contatos — imprensa e todo contato relevante. Encontre e verifique pela Hunter.io, envie ou agende campanhas e acompanhe quem lê."
+        description="Contatos, veículos e listas da imprensa e de todo contato relevante. Encontre e verifique pela Hunter.io, envie ou agende campanhas e acompanhe quem lê."
       />
       <PainelDeImprensa
         contatos={contatos}
+        veiculos={veiculos}
+        listas={listas}
+        membros={membros}
         campanhas={historico}
         envioNoMes={{ enviados: enviadosNoMes, limite: limiteMensal }}
         hunterDisponivel={Boolean(chaveHunter)}
         envioDisponivel={emailConfigurado()}
         podeDisparar={pode(context.role, 'imprensa.campanhas')}
+        podeOrganizar={pode(context.role, 'imprensa.organizar')}
+        usuarioId={context.user.id}
         ehAdmin={context.role === 'admin'}
       />
     </div>

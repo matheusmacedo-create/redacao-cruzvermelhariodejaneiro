@@ -6,6 +6,7 @@
  * nomes de coluna. Aqui tudo vira a mesma forma. Roda no navegador (a
  * planilha não precisa subir inteira para o servidor) e é testável sem rede.
  */
+import { lerEditorias, lerPraca, tipoDeVeiculoDaPlanilha, type TipoDeVeiculo } from './vocabulario'
 
 export type ContatoImportado = {
   email: string
@@ -13,9 +14,17 @@ export type ContatoImportado = {
   veiculo: string
   cargo: string
   telefone: string
+  /** Já na grafia do banco (lib/imprensa/vocabulario.ts). */
+  praca: string
+  editorias: string[]
+  /** '' quando a planilha não diz, ou diz de um jeito que não dá para entender. */
+  tipoDeVeiculo: TipoDeVeiculo
 }
 
 export type Campo = keyof ContatoImportado
+
+const CAMPOS: Campo[] = ['email', 'nome', 'veiculo', 'cargo', 'telefone', 'praca', 'editorias', 'tipoDeVeiculo']
+const SEM_COLUNAS: Record<Campo, number> = { email: -1, nome: -1, veiculo: -1, cargo: -1, telefone: -1, praca: -1, editorias: -1, tipoDeVeiculo: -1 }
 
 /** Linhas de uma importação por chamada ao servidor. */
 export const LOTE_DE_IMPORTACAO = 1000
@@ -64,13 +73,20 @@ const SINONIMOS: Record<Campo, string[]> = {
   veiculo: ['veiculo', 'organizacao', 'organization', 'empresa', 'company', 'instituicao', 'orgao', 'midia', 'jornal', 'organization 1 name', 'company name'],
   cargo: ['cargo', 'funcao', 'title', 'job title', 'position', 'posicao', 'organization 1 title'],
   telefone: ['telefone', 'phone', 'celular', 'whatsapp', 'tel', 'mobile', 'phone 1 value', 'mobile phone', 'fone'],
+  praca: ['praca', 'cidade', 'city', 'municipio', 'regiao', 'localidade', 'cidade uf', 'cidade estado'],
+  editorias: ['editoria', 'editorias', 'area de cobertura', 'cobertura', 'temas', 'assuntos', 'secao'],
+  tipoDeVeiculo: ['tipo de veiculo', 'tipo do veiculo', 'tipo de midia', 'tipo de meio', 'tipo', 'meio', 'categoria', 'plataforma'],
 }
+
+// Palavras curtas e genéricas só valem como o nome inteiro da coluna: "Tipo de
+// contato" não é o tipo do veículo, e "Meio ambiente" não é o meio.
+const SO_O_NOME_INTEIRO = new Set(['tipo', 'meio', 'categoria', 'temas', 'assuntos', 'secao', 'cobertura'])
 
 /** Qual coluna é o quê, pelo nome do cabeçalho. -1 quando não achou. */
 export function mapearColunas(cabecalho: string[]): Record<Campo, number> {
   const norm = cabecalho.map(normalizar)
-  const campos: Campo[] = ['email', 'nome', 'veiculo', 'cargo', 'telefone']
-  const mapa = { email: -1, nome: -1, veiculo: -1, cargo: -1, telefone: -1 }
+  const campos = CAMPOS
+  const mapa = { ...SEM_COLUNAS }
   // Primeiro os nomes exatos; só depois o "contém", e só em coluna que
   // ninguém pegou — senão "Company Name" viraria o nome da pessoa.
   for (const campo of campos) mapa[campo] = norm.findIndex((h) => SINONIMOS[campo].includes(h))
@@ -78,7 +94,7 @@ export function mapearColunas(cabecalho: string[]): Record<Campo, number> {
   for (const campo of campos) {
     if (mapa[campo] !== -1) continue
     const livres = tomadas()
-    mapa[campo] = norm.findIndex((h, i) => !livres.has(i) && SINONIMOS[campo].some((s) => s.length > 3 && h.includes(s)))
+    mapa[campo] = norm.findIndex((h, i) => !livres.has(i) && SINONIMOS[campo].some((s) => s.length > 3 && !SO_O_NOME_INTEIRO.has(s) && h.includes(s)))
   }
   return mapa
 }
@@ -109,7 +125,7 @@ export type ResultadoDaLeitura = {
  * primeira linha também é dado, não cabeçalho.
  */
 export function linhasParaContatos(tabela: string[][]): ResultadoDaLeitura {
-  const vazio = { email: -1, nome: -1, veiculo: -1, cargo: -1, telefone: -1 }
+  const vazio = { ...SEM_COLUNAS }
   if (!tabela.length) return { contatos: [], mapa: vazio, cabecalho: [], semEmail: 0, repetidosNoArquivo: 0 }
 
   let cabecalho = tabela[0]
@@ -135,7 +151,7 @@ export function linhasParaContatos(tabela: string[][]): ResultadoDaLeitura {
         mapa = { ...mapa, email: melhor }
         // A coluna que o cabeçalho chamou de outra coisa ("Contato") é a do
         // e-mail: ela deixa de valer para o outro campo.
-        for (const campo of ['nome', 'veiculo', 'cargo', 'telefone'] as const) {
+        for (const campo of CAMPOS.filter((c) => c !== 'email')) {
           if (mapa[campo] === melhor) mapa[campo] = -1
         }
       }
@@ -164,6 +180,9 @@ export function linhasParaContatos(tabela: string[][]): ResultadoDaLeitura {
       veiculo: pegar(linha, mapa.veiculo),
       cargo: pegar(linha, mapa.cargo),
       telefone: pegar(linha, mapa.telefone),
+      praca: lerPraca(pegar(linha, mapa.praca)),
+      editorias: lerEditorias(pegar(linha, mapa.editorias)),
+      tipoDeVeiculo: tipoDeVeiculoDaPlanilha(pegar(linha, mapa.tipoDeVeiculo)),
     })
   }
   return { contatos, mapa, cabecalho, semEmail, repetidosNoArquivo }
