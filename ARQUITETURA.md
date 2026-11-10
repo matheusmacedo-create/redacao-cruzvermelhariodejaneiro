@@ -2306,6 +2306,63 @@ Resend conta depois que a mensagem sai. É a "fase 0" do plano de RP: a fundaç�
 - **O que ainda não tem fila**: a newsletter (`lib/newsletter/envio.ts`) continua saindo de uma
   vez, com o teto de 1.000 inscritos. O webhook já tira dela o endereço que devolve ou denuncia.
 
+### 7.40 Imprensa e contatos: veículos, listas e a ficha (`/imprensa`, 10/11/2026)
+
+A "fase 1" do plano de RP (migração `20261110100000_cvrj_veiculos_e_listas`): o veículo deixa de
+ser texto solto, o contato passa a dizer o que cobre, e a seleção de um envio pode ser guardada.
+
+- **Veículos** (`press_veiculos`, aba “Veículos”): tipo, praça e relevância. O contato continua
+  com o nome do veículo em texto (`press_contacts.veiculo`), que é o que as telas e o código
+  antigo leem, e ganha `veiculo_id`. **Quem mantém os dois de acordo é o banco, e não cada
+  tela**: o gatilho `press_contacts_liga_veiculo` acha o veículo pelo texto, sem diferenciar
+  maiúscula, e cria o que não existe (nasce com `tipo = ''`, "a classificar"); quando quem grava
+  troca o `veiculo_id`, o texto acompanha; e renomear o veículo renomeia o texto dos contatos
+  (`press_veiculos_renomeia_contatos`). Por isso o formulário manda só o nome, e a única ação
+  que escreve `veiculo_id` é `juntarVeiculos`. O gatilho é `security definer` porque o membro
+  grava o contato com a própria sessão e `press_veiculos` só aceita escrita do servidor; se a
+  política de `press_contacts` recusar a linha, o veículo criado é desfeito junto.
+  Dois cuidados que saem daí: `atualizarContato` só grava o texto do veículo quando a pessoa
+  mexeu nele (`veiculoAnterior`), porque um formulário aberto antes de alguém juntar ou
+  renomear o veículo mandaria o nome antigo de volta e o banco o recriaria; e o banco só não
+  diferencia maiúscula, então o formulário troca o nome digitado pelo do cadastro quando a
+  diferença é só de acento ("Radio Globo"). Na importação essa diferença ainda cria veículo
+  repetido: o conserto é juntar.
+- **Apagar veículo** só sem contatos: a chave do contato para o veículo não tem `on delete`. O
+  caminho é `juntarVeiculos` (`app/actions/imprensa-veiculos.ts`), que passa os contatos para o
+  veículo que fica. Juntar e apagar é de administradores e editores (`imprensa.organizar`);
+  criar e editar é de todo membro, como os contatos.
+- **O que o contato cobre**: `editorias` (em minúsculas, como as etiquetas), `praca` (vazia:
+  vale a do veículo, `pracaDoContato`), `tipo_de_contato`, `canal_preferido` e `whatsapp`. O
+  vocabulário e as normalizações moram em `lib/imprensa/vocabulario.ts`; os ids dos tipos são os
+  do CHECK das tabelas: mudou lá, muda aqui.
+- **De onde veio o dado**: `origem_do_dado` (texto, com sugestões) e `base_legal`, que sai da
+  origem (`baseLegalDaOrigem`: "Pediu para receber" é consentimento; o resto, legítimo
+  interesse). Na importação de planilha a origem é obrigatória.
+- **Listas** (`press_listas`, `press_lista_contatos`, aba “Listas”): `fixa` (quem foi posto
+  nela, na tabela de membros) ou `filtro` (o critério, em `criterio`; quem for cadastrado depois
+  entra sozinho). A lista por filtro **não é resolvida no banco**: a tela resolve o critério
+  contra os contatos que já carregou (`contatosDaLista`, `lib/imprensa/listas.ts`), como todo
+  filtro desta área. Lista por filtro sem critério é vazia, e não o banco inteiro. `plantao`
+  marca as de emergência. A campanha guarda `lista_id` só como registro: os destinatários
+  continuam sendo os ids que a tela manda e que `enfileirar_campanha` confere um a um.
+- **Avisos, e não travas** (`avisosDoEnvio`): a seleção que mistura tipos de contato e o envio
+  para o banco inteiro, sem lista nem recorte.
+- **Importação** (`importar_contatos_de_imprensa`): lê editoria, praça e tipo de veículo de cada
+  linha e recebe o tipo de contato e a origem da planilha inteira. Atualiza quem já existe e
+  insere quem é novo em passos separados: com `insert ... on conflict do update` o gatilho do
+  veículo rodaria também para a linha recusada, e criaria um veículo que ninguém usa. A antiga
+  `importar_contatos` ficou para o código que estivesse no ar; sai numa migração posterior.
+- **Ficha do contato** (`/imprensa/contatos/[id]`): não tem tabela de histórico. Junta
+  `press_campanha_destinatarios` pelo contato (`marcasDoEnvio`, `lib/imprensa/ficha.ts`); os
+  atendimentos e o clipping das próximas fases entram do mesmo jeito. Os botões do topo abrem
+  `mailto:`, `wa.me` e `tel:`.
+- **Celular primeiro**: abaixo de `md` a lista de contatos é em cartões e o toque no nome abre
+  a ficha; a tabela fica para as telas largas. Os campos novos usam `campoClass`
+  (`components/app/imprensa/campos.ts`): 44 px de altura e letra de 16 px.
+- **Conferência**: `supabase/tests/veiculos-e-listas.test.sql` (pgTAP: gatilhos, RLS, listas,
+  importação, apagar o espaço) e `npx tsx scripts/conferir-imprensa-cadastro.ts` (vocabulário,
+  critério das listas, avisos do envio, colunas novas da importação, marcas da ficha).
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post

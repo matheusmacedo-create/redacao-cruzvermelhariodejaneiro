@@ -13,7 +13,8 @@ import {
 import {
   agendamentoParaLer, alertaDeEntrega, minimoDoAgendamento, TETO_DE_DESTINATARIOS, taxas, type NumerosDeCampanhas,
 } from '@/lib/imprensa/campanha'
-import { Dialog, inputClass, selectClass, noSegmento, podeReceber, quandoLegivel, SEGMENTOS, type Segmento } from './comum'
+import { avisosDoEnvio, type ListaDeImprensa } from '@/lib/imprensa/listas'
+import { campoClass, Dialog, inputClass, selectClass, noSegmento, podeReceber, quandoLegivel, SEGMENTOS, type Segmento } from './comum'
 
 export type CampanhaNaTela = {
   id: string
@@ -35,6 +36,8 @@ export type CampanhaNaTela = {
   denuncias: number
   /** Quando sai, se está agendada. */
   agendadaPara: string | null
+  /** O nome da lista para a qual saiu; vazio quando não foi por lista (ou a lista foi apagada). */
+  lista: string
   /** Quantas mensagens já saíram, enquanto a campanha está em envio. */
   jaSairam: number | null
   criadaEm: string
@@ -45,6 +48,8 @@ export type CampanhaNaTela = {
 /** O que abre o diálogo de campanha: seleção da tabela, rascunho ou follow-up. */
 export type Composicao = {
   ids?: string[]
+  /** A lista que já vem escolhida (botão "Enviar campanha" da aba Listas). */
+  listaId?: string
   rascunho?: CampanhaNaTela
   base?: { assunto: string; corpo: string; linkUrl: string; linkRotulo: string }
   origem?: string
@@ -242,7 +247,7 @@ export function PainelDeCampanhas({ campanhas, envioNoMes, podeDisparar, envioDi
             <MailOpen className="mx-auto size-8 text-muted-foreground" />
             <p className="mt-3 font-medium">Nenhuma campanha ainda</p>
             <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-              Use <strong>Nova campanha</strong> e escolha uma lista e um segmento, ou marque contatos na aba Contatos. Tudo o que sair aparece aqui, para toda a equipe.
+              Use <strong>Nova campanha</strong> e escolha uma lista, ou marque contatos na aba Contatos. Tudo o que sair aparece aqui, para toda a equipe.
             </p>
           </div>
         ) : !lista.length ? (
@@ -424,7 +429,7 @@ function LinhaDaCampanha({ campanha: c, podeDisparar, envioDisponivel, abrirCamp
           <button type="button" onClick={alternar} className="block max-w-full truncate text-left font-medium text-primary hover:underline" aria-expanded={rascunho ? undefined : aberta}>
             {c.assunto || '(sem assunto)'}
           </button>
-          <p className="text-xs text-muted-foreground">{c.quem}</p>
+          <p className="text-xs text-muted-foreground">{c.quem}{c.lista && !rascunho ? ` · lista ${c.lista}` : ''}</p>
           {erro && <p className="mt-1 text-xs text-destructive">{erro}</p>}
         </td>
         <td className="px-3 py-3"><span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${estado.classe}`}>{estado.rotulo}</span></td>
@@ -509,11 +514,14 @@ function LinhaDaCampanha({ campanha: c, podeDisparar, envioDisponivel, abrirCamp
 
 /**
  * Escrever e enviar uma campanha — nova, de um rascunho, ou follow-up. Os
- * destinatários vêm prontos (seleção da tabela, follow-up) ou de um segmento
- * escolhido aqui: lista de origem + comportamento de leitura.
+ * destinatários vêm prontos (seleção da tabela, follow-up) ou de um recorte
+ * escolhido aqui: lista salva, etiqueta e comportamento de leitura.
  */
-export function DialogCampanha({ todos, inicial, onFechar, onFeito }: {
+export function DialogCampanha({ todos, listas, contatosPorLista, inicial, onFechar, onFeito }: {
   todos: ContatoDeImprensa[]
+  /** Já na ordem da tela: as de plantão primeiro. */
+  listas: readonly ListaDeImprensa[]
+  contatosPorLista: ReadonlyMap<string, ContatoDeImprensa[]>
   inicial: Composicao
   onFechar: () => void
   onFeito: (recado: string, enviou: boolean) => void
@@ -525,7 +533,8 @@ export function DialogCampanha({ todos, inicial, onFechar, onFeito }: {
   const [linkUrl, setLinkUrl] = useState(base?.linkUrl ?? '')
   const [linkRotulo, setLinkRotulo] = useState(base?.linkRotulo ?? '')
   const [fixos, setFixos] = useState(Boolean(inicial.ids))
-  const [lista, setLista] = useState('todas')
+  const [lista, setLista] = useState(inicial.listaId ?? '')
+  const [etiqueta, setEtiqueta] = useState('todas')
   const [segmento, setSegmento] = useState<Segmento>('todos')
   const [momento, setMomento] = useState<'agora' | 'agendar'>('agora')
   const [dataHora, setDataHora] = useState('')
@@ -537,15 +546,22 @@ export function DialogCampanha({ todos, inicial, onFechar, onFeito }: {
   const parado = ocupado || testando
   const agendar = momento === 'agendar'
 
-  const listas = useMemo(() => [...new Set(todos.flatMap((c) => c.tags))].sort((a, b) => a.localeCompare(b, 'pt-BR')), [todos])
+  const etiquetas = useMemo(() => [...new Set(todos.flatMap((c) => c.tags))].sort((a, b) => a.localeCompare(b, 'pt-BR')), [todos])
+  const escolhidosAMao = Boolean(fixos && inicial.ids)
   const aptos = useMemo(() => {
     if (fixos && inicial.ids) {
       const ids = new Set(inicial.ids)
       return todos.filter((c) => ids.has(c.id) && podeReceber(c))
     }
-    return todos.filter((c) => podeReceber(c) && noSegmento(c, segmento, lista))
-  }, [todos, fixos, inicial.ids, segmento, lista])
+    const base = lista ? contatosPorLista.get(lista) ?? [] : todos
+    return base.filter((c) => podeReceber(c) && noSegmento(c, segmento, etiqueta))
+  }, [todos, fixos, inicial.ids, segmento, etiqueta, lista, contatosPorLista])
   const alemDoTeto = aptos.length > TETO_DE_DESTINATARIOS
+  // Avisos, e não travas: mistura de tipos de contato e envio para o banco inteiro.
+  const avisos = useMemo(
+    () => avisosDoEnvio(aptos, { semRecorte: !escolhidosAMao && !lista && etiqueta === 'todas' && segmento === 'todos' }),
+    [aptos, escolhidosAMao, lista, etiqueta, segmento],
+  )
 
   const formulario = () => {
     const form = new FormData()
@@ -576,6 +592,7 @@ export function DialogCampanha({ todos, inicial, onFechar, onFeito }: {
     rodar(async () => {
       const form = formulario()
       form.set('ids', JSON.stringify(aptos.map((c) => c.id)))
+      if (!escolhidosAMao && lista) form.set('listaId', lista)
       // O campo manda o horário como foi escrito; quem o lê como de Brasília é o servidor.
       if (agendar) form.set('agendarPara', dataHora)
       const r = await enviarCampanha(form)
@@ -608,22 +625,35 @@ export function DialogCampanha({ todos, inicial, onFechar, onFeito }: {
         {fixos && inicial.ids ? (
           <p className="mt-1 text-sm">
             {inicial.origem ?? 'Contatos selecionados na tabela.'} <strong>{aptos.length}</strong> podem receber.{' '}
-            <button type="button" onClick={() => setFixos(false)} className="text-xs text-primary hover:underline">Escolher por segmento</button>
+            <button type="button" onClick={() => setFixos(false)} className="text-xs text-primary hover:underline">Escolher por lista</button>
           </p>
         ) : (
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <select value={lista} onChange={(e) => setLista(e.target.value)} className={selectClass} aria-label="Lista">
-              <option value="todas">Todas as listas</option>
-              {listas.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <select value={segmento} onChange={(e) => setSegmento(e.target.value as Segmento)} className={selectClass} aria-label="Segmento">
-              {SEGMENTOS.map((s) => <option key={s.id} value={s.id}>{s.rotulo}</option>)}
-            </select>
-            <span className="text-sm"><strong className="tabular-nums">{aptos.length}</strong> contato(s)</span>
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <label className="block text-xs font-medium text-muted-foreground">Lista
+              <select value={lista} onChange={(e) => setLista(e.target.value)} disabled={parado} className={`mt-1 ${campoClass}`}>
+                <option value="">Todos os contatos</option>
+                {listas.map((l) => <option key={l.id} value={l.id}>{l.plantao ? 'Plantão: ' : ''}{l.nome}</option>)}
+              </select>
+            </label>
+            {etiquetas.length > 0 && (
+              <label className="block text-xs font-medium text-muted-foreground">Etiqueta
+                <select value={etiqueta} onChange={(e) => setEtiqueta(e.target.value)} disabled={parado} className={`mt-1 ${campoClass}`}>
+                  <option value="todas">Todas</option>
+                  {etiquetas.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </label>
+            )}
+            <label className="block text-xs font-medium text-muted-foreground">Leitura
+              <select value={segmento} onChange={(e) => setSegmento(e.target.value as Segmento)} disabled={parado} className={`mt-1 ${campoClass}`}>
+                {SEGMENTOS.map((s) => <option key={s.id} value={s.id}>{s.rotulo}</option>)}
+              </select>
+            </label>
+            <p className="text-sm sm:col-span-3"><strong className="tabular-nums">{aptos.length}</strong> contato(s) vão receber.</p>
           </div>
         )}
         <p className="mt-1 text-xs text-muted-foreground">Sem e-mail, e-mail inválido ou devolvido e quem saiu da lista ficam de fora sempre.</p>
-        {alemDoTeto && <p className="mt-1 text-xs text-destructive">No máximo {TETO_DE_DESTINATARIOS} por campanha. Escolha uma lista ou segmento menor.</p>}
+        {avisos.map((aviso) => <p key={aviso} className="mt-2 rounded-md bg-amber-500/10 px-2.5 py-2 text-xs text-amber-800">{aviso}</p>)}
+        {alemDoTeto && <p className="mt-1 text-xs text-destructive">No máximo {TETO_DE_DESTINATARIOS} por campanha. Escolha uma lista menor.</p>}
       </div>
 
       <label className="text-sm font-medium">Assunto
