@@ -91,11 +91,21 @@ export function conviteDoTitulo(titulo: string, url: string, temCaixaDoKit = fal
   return conviteDaMateria(editoriaDaMateria(titulo, url), temCaixaDoKit)
 }
 
+/** A cruz do logotipo, como no cabeçalho do índice: vermelha, sobre branco, sem enfeite. */
+const CRUZ = '<svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#ed1b2e" d="M16 0h16v16h16v16H32v16H16V32H0V16h16z"/></svg>'
+
+/**
+ * O cartão do convite: a cruz da marca, o texto e o botão. No computador os três ficam lado a lado (o botão à direita,
+ * no meio da altura); no celular, a cruz acompanha o rótulo e o botão ocupa a largura toda.
+ */
 export function htmlDoConvite(c: Convite): string {
   return `<aside class="news-convite" aria-labelledby="news-convite-titulo" data-convite="${c.tipo}">
-            <p class="news-convite-olho">${escapar(c.olho)}</p>
-            <h2 id="news-convite-titulo">${escapar(c.titulo)}</h2>
-            <p class="news-convite-texto">${escapar(c.texto)}</p>
+            <div class="news-convite-marca">${CRUZ}</div>
+            <div class="news-convite-corpo">
+              <p class="news-convite-olho">${escapar(c.olho)}</p>
+              <h2 id="news-convite-titulo">${escapar(c.titulo)}</h2>
+              <p class="news-convite-texto">${escapar(c.texto)}</p>
+            </div>
             <a class="news-convite-botao" href="${escapar(c.href)}">${escapar(c.botao)} <span aria-hidden="true">→</span></a>
           </aside>`
 }
@@ -146,4 +156,4 @@ export function htmlDeComoAjudar(): string {
 }
 
 /** O estilo do convite e do "Como ajudar": a família da matéria (filete da marca, Inter), sem imagem. */
-export const CSS_DOS_CONVITES = `.news-convite{margin:40px 0 0;padding:22px 22px 24px;border-left:4px solid var(--brand);background:var(--box);font-family:var(--sans)}.news-convite-olho{margin:0 0 6px;font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--brand)}.news-convite h2{margin:0 0 8px;font-family:var(--serif);font-size:27px;line-height:1.2;font-weight:800;letter-spacing:-.01em;color:var(--news-ink)}.news-convite-texto{margin:0 0 18px;font-family:var(--serif);font-size:18px;line-height:1.5;color:var(--ink-2)}.news-convite-botao{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:12px 24px;border-radius:4px;background:var(--brand);color:#fff;font-size:17px;font-weight:700;text-decoration:none}.news-convite-botao:hover{background:var(--brand-dark);color:#fff}.news-convite+.news-material{margin-top:24px}.news-source{background:none}.rail-ajudar{border-top:3px solid var(--brand);padding-top:14px}.rail-ajudar .rail-titulo{border-bottom:0;padding-bottom:0}.rail-ajudar p{margin:6px 0 14px;font-size:15px;line-height:1.5;color:var(--ink-2)}.rail-botao{display:flex;align-items:center;justify-content:center;min-height:48px;padding:10px 16px;margin-top:10px;border:2px solid var(--brand);border-radius:4px;color:var(--brand);font-size:16px;font-weight:700;text-align:center;text-decoration:none}.rail-botao:hover{background:var(--brand);color:#fff}.rail-botao.cheio{background:var(--brand);color:#fff}.rail-botao.cheio:hover{background:var(--brand-dark);border-color:var(--brand-dark)}@media(max-width:640px){.news-convite-botao{display:flex;width:100%}}@media print{.news-convite,.news-material,.rail-ajudar{display:none}}`
+export const CSS_DOS_CONVITES = `.news-convite{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px 24px;margin:40px 0 0;padding:24px 28px;border:1px solid var(--news-line);border-top:4px solid var(--brand);background:var(--news-paper);font-family:var(--sans)}.news-convite-marca svg{display:block;width:52px;height:52px}.news-convite-olho{margin:0 0 6px;font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--brand)}.news-convite h2{margin:0 0 6px;font-family:var(--serif);font-size:25px;line-height:1.2;font-weight:800;letter-spacing:-.015em;color:var(--news-ink);text-wrap:balance}.news-convite-texto{margin:0;font-family:var(--serif);font-size:17px;line-height:1.5;color:var(--ink-2)}.news-convite-botao{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:12px 22px;border-radius:4px;background:var(--brand);color:#fff;font-size:17px;font-weight:700;text-decoration:none;white-space:nowrap}.news-convite-botao:hover{background:var(--brand-dark);color:#fff}@media(max-width:820px){.news-convite{grid-template-columns:auto minmax(0,1fr);padding:22px 20px 24px;gap:14px 16px;align-items:start}.news-convite-marca svg{width:40px;height:40px}.news-convite-botao{grid-column:1/-1;white-space:normal;text-align:center}}.news-convite+.news-material{margin-top:24px}.news-source{background:none}.rail-ajudar{border-top:3px solid var(--brand);padding-top:14px}.rail-ajudar .rail-titulo{border-bottom:0;padding-bottom:0}.rail-ajudar p{margin:6px 0 14px;font-size:15px;line-height:1.5;color:var(--ink-2)}.rail-botao{display:flex;align-items:center;justify-content:center;min-height:48px;padding:10px 16px;margin-top:10px;border:2px solid var(--brand);border-radius:4px;color:var(--brand);font-size:16px;font-weight:700;text-align:center;text-decoration:none}.rail-botao:hover{background:var(--brand);color:#fff}.rail-botao.cheio{background:var(--brand);color:#fff}.rail-botao.cheio:hover{background:var(--brand-dark);border-color:var(--brand-dark)}@media print{.news-convite,.news-material,.rail-ajudar{display:none}}`
