@@ -1,6 +1,10 @@
 /**
  * Os materiais que o site entrega por e-mail a quem deixa o endereço (09/11/2026).
  *
+ * O segundo (11/11/2026) é o Manual de Identidade Institucional da Cruz Vermelha Brasileira, na página
+ * /manual-de-identidade/ do site: lá o formulário é a porta do arquivo (o botão de baixar só aparece depois do e-mail),
+ * e a mensagem leva o mesmo arquivo. Vale a decisão 3 abaixo: a porta é um convite, o PDF continua público.
+ *
  * O primeiro é a lista do kit de emergência, em PDF: a caixa aparece no fim de algumas matérias do site
  * (lib/site/caixa-de-material.ts), a pessoa informa o e-mail, marca a autorização e recebe UMA mensagem com o botão
  * "Baixar a lista em PDF". O toque nesse botão baixa o arquivo e confirma a inscrição na newsletter: é a confirmação
@@ -53,6 +57,10 @@ export type Material = {
     /** O que é o arquivo, em uma frase. */
     descricao: string
     botao: string
+    /** O arquivo em duas palavras, com artigo, nas frases sobre o botão: "a lista", "o manual". */
+    objeto: string
+    /** A pergunta que leva ao guia, antes de "Veja o <rotuloDoGuia>". */
+    convite: string
   }
 }
 
@@ -75,10 +83,36 @@ export const KIT_DE_EMERGENCIA: Material = {
     titulo: 'Sua lista do kit de emergência',
     descricao: 'São duas folhas em PDF para imprimir e marcar o que já tem em casa: o kit de emergência, o kit de primeiros socorros e os telefones da família.',
     botao: 'Baixar a lista em PDF',
+    objeto: 'a lista',
+    convite: 'Quer entender cada item da lista?',
   },
 }
 
-const MATERIAIS: readonly Material[] = [KIT_DE_EMERGENCIA]
+export const MANUAL_DE_IDENTIDADE: Material = {
+  id: 'manual-de-identidade',
+  nome: 'o Manual de Identidade Institucional da Cruz Vermelha Brasileira',
+  arquivo: `${SITE}/manual-de-identidade/manual-de-identidade-institucional-cruz-vermelha-brasileira.pdf`,
+  guia: `${SITE}/manual-de-identidade/#baixar`,
+  rotuloDoGuia: 'página do manual de identidade',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o Manual de Identidade '
+    + 'Institucional e, depois, notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer '
+    + 'momento pelo link presente em todas as mensagens.',
+  recado: 'Pronto! O manual vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o manual em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O manual também está na página do manual de identidade, no nosso site.',
+  evento: 'manual_pedir',
+  email: {
+    assunto: 'Seu Manual de Identidade da Cruz Vermelha (PDF)',
+    chamada: 'Toque no botão para baixar o manual: emblema, logotipo, cor, tipografia e aplicações.',
+    titulo: 'Seu Manual de Identidade Institucional',
+    descricao: 'É o manual da Cruz Vermelha Brasileira em PDF (52 páginas, cerca de 14 MB): o emblema, o logotipo, a cor, a tipografia e as aplicações em papelaria, uniformes e veículos.',
+    botao: 'Baixar o manual em PDF',
+    objeto: 'o manual',
+    convite: 'Quer um resumo da cor, do logotipo e de quem pode usar o emblema?',
+  },
+}
+
+const MATERIAIS: readonly Material[] = [KIT_DE_EMERGENCIA, MANUAL_DE_IDENTIDADE]
 
 /** O id vai em endereço e em atributo de HTML: nada além disto. */
 const ID_VALIDO = /^[a-z0-9]+(?:-[a-z0-9]+)*$/

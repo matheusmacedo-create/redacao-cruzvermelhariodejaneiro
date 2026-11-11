@@ -143,7 +143,8 @@ export function emailDeConfirmacao(dados: {
 }
 
 /**
- * A mensagem que entrega um material pedido no site (lib/newsletter/materiais.ts): hoje, a lista do kit de emergência.
+ * A mensagem que entrega um material pedido no site (lib/newsletter/materiais.ts): a lista do kit de emergência e,
+ * desde 11/11/2026, o Manual de Identidade Institucional. As frases que mudam de um para o outro vêm do material.
  *
  * É o convite de confirmação com outro corpo. O botão "Baixar a lista em PDF" é o link de confirmação com o material
  * junto (app/newsletter/confirmar): o toque baixa o arquivo e confirma a inscrição. Como o toque faz as duas coisas,
@@ -166,8 +167,8 @@ export function emailDoMaterial(dados: {
 }): Modelo {
   const m = dados.material
   const oQueOBotaoFaz = dados.jaInscrito
-    ? 'Você já recebe as nossas notícias, então não há nada a confirmar: o botão abre a lista direto.'
-    : 'Ao tocar no botão, você baixa a lista e confirma o seu e-mail: passa a receber também as notícias, campanhas e informações sobre cursos da Cruz Vermelha do Rio de Janeiro. Dá para sair quando quiser, pelo link no fim de cada mensagem.'
+    ? `Você já recebe as nossas notícias, então não há nada a confirmar: o botão abre ${m.email.objeto} direto.`
+    : `Ao tocar no botão, você baixa ${m.email.objeto} e confirma o seu e-mail: passa a receber também as notícias, campanhas e informações sobre cursos da Cruz Vermelha do Rio de Janeiro. Dá para sair quando quiser, pelo link no fim de cada mensagem.`
   const seNaoFoiVoce = dados.jaInscrito
     ? 'Pode ignorar esta mensagem: nada muda na sua inscrição.'
     : 'Então não faça nada: sem o toque no botão, nada mais é enviado e o pedido expira sozinho.'
@@ -179,7 +180,7 @@ export function emailDoMaterial(dados: {
       <p style="margin:0 0 16px;">Você pediu ${escapar(m.nome)} no nosso site. ${escapar(m.email.descricao)}</p>
       ${botao(dados.urlBaixar, m.email.botao)}
       <p style="margin:0 0 16px;">${escapar(oQueOBotaoFaz)}</p>
-      <p style="margin:0 0 16px;font-size:14px;color:${SUAVE};">Quer entender cada item da lista? Veja o <a href="${escapar(m.guia)}" style="color:${VERMELHO};font-weight:bold;">${escapar(m.rotuloDoGuia)}</a>, no nosso site.</p>
+      <p style="margin:0 0 16px;font-size:14px;color:${SUAVE};">${escapar(m.email.convite)} Veja o <a href="${escapar(m.guia)}" style="color:${VERMELHO};font-weight:bold;">${escapar(m.rotuloDoGuia)}</a>, no nosso site.</p>
       <p style="margin:0 0 16px;font-size:14px;color:${SUAVE};">Se o botão não funcionar, copie e cole este endereço no navegador:<br>
         <span style="word-break:break-all;color:${SUAVE};">${escapar(dados.urlBaixar)}</span></p>
       <p style="margin:0;font-size:14px;color:${SUAVE};"><strong>Não foi você?</strong> ${escapar(seNaoFoiVoce)}</p>`
@@ -195,15 +196,15 @@ export function emailDoMaterial(dados: {
     dados.urlBaixar,
     '',
     ...(dados.jaInscrito
-      ? ['Você já recebe as nossas notícias, então não há nada a confirmar: o endereço', 'acima abre a lista direto.']
+      ? ['Você já recebe as nossas notícias, então não há nada a confirmar: o endereço', `acima abre ${m.email.objeto} direto.`]
       : [
-          'Ao abrir esse endereço, você baixa a lista e confirma o seu e-mail: passa a',
+          `Ao abrir esse endereço, você baixa ${m.email.objeto} e confirma o seu e-mail: passa a`,
           'receber também as notícias, campanhas e informações sobre cursos da Cruz',
           'Vermelha do Rio de Janeiro. Dá para sair quando quiser, pelo link no fim de',
           'cada mensagem.',
         ]),
     '',
-    `Quer entender cada item da lista? Veja o ${m.rotuloDoGuia}:`,
+    `${m.email.convite} Veja o ${m.rotuloDoGuia}:`,
     m.guia,
     '',
     ...(dados.jaInscrito
