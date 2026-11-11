@@ -20,7 +20,8 @@ import {
   MATERIAS_COM_A_LISTA_DO_KIT, ROTA_DE_INSCRICAO_PADRAO, caixaDaMateria, htmlDaCaixaDeMaterial, type Variante,
 } from '../lib/site/caixa-de-material'
 import {
-  KIT_DE_EMERGENCIA, KIT_DE_PRIMEIROS_SOCORROS, KIT_LEI_LUCAS, MANUAL_DE_IDENTIDADE, ROTEIRO_PLANO_DE_CONTINGENCIA, materialPorId,
+  KIT_DE_EMERGENCIA, KIT_DE_PRIMEIROS_SOCORROS, KIT_LEI_LUCAS, MANUAL_DE_IDENTIDADE, MOCHILA_DE_EMERGENCIA, PLANO_FAMILIAR, QUANDO_LIGAR_192,
+  ROTEIRO_PLANO_DE_CONTINGENCIA, VERAO_SEGURO, materialPorId,
   todosOsMateriais,
 } from '../lib/newsletter/materiais'
 import { emailDoMaterial } from '../lib/newsletter/modelo'
@@ -41,8 +42,8 @@ ok(new Set(todas).size === todas.length, 'nenhuma matéria aparece duas vezes (n
 ok(variantes.every((v) => MATERIAS_COM_A_LISTA_DO_KIT[v].every((s) => caixaDaMateria(s)?.variante === v)), 'cada matéria da lista ganha a caixa da sua variante')
 ok(caixaDaMateria('lei-do-voluntariado-o-que-diz-a-lei-9608') === null && caixaDaMateria('') === null && caixaDaMateria(null) === null && caixaDaMateria('previa') === null,
   'matéria fora da lista, endereço vazio e a prévia sem endereço ficam sem caixa')
-ok(caixaDaMateria('kit-de-primeiros-socorros-escolar-lei-lucas') === null && caixaDaMateria('sinais-de-infarto-o-que-nao-ignorar') === null,
-  'advertorial da Lei Lucas e sinais de infarto ficam de fora, como decidido na ronda')
+ok(caixaDaMateria('kit-de-primeiros-socorros-escolar-lei-lucas') === null && caixaDaMateria('picada-de-cobra-o-que-fazer') === null && caixaDaMateria('choque-eletrico-o-que-fazer') === null,
+  'advertorial da Lei Lucas, picada de cobra e choque elétrico ficam de fora: nenhum guia trata deles')
 
 // ---------------------------------------------------------------- o material
 const kit = KIT_DE_EMERGENCIA
@@ -61,7 +62,7 @@ for (const m of todosOsMateriais()) {
 
 // ---------------------------------------------------------------- a página
 const base = { titulo: 'Plano familiar de emergência no Rio: como montar', subtitulo: 'O que combinar em casa.', corpo: 'Combine um ponto de encontro.\n\n## Fontes\n\n- Defesa Civil', baseUrl: 'https://cruzvermelhariodejaneiro.org/noticias', publicadoEm: new Date('2026-10-28T12:00:00Z') }
-const comCaixa = montarPaginaDoArtigo({ ...base, slug: 'plano-familiar-de-emergencia-no-rio' })
+const comCaixa = montarPaginaDoArtigo({ ...base, slug: 'o-que-fazer-em-alagamento' })
 const semCaixa = montarPaginaDoArtigo({ ...base, slug: 'lei-do-voluntariado-o-que-diz-a-lei-9608' })
 const escapado = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
@@ -94,7 +95,28 @@ const msgPs = emailDoMaterial({ material: KIT_DE_PRIMEIROS_SOCORROS, urlBaixar: 
 ok(msgPs.assunto === KIT_DE_PRIMEIROS_SOCORROS.email.assunto && msgPs.html.includes('porque pediram a lista do kit de primeiros socorros no nosso site') && !/kit de emergência/.test(msgPs.html + msgPs.texto),
   'a mensagem do kit de primeiros socorros fala dele, e não do kit de emergência')
 
-const comRota = montarPaginaDoArtigo({ ...base, slug: 'plano-familiar-de-emergencia-no-rio', rotaDeInscricao: 'https://exemplo.org/api/newsletter/inscrever?a=1&b="2"' })
+// Os quatro guias de 11/11/2026: cada grupo de matérias pede o seu material, e a caixa fala dele (botão e recado).
+for (const [variante, m, slug, titulo, botao, naoChegou] of [
+  ['quando-ligar-192', QUANDO_LIGAR_192, 'sinais-de-infarto-o-que-nao-ignorar', 'Receba o cartaz “Quando ligar 192” no seu e\u2011mail', 'Enviar o cartaz para o meu e-mail', 'Não chegou? O cartaz também está no'],
+  ['verao', VERAO_SEGURO, 'onda-de-calor-o-que-fazer-para-se-proteger', 'Receba o guia “Verão seguro no Rio” no seu e\u2011mail', 'Enviar o guia para o meu e-mail', 'Não chegou? O guia também está no'],
+  ['plano-familiar', PLANO_FAMILIAR, 'plano-familiar-de-emergencia-no-rio', 'Receba a ficha do plano familiar de emergência no seu e\u2011mail', 'Enviar a ficha para o meu e-mail', 'Não chegou? A ficha também está no'],
+  ['mochila', MOCHILA_DE_EMERGENCIA, 'sirene-da-defesa-civil-o-que-fazer-quando-toca', 'Receba a lista da mochila de emergência no seu e\u2011mail', 'Enviar a lista para o meu e-mail', 'Não chegou? A lista também está no'],
+] as const) {
+  const pagina = montarPaginaDoArtigo({ ...base, slug })
+  ok(materialPorId(m.id) === m && MATERIAS_COM_A_LISTA_DO_KIT[variante].every((s) => caixaDaMateria(s)?.material === m), `${variante}: o id acha o material e as matérias da variante o entregam`)
+  ok(pagina.includes(escapado(titulo)) && pagina.includes(`data-variante="${variante}"`) && pagina.includes(`value="${m.id}"`) && pagina.includes(`data-evento="${m.evento}"`)
+    && pagina.includes(`<span>${escapado(m.consentimento)}</span>`) && !pagina.includes('value="kit-de-emergencia"'),
+  `${variante}: a matéria sai com o título, o material, o evento e o aceite dele`)
+  ok(pagina.includes(`<button type="submit">${botao}</button>`) && pagina.includes(naoChegou) && pagina.includes(`href="${m.guia.replace('https://cruzvermelhariodejaneiro.org', '')}"`),
+    `${variante}: o botão e o recado falam de ${m.email.objeto}, e o guia é o da página dele`)
+  ok(m.arquivo === `https://cruzvermelhariodejaneiro.org/${m.id}/${m.id}-cruz-vermelha-rj.pdf`, `${m.id}: o arquivo segue o nome do padrão dos guias, na pasta da página`)
+  const mensagem = emailDoMaterial({ material: m, urlBaixar: `https://palacio.cruzvermelhariodejaneiro.org/newsletter/confirmar?t=${'a'.repeat(48)}&m=${m.id}`, urlDeSaida: 'https://palacio.cruzvermelhariodejaneiro.org/newsletter/sair?t=' + 'b'.repeat(48) })
+  ok(mensagem.html.includes(`>${m.email.botao}</a>`) && mensagem.html.includes(`você baixa ${m.email.objeto} e confirma o seu e-mail`) && !/kit de emergência/.test(mensagem.html + mensagem.texto),
+    `${m.id}: a mensagem tem o botão dele, explica que baixa e confirma, e não fala do kit de emergência`)
+}
+ok(comCaixa.includes('<button type="submit">Enviar a lista para o meu e-mail</button>') && comCaixa.includes('Não chegou? A lista também está no'), 'a caixa do kit de emergência continua dizendo "a lista"')
+
+const comRota = montarPaginaDoArtigo({ ...base, slug: 'o-que-fazer-em-alagamento', rotaDeInscricao: 'https://exemplo.org/api/newsletter/inscrever?a=1&b="2"' })
 ok(comRota.includes('action="https://exemplo.org/api/newsletter/inscrever?a=1&amp;b=&quot;2&quot;"'), 'a rota informada entra no formulário, escapada')
 
 // Desde 10/11/2026 a matéria fora da lista leva a caixa da newsletter (lib/site/convites-da-materia.ts), que usa as
@@ -198,7 +220,7 @@ ok(msgInscrito.html.includes(`href="${kit.guia}"`) && msgInscrito.texto.includes
 ok(msg.html !== msgInscrito.html && msg.html.includes('você baixa a lista e confirma o seu e-mail') && !msg.html.includes('não há nada a confirmar'), 'e a mensagem de quem ainda não confirmou não mudou')
 
 // ---------------------------------------------------------------- a trava do arquivo
-const semArquivo = montarPaginaDoArtigo({ ...base, slug: 'plano-familiar-de-emergencia-no-rio', semCaixaDeMaterial: true })
+const semArquivo = montarPaginaDoArtigo({ ...base, slug: 'o-que-fazer-em-alagamento', semCaixaDeMaterial: true })
 ok(!semArquivo.includes('class="news-material"') && !semArquivo.includes('data-evento="kit_pedir"') && !semArquivo.includes('name="material"'), 'com a trava ligada, a matéria da lista sai sem a caixa do kit (fica a da newsletter)')
 
 async function trava() {

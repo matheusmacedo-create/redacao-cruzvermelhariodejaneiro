@@ -22,6 +22,16 @@
  *    diz que compressa atrapalha); saúde mental e violência; história, direito humanitário, voluntariado e notícias
  *    datadas.
  *
+ * QUATRO GUIAS NOVOS (11/11/2026, pedido do Matheus: mais materiais, mais matérias com caixa). De 18 para 27 matérias:
+ *  - `quando-ligar-192`: AVC, infarto, engasgo (adulto e bebê) e desmaio. Tinham ficado de fora porque um kit não
+ *    ajuda ali; o cartaz diz justamente quando ligar e o que fazer até o socorro chegar.
+ *  - `verao`: onda de calor, insolação, afogamento e o helicóptero dos bombeiros na praia.
+ *  - `plano-familiar`: o plano da família, os alertas da Defesa Civil (celular e SMS 40199) e os estágios da cidade.
+ *    Saíram da variante `emergencia`: a ficha do plano é o passo que essas matérias pedem.
+ *  - `mochila`: a sirene e os sinais de deslizamento, as duas matérias em que a ordem é sair de casa. Também saíram
+ *    de `emergencia`.
+ *  Choque elétrico e picadas continuam sem caixa: nenhum dos guias trata deles.
+ *
  * A CAIXA SÓ SOBE COM O ARQUIVO NO AR. O PDF é publicado pelo repositório do site; na hora de gerar a página, a
  * publicação confere se ele responde (lib/site/material-no-ar.ts) e, se não, a página sai sem a caixa, com o motivo
  * no aviso. A prévia do hub mostra a caixa sempre: ela não confere o site.
@@ -30,26 +40,22 @@
  */
 import { escapar } from '@/lib/site/esqueleto'
 import { ENDERECO_DO_PALACIO } from '@/lib/dominio'
-import { KIT_DE_EMERGENCIA, KIT_DE_PRIMEIROS_SOCORROS, type Material } from '@/lib/newsletter/materiais'
+import {
+  KIT_DE_EMERGENCIA, KIT_DE_PRIMEIROS_SOCORROS, MOCHILA_DE_EMERGENCIA, PLANO_FAMILIAR, QUANDO_LIGAR_192, VERAO_SEGURO, type Material,
+} from '@/lib/newsletter/materiais'
 
 /**
  * Por qual lado a matéria chega: muda o título, o texto da caixa e, desde 11/11/2026, o arquivo. As matérias de
  * emergência entregam a lista do kit de emergência; as de primeiros socorros, o guia do kit de primeiros socorros,
  * que ganhou PDF próprio. A caixa só troca na página de cada matéria quando ela é regerada, e só com o PDF novo no ar.
  */
-export type Variante = 'emergencia' | 'primeiros-socorros'
+export type Variante = 'emergencia' | 'primeiros-socorros' | 'quando-ligar-192' | 'verao' | 'plano-familiar' | 'mochila'
 
 export const MATERIAS_COM_A_LISTA_DO_KIT: Readonly<Record<Variante, readonly string[]>> = {
   emergencia: [
-    'alerta-da-defesa-civil-no-celular-como-funciona-no-rio',
-    'sms-40199-como-receber-alertas-da-defesa-civil-no-rio',
-    'sirene-da-defesa-civil-o-que-fazer-quando-toca',
-    'plano-familiar-de-emergencia-no-rio',
-    'estagios-operacionais-do-rio-o-que-significa-cada-nivel',
     'o-que-fazer-em-alagamento',
     'diferenca-entre-enchente-inundacao-e-alagamento',
     'leptospirose-depois-da-enchente-como-se-proteger',
-    'sinais-de-deslizamento-de-terra',
     'vendaval-o-que-fazer',
     'como-se-proteger-de-raios-em-casa-e-na-rua',
     'falta-de-luz-o-que-fazer',
@@ -62,12 +68,39 @@ export const MATERIAS_COM_A_LISTA_DO_KIT: Readonly<Record<Variante, readonly str
     'sangramento-nasal-o-que-fazer',
     'crianca-bateu-a-cabeca-o-que-fazer',
   ],
+  'quando-ligar-192': [
+    'sinais-de-avc-como-reconhecer-e-quando-ligar-192',
+    'sinais-de-infarto-o-que-nao-ignorar',
+    'engasgo-em-adulto-o-que-fazer',
+    'o-que-fazer-quando-o-bebe-engasga',
+    'o-que-fazer-quando-alguem-desmaia',
+  ],
+  verao: [
+    'onda-de-calor-o-que-fazer-para-se-proteger',
+    'insolacao-sintomas-e-o-que-fazer',
+    'afogamento-prevencao-e-o-que-fazer',
+    'helicoptero-dos-bombeiros-na-praia-o-que-fazer-e-o-que-evitar',
+  ],
+  'plano-familiar': [
+    'plano-familiar-de-emergencia-no-rio',
+    'alerta-da-defesa-civil-no-celular-como-funciona-no-rio',
+    'sms-40199-como-receber-alertas-da-defesa-civil-no-rio',
+    'estagios-operacionais-do-rio-o-que-significa-cada-nivel',
+  ],
+  mochila: [
+    'sirene-da-defesa-civil-o-que-fazer-quando-toca',
+    'sinais-de-deslizamento-de-terra',
+  ],
 }
 
 // "e\u2011mail" leva o hífen que não quebra: no celular o título partia em "e-" no fim da linha e "mail" na de baixo.
 const MATERIAL_DA_VARIANTE: Readonly<Record<Variante, Material>> = {
   emergencia: KIT_DE_EMERGENCIA,
   'primeiros-socorros': KIT_DE_PRIMEIROS_SOCORROS,
+  'quando-ligar-192': QUANDO_LIGAR_192,
+  verao: VERAO_SEGURO,
+  'plano-familiar': PLANO_FAMILIAR,
+  mochila: MOCHILA_DE_EMERGENCIA,
 }
 
 const TEXTOS: Readonly<Record<Variante, { titulo: string; texto: string }>> = {
@@ -78,6 +111,22 @@ const TEXTOS: Readonly<Record<Variante, { titulo: string; texto: string }>> = {
   'primeiros-socorros': {
     titulo: 'Receba a lista do kit de primeiros socorros no seu e\u2011mail',
     texto: 'Duas folhas em PDF para imprimir e marcar o que já tem na caixa: os itens do kit, o que fazer num corte que sangra e os telefones de emergência. E uma folha com todas as fontes.',
+  },
+  'quando-ligar-192': {
+    titulo: 'Receba o cartaz “Quando ligar 192” no seu e\u2011mail',
+    texto: 'Duas folhas em PDF para imprimir e deixar à vista: os sinais de AVC, de infarto e de engasgo, o que fazer até o socorro chegar e o que dizer ao atendente. E uma folha com todas as fontes.',
+  },
+  verao: {
+    titulo: 'Receba o guia “Verão seguro no Rio” no seu e\u2011mail',
+    texto: 'Duas folhas em PDF para imprimir: o que fazer nos dias de calor forte, os sinais de alerta no corpo e os cuidados na praia. E uma folha com todas as fontes.',
+  },
+  'plano-familiar': {
+    titulo: 'Receba a ficha do plano familiar de emergência no seu e\u2011mail',
+    texto: 'Duas folhas em PDF para imprimir e preencher com a família: os telefones, os pontos de encontro e quem ajuda quem. E uma folha com todas as fontes.',
+  },
+  mochila: {
+    titulo: 'Receba a lista da mochila de emergência no seu e\u2011mail',
+    texto: 'Duas folhas em PDF para imprimir e marcar o que já está na mochila: o que levar para 3 dias, os documentos e o que fazer na hora de sair. E uma folha com todas as fontes.',
   },
 }
 
@@ -113,6 +162,9 @@ export function htmlDaCaixaDeMaterial(caixa: CaixaDaMateria, rota: string = ROTA
   const t = TEXTOS[variante]
   // O guia sai a partir da raiz (a página é do mesmo site), como os outros links internos da matéria.
   const guia = material.guia.replace(/^https?:\/\/[^/]+/i, '')
+  // "a lista", "o cartaz", "a ficha": o botão e o recado falam do material desta caixa (até 11/11/2026 era sempre "a lista").
+  const objeto = material.email.objeto
+  const Objeto = objeto.charAt(0).toUpperCase() + objeto.slice(1)
   return `<aside class="news-material" aria-labelledby="news-material-titulo" data-material="${escapar(material.id)}" data-variante="${escapar(variante)}" data-evento="${escapar(material.evento)}">
             <p class="news-material-olho">Para imprimir</p>
             <h2 id="news-material-titulo">${escapar(t.titulo)}</h2>
@@ -127,10 +179,10 @@ export function htmlDaCaixaDeMaterial(caixa: CaixaDaMateria, rota: string = ROTA
                 <input type="checkbox" name="consentimento" value="1" required>
                 <span>${escapar(material.consentimento)}</span>
               </label>
-              <button type="submit">Enviar a lista para o meu e-mail</button>
+              <button type="submit">Enviar ${escapar(objeto)} para o meu e-mail</button>
             </form>
             <p class="news-material-recado" role="status" aria-live="polite"></p>
-            <p class="news-material-guia" hidden>Não chegou? A lista também está no <a href="${escapar(guia)}">${escapar(material.rotuloDoGuia)}</a>.</p>
+            <p class="news-material-guia" hidden>Não chegou? ${escapar(Objeto)} também está no <a href="${escapar(guia)}">${escapar(material.rotuloDoGuia)}</a>.</p>
           </aside>`
 }
 
