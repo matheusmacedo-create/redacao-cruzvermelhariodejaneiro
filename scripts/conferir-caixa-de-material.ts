@@ -19,7 +19,7 @@ import { slugValido } from '../lib/site/slug'
 import {
   MATERIAS_COM_A_LISTA_DO_KIT, ROTA_DE_INSCRICAO_PADRAO, caixaDaMateria, htmlDaCaixaDeMaterial, type Variante,
 } from '../lib/site/caixa-de-material'
-import { KIT_DE_EMERGENCIA, materialPorId, todosOsMateriais } from '../lib/newsletter/materiais'
+import { KIT_DE_EMERGENCIA, MANUAL_DE_IDENTIDADE, materialPorId, todosOsMateriais } from '../lib/newsletter/materiais'
 import { emailDoMaterial } from '../lib/newsletter/modelo'
 import { esquecerMateriaisConferidos, materialNoAr } from '../lib/site/material-no-ar'
 import { TEXTO_DO_CONSENTIMENTO } from '../lib/newsletter/inscricao'
@@ -104,6 +104,22 @@ ok(msg.html.includes('porque pediram a lista do kit de emergência no nosso site
 ok(msg.html.includes(`href="${kit.guia}"`) && msg.texto.includes(kit.guia), 'a mensagem aponta o guia do site')
 ok(msg.html.includes('Não foi você?') && msg.texto.includes('Não foi você?'), 'e diz o que fazer a quem não pediu')
 ok(msg.texto.includes(urlBaixar), 'a versão em texto tem o endereço de baixar por extenso')
+
+// ---------------------------------------------------------------- o manual de identidade (11/11/2026)
+// Pedido na página /manual-de-identidade/ do site, não numa matéria: nenhuma matéria ganha caixa com ele.
+const manual = MANUAL_DE_IDENTIDADE
+ok(materialPorId('manual-de-identidade') === manual && new Set(todosOsMateriais().map((m) => m.id)).size === todosOsMateriais().length,
+  'o manual tem id próprio e nenhum id se repete')
+ok(manual.arquivo === 'https://cruzvermelhariodejaneiro.org/manual-de-identidade/manual-de-identidade-institucional-cruz-vermelha-brasileira.pdf',
+  'o arquivo do manual é o que o site publica (o endereço não muda sem mudar o site)')
+ok(todas.every((s) => caixaDaMateria(s)?.material !== manual), 'nenhuma matéria ganha a caixa do manual')
+const urlManual = 'https://palacio.cruzvermelhariodejaneiro.org/newsletter/confirmar?t=' + 'a'.repeat(48) + '&m=manual-de-identidade'
+const msgManual = emailDoMaterial({ material: manual, urlBaixar: urlManual, urlDeSaida })
+ok(msgManual.html.includes('>Baixar o manual em PDF</a>') && msgManual.html.includes('você baixa o manual e confirma o seu e-mail') && msgManual.texto.includes('você baixa o manual e confirma o seu e-mail'),
+  'a mensagem do manual fala do manual (botão e explicação), em HTML e em texto')
+ok(!/\blista do kit\b|cada item da lista|baixa a lista/.test(msgManual.html + msgManual.texto), 'e nada nela fala da lista do kit')
+const msgManualInscrito = emailDoMaterial({ material: manual, urlBaixar: manual.arquivo, urlDeSaida, jaInscrito: true })
+ok(msgManualInscrito.html.includes('o botão abre o manual direto') && msgManualInscrito.texto.includes('acima abre o manual direto'), 'quem já está na lista: o botão abre o manual direto')
 
 // ---------------------------------------------------------------- quem já está na lista
 // O caso que motivou a regra (09/11/2026): um inscrito antigo pediu a lista, a caixa disse "vai para o seu e-mail" e
