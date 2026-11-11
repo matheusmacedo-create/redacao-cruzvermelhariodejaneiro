@@ -1,9 +1,13 @@
 /**
  * Os materiais que o site entrega por e-mail a quem deixa o endereço (09/11/2026).
  *
- * Desde 11/11/2026 há também os dois materiais das páginas para instituições do site: o kit Lei Lucas para escolas, em
- * /lei-lucas-para-escolas/, e o roteiro do plano de contingência, em /plano-de-contingencia/. Seguem o modelo do manual
- * (o formulário da página é a porta do arquivo) e são gerados por scripts/gerar_pdf_materiais.py, no repositório do site.
+ * O quarto e o quinto (11/11/2026) são os materiais das páginas para instituições do site: o kit Lei Lucas para escolas,
+ * em /lei-lucas-para-escolas/, e o roteiro do plano de contingência, em /plano-de-contingencia/. Seguem o modelo do
+ * manual (o formulário da página é a porta do arquivo) e são gerados por scripts/gerar_pdf_materiais.py, no site.
+ *
+ * O terceiro (11/11/2026) é o guia do kit de primeiros socorros, em PDF: duas folhas para imprimir e marcar e uma com
+ * as fontes. É pedido na página /kit-de-primeiros-socorros/ do site e na caixa das matérias de primeiros socorros
+ * (lib/site/caixa-de-material.ts), que até então entregava a lista do kit de emergência.
  *
  * O segundo (11/11/2026) é o Manual de Identidade Institucional da Cruz Vermelha Brasileira, na página
  * /manual-de-identidade/ do site: lá o formulário é a porta do arquivo (o botão de baixar só aparece depois do e-mail),
@@ -107,14 +111,39 @@ export const MANUAL_DE_IDENTIDADE: Material = {
   evento: 'manual_pedir',
   email: {
     assunto: 'Seu Manual de Identidade da Cruz Vermelha (PDF)',
-    chamada: 'Toque no botão para baixar o manual: emblema, logotipo, cor, tipografia e aplicações.',
+    chamada: 'Toque no botão para baixar o manual: emblema, logotipo, cores, tipografia e aplicações.',
     titulo: 'Seu Manual de Identidade Institucional',
-    descricao: 'É o manual da Cruz Vermelha Brasileira em PDF (52 páginas, cerca de 14 MB): o emblema, o logotipo, a cor, a tipografia e as aplicações em papelaria, uniformes e veículos.',
+    descricao: 'É o manual da Cruz Vermelha Brasileira em PDF, na edição de 2022 (85 páginas, cerca de 4 MB): o emblema, o logotipo, as cores, a tipografia e as aplicações em papelaria, trajes e veículos.',
     botao: 'Baixar o manual em PDF',
     objeto: 'o manual',
     convite: 'Quer um resumo da cor, do logotipo e de quem pode usar o emblema?',
   },
 }
+
+export const KIT_DE_PRIMEIROS_SOCORROS: Material = {
+  id: 'kit-de-primeiros-socorros',
+  nome: 'a lista do kit de primeiros socorros',
+  arquivo: `${SITE}/kit-de-primeiros-socorros/kit-de-primeiros-socorros-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/kit-de-primeiros-socorros/#baixar`,
+  rotuloDoGuia: 'guia do kit de primeiros socorros',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail a lista do kit de '
+    + 'primeiros socorros e, depois, notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a '
+    + 'qualquer momento pelo link presente em todas as mensagens.',
+  recado: 'Pronto! A lista vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar a lista em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. A lista também está no guia do kit de primeiros socorros, no nosso site.',
+  evento: 'primeiros_socorros_pedir',
+  email: {
+    assunto: 'Sua lista do kit de primeiros socorros (PDF)',
+    chamada: 'Toque no botão para baixar as folhas e marcar o que já tem na caixa.',
+    titulo: 'Sua lista do kit de primeiros socorros',
+    descricao: 'São três folhas em PDF: duas para imprimir e marcar o que já tem na caixa de primeiros socorros, com o que fazer num corte que sangra e os telefones de emergência, e uma com todas as fontes.',
+    botao: 'Baixar a lista em PDF',
+    objeto: 'a lista',
+    convite: 'Quer entender para que serve cada item?',
+  },
+}
+
 
 export const KIT_LEI_LUCAS: Material = {
   id: 'lei-lucas-escolas',
@@ -164,7 +193,9 @@ export const ROTEIRO_PLANO_DE_CONTINGENCIA: Material = {
   },
 }
 
-const MATERIAIS: readonly Material[] = [KIT_DE_EMERGENCIA, MANUAL_DE_IDENTIDADE, KIT_LEI_LUCAS, ROTEIRO_PLANO_DE_CONTINGENCIA]
+const MATERIAIS: readonly Material[] = [
+  KIT_DE_EMERGENCIA, MANUAL_DE_IDENTIDADE, KIT_DE_PRIMEIROS_SOCORROS, KIT_LEI_LUCAS, ROTEIRO_PLANO_DE_CONTINGENCIA,
+]
 
 /** O id vai em endereço e em atributo de HTML: nada além disto. */
 const ID_VALIDO = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
