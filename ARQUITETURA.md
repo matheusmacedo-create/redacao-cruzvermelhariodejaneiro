@@ -694,7 +694,9 @@ tem a caixa do kit — é a inscrição comum da rota, com `origem=materia` e o 
 (3) “Como ajudar” na coluna lateral, com doação e voluntariado em botões. O chapéu da matéria passou a ser a editoria.
 Matéria já no ar só ganha isso ao ser regerada. `npx tsx scripts/conferir-convites-da-materia.ts` confere.
 
-**Caixa da lista do kit** (09/11/2026). Nas matérias listadas em `lib/site/caixa-de-material.ts` (18 na ronda de
+**Caixa da lista do kit** (09/11/2026). Desde 11/11/2026 são dois materiais: as matérias da variante `emergencia`
+entregam `kit-de-emergencia`, e as da variante `primeiros-socorros` entregam `kit-de-primeiros-socorros`, que também
+é pedido na página `/kit-de-primeiros-socorros/` do site; o que segue vale para os dois. Nas matérias listadas em `lib/site/caixa-de-material.ts` (18 na ronda de
 09/11: emergências, Defesa Civil e primeiros socorros em casa; a lista é por endereço, e matéria nova só entra quando
 alguém a acrescenta), a página ganha, depois do texto, a caixa “Receba a lista do kit de emergência no seu e-mail”: o
 e-mail, o aceite e o botão. O formulário manda para `app/api/newsletter/inscrever` com `material=kit-de-emergencia`

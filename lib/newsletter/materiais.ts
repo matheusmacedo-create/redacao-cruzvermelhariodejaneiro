@@ -1,6 +1,10 @@
 /**
  * Os materiais que o site entrega por e-mail a quem deixa o endereço (09/11/2026).
  *
+ * O terceiro (11/11/2026) é o guia do kit de primeiros socorros, em PDF: duas folhas para imprimir e marcar e uma com
+ * as fontes. É pedido na página /kit-de-primeiros-socorros/ do site e na caixa das matérias de primeiros socorros
+ * (lib/site/caixa-de-material.ts), que até então entregava a lista do kit de emergência.
+ *
  * O segundo (11/11/2026) é o Manual de Identidade Institucional da Cruz Vermelha Brasileira, na página
  * /manual-de-identidade/ do site: lá o formulário é a porta do arquivo (o botão de baixar só aparece depois do e-mail),
  * e a mensagem leva o mesmo arquivo. Vale a decisão 3 abaixo: a porta é um convite, o PDF continua público.
@@ -112,7 +116,31 @@ export const MANUAL_DE_IDENTIDADE: Material = {
   },
 }
 
-const MATERIAIS: readonly Material[] = [KIT_DE_EMERGENCIA, MANUAL_DE_IDENTIDADE]
+export const KIT_DE_PRIMEIROS_SOCORROS: Material = {
+  id: 'kit-de-primeiros-socorros',
+  nome: 'a lista do kit de primeiros socorros',
+  arquivo: `${SITE}/kit-de-primeiros-socorros/kit-de-primeiros-socorros-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/kit-de-primeiros-socorros/#baixar`,
+  rotuloDoGuia: 'guia do kit de primeiros socorros',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail a lista do kit de '
+    + 'primeiros socorros e, depois, notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a '
+    + 'qualquer momento pelo link presente em todas as mensagens.',
+  recado: 'Pronto! A lista vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar a lista em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. A lista também está no guia do kit de primeiros socorros, no nosso site.',
+  evento: 'primeiros_socorros_pedir',
+  email: {
+    assunto: 'Sua lista do kit de primeiros socorros (PDF)',
+    chamada: 'Toque no botão para baixar as folhas e marcar o que já tem na caixa.',
+    titulo: 'Sua lista do kit de primeiros socorros',
+    descricao: 'São três folhas em PDF: duas para imprimir e marcar o que já tem na caixa de primeiros socorros, com o que fazer num corte que sangra e os telefones de emergência, e uma com todas as fontes.',
+    botao: 'Baixar a lista em PDF',
+    objeto: 'a lista',
+    convite: 'Quer entender para que serve cada item?',
+  },
+}
+
+const MATERIAIS: readonly Material[] = [KIT_DE_EMERGENCIA, MANUAL_DE_IDENTIDADE, KIT_DE_PRIMEIROS_SOCORROS]
 
 /** O id vai em endereço e em atributo de HTML: nada além disto. */
 const ID_VALIDO = /^[a-z0-9]+(?:-[a-z0-9]+)*$/

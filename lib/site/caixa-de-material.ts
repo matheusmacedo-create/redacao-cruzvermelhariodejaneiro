@@ -30,9 +30,13 @@
  */
 import { escapar } from '@/lib/site/esqueleto'
 import { ENDERECO_DO_PALACIO } from '@/lib/dominio'
-import { KIT_DE_EMERGENCIA, type Material } from '@/lib/newsletter/materiais'
+import { KIT_DE_EMERGENCIA, KIT_DE_PRIMEIROS_SOCORROS, type Material } from '@/lib/newsletter/materiais'
 
-/** Por qual lado da lista a matéria chega: muda o título e o texto da caixa, não o arquivo. */
+/**
+ * Por qual lado a matéria chega: muda o título, o texto da caixa e, desde 11/11/2026, o arquivo. As matérias de
+ * emergência entregam a lista do kit de emergência; as de primeiros socorros, o guia do kit de primeiros socorros,
+ * que ganhou PDF próprio. A caixa só troca na página de cada matéria quando ela é regerada, e só com o PDF novo no ar.
+ */
 export type Variante = 'emergencia' | 'primeiros-socorros'
 
 export const MATERIAS_COM_A_LISTA_DO_KIT: Readonly<Record<Variante, readonly string[]>> = {
@@ -61,6 +65,11 @@ export const MATERIAS_COM_A_LISTA_DO_KIT: Readonly<Record<Variante, readonly str
 }
 
 // "e\u2011mail" leva o hífen que não quebra: no celular o título partia em "e-" no fim da linha e "mail" na de baixo.
+const MATERIAL_DA_VARIANTE: Readonly<Record<Variante, Material>> = {
+  emergencia: KIT_DE_EMERGENCIA,
+  'primeiros-socorros': KIT_DE_PRIMEIROS_SOCORROS,
+}
+
 const TEXTOS: Readonly<Record<Variante, { titulo: string; texto: string }>> = {
   emergencia: {
     titulo: 'Receba a lista do kit de emergência no seu e\u2011mail',
@@ -68,7 +77,7 @@ const TEXTOS: Readonly<Record<Variante, { titulo: string; texto: string }>> = {
   },
   'primeiros-socorros': {
     titulo: 'Receba a lista do kit de primeiros socorros no seu e\u2011mail',
-    texto: 'Duas folhas em PDF para imprimir e marcar o que já tem em casa: o kit de primeiros socorros, o kit de emergência para dias de chuva forte e os telefones da família.',
+    texto: 'Duas folhas em PDF para imprimir e marcar o que já tem na caixa: os itens do kit, o que fazer num corte que sangra e os telefones de emergência. E uma folha com todas as fontes.',
   },
 }
 
@@ -79,7 +88,7 @@ export function caixaDaMateria(slug: string | null | undefined): CaixaDaMateria 
   const s = (slug ?? '').trim()
   if (!s) return null
   for (const variante of Object.keys(MATERIAS_COM_A_LISTA_DO_KIT) as Variante[]) {
-    if (MATERIAS_COM_A_LISTA_DO_KIT[variante].includes(s)) return { material: KIT_DE_EMERGENCIA, variante }
+    if (MATERIAS_COM_A_LISTA_DO_KIT[variante].includes(s)) return { material: MATERIAL_DA_VARIANTE[variante], variante }
   }
   return null
 }
