@@ -137,11 +137,11 @@ ok(msgManualInscrito.html.includes('o botão abre o manual direto') && msgManual
 // ---------------------------------------------------------------- os materiais das páginas para instituições (11/11/2026)
 // Pedidos nas páginas /lei-lucas-para-escolas/ e /plano-de-contingencia/ do site, como o manual: nenhuma matéria ganha caixa.
 for (const [m, id, arquivo, botao] of [
-  [KIT_LEI_LUCAS, 'lei-lucas-escolas', 'https://cruzvermelhariodejaneiro.org/lei-lucas-para-escolas/kit-lei-lucas-escolas-cruz-vermelha-rj.pdf', 'Baixar o kit em PDF'],
-  [ROTEIRO_PLANO_DE_CONTINGENCIA, 'plano-de-contingencia', 'https://cruzvermelhariodejaneiro.org/plano-de-contingencia/roteiro-plano-de-contingencia-cruz-vermelha-rj.pdf', 'Baixar o roteiro em PDF'],
+  [KIT_LEI_LUCAS, 'lei-lucas-escolas', 'https://cruzvermelhariodejaneiro.org/lei-lucas-para-escolas/lei-lucas-para-escolas-cruz-vermelha-rj.pdf', 'Baixar o kit em PDF'],
+  [ROTEIRO_PLANO_DE_CONTINGENCIA, 'plano-de-contingencia', 'https://cruzvermelhariodejaneiro.org/plano-de-contingencia/plano-de-contingencia-cruz-vermelha-rj.pdf', 'Baixar o roteiro em PDF'],
 ] as const) {
   ok(materialPorId(id) === m, `${id}: o id acha o material`)
-  ok(m.arquivo === arquivo, `${id}: o arquivo é o que o site publica (scripts/gerar_pdf_materiais.py)`)
+  ok(m.arquivo === arquivo, `${id}: o arquivo é o que o site publica (scripts/gerar_guia_pdf.py)`)
   ok(todas.every((s) => caixaDaMateria(s)?.material !== m), `${id}: nenhuma matéria ganha a caixa dele`)
   const msg = emailDoMaterial({ material: m, urlBaixar: `https://palacio.cruzvermelhariodejaneiro.org/newsletter/confirmar?t=${'a'.repeat(48)}&m=${id}`, urlDeSaida })
   ok(msg.html.includes(`>${botao}</a>`) && msg.html.includes(`você baixa ${m.email.objeto} e confirma o seu e-mail`), `${id}: a mensagem tem o botão e explica que ele baixa e confirma`)
