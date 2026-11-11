@@ -103,9 +103,9 @@ export const MANUAL_DE_IDENTIDADE: Material = {
   evento: 'manual_pedir',
   email: {
     assunto: 'Seu Manual de Identidade da Cruz Vermelha (PDF)',
-    chamada: 'Toque no botão para baixar o manual: emblema, logotipo, cor, tipografia e aplicações.',
+    chamada: 'Toque no botão para baixar o manual: emblema, logotipo, cores, tipografia e aplicações.',
     titulo: 'Seu Manual de Identidade Institucional',
-    descricao: 'É o manual da Cruz Vermelha Brasileira em PDF (52 páginas, cerca de 14 MB): o emblema, o logotipo, a cor, a tipografia e as aplicações em papelaria, uniformes e veículos.',
+    descricao: 'É o manual da Cruz Vermelha Brasileira em PDF, na edição de 2022 (85 páginas, cerca de 4 MB): o emblema, o logotipo, as cores, a tipografia e as aplicações em papelaria, trajes e veículos.',
     botao: 'Baixar o manual em PDF',
     objeto: 'o manual',
     convite: 'Quer um resumo da cor, do logotipo e de quem pode usar o emblema?',
