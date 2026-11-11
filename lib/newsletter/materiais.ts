@@ -1,6 +1,11 @@
 /**
  * Os materiais que o site entrega por e-mail a quem deixa o endereço (09/11/2026).
  *
+ * Do sexto ao nono (11/11/2026, não publicados) são quatro guias no padrão dos guias gratuitos do site
+ * (docs/padrao-guias-gratuitos.md, lá): a lista da mochila de emergência, o cartaz "Quando ligar 192", o guia
+ * "Verão seguro no Rio" e a ficha do plano familiar de emergência. Cada um é pedido na página dele e na caixa de um
+ * grupo de matérias (lib/site/caixa-de-material.ts), que antes ficavam com o kit de emergência ou sem caixa nenhuma.
+ *
  * O quarto e o quinto (11/11/2026) são os materiais das páginas para instituições do site: o kit Lei Lucas para escolas,
  * em /lei-lucas-para-escolas/, e o roteiro do plano de contingência, em /plano-de-contingencia/. Seguem o modelo do
  * manual (o formulário da página é a porta do arquivo) e saem no padrão dos guias (scripts/gerar_guia_pdf.py, no site).
@@ -193,8 +198,105 @@ export const ROTEIRO_PLANO_DE_CONTINGENCIA: Material = {
   },
 }
 
+export const MOCHILA_DE_EMERGENCIA: Material = {
+  id: 'mochila-de-emergencia',
+  nome: 'a lista da mochila de emergência',
+  arquivo: `${SITE}/mochila-de-emergencia/mochila-de-emergencia-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/mochila-de-emergencia/#baixar`,
+  rotuloDoGuia: 'guia da mochila de emergência',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail a lista da mochila de emergência e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! A lista vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar a lista em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. A lista também está no guia da mochila de emergência, no nosso site.',
+  evento: 'mochila_pedir',
+  email: {
+    assunto: 'Sua lista da mochila de emergência (PDF)',
+    chamada: 'Toque no botão para baixar as folhas e marcar o que já está na mochila.',
+    titulo: 'Sua lista da mochila de emergência',
+    descricao: 'São três folhas em PDF: duas para imprimir e marcar o que já está na mochila, com os documentos, o que fazer na hora de sair e os telefones da família, e uma com todas as fontes.',
+    botao: 'Baixar a lista em PDF',
+    objeto: 'a lista',
+    convite: 'Quer entender cada item da mochila?',
+  },
+}
+
+export const QUANDO_LIGAR_192: Material = {
+  id: 'quando-ligar-192',
+  nome: 'o cartaz Quando ligar 192',
+  arquivo: `${SITE}/quando-ligar-192/quando-ligar-192-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/quando-ligar-192/#baixar`,
+  rotuloDoGuia: 'guia Quando ligar 192',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o cartaz Quando ligar 192 e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O cartaz vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o cartaz em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O cartaz também está no guia Quando ligar 192, no nosso site.',
+  evento: 'quandoligar_pedir',
+  email: {
+    assunto: 'Seu cartaz Quando ligar 192 (PDF)',
+    chamada: 'Toque no botão para baixar o cartaz com os sinais de AVC, infarto e engasgo.',
+    titulo: 'Seu cartaz Quando ligar 192',
+    descricao: 'São três folhas em PDF: duas para imprimir e deixar à vista, com os sinais de AVC, de infarto e de engasgo, o que fazer até o socorro chegar e o que dizer ao atendente, e uma com todas as fontes.',
+    botao: 'Baixar o cartaz em PDF',
+    objeto: 'o cartaz',
+    convite: 'Quer entender cada sinal com calma?',
+  },
+}
+
+export const VERAO_SEGURO: Material = {
+  id: 'verao-seguro',
+  nome: 'o guia Verão seguro no Rio',
+  arquivo: `${SITE}/verao-seguro/verao-seguro-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/verao-seguro/#baixar`,
+  rotuloDoGuia: 'guia Verão seguro no Rio',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o guia Verão seguro no Rio e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O guia vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o guia em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O guia também está no guia Verão seguro no Rio, no nosso site.',
+  evento: 'verao_pedir',
+  email: {
+    assunto: 'Seu guia Verão seguro no Rio (PDF)',
+    chamada: 'Toque no botão para baixar o guia do calor, do sol e da praia.',
+    titulo: 'Seu guia Verão seguro no Rio',
+    descricao: 'São três folhas em PDF: duas para imprimir, com o que fazer nos dias de calor forte, os sinais de alerta no corpo e os cuidados na praia, e uma com todas as fontes.',
+    botao: 'Baixar o guia em PDF',
+    objeto: 'o guia',
+    convite: 'Quer ver cada cuidado explicado?',
+  },
+}
+
+export const PLANO_FAMILIAR: Material = {
+  id: 'plano-familiar-de-emergencia',
+  nome: 'a ficha do plano familiar de emergência',
+  arquivo: `${SITE}/plano-familiar-de-emergencia/plano-familiar-de-emergencia-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/plano-familiar-de-emergencia/#baixar`,
+  rotuloDoGuia: 'guia do plano familiar de emergência',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail a ficha do plano familiar de emergência e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! A ficha vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar a ficha em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. A ficha também está no guia do plano familiar de emergência, no nosso site.',
+  evento: 'planofamiliar_pedir',
+  email: {
+    assunto: 'Sua ficha do plano familiar de emergência (PDF)',
+    chamada: 'Toque no botão para baixar a ficha e preencher com a família.',
+    titulo: 'Sua ficha do plano familiar de emergência',
+    descricao: 'São três folhas em PDF: duas para imprimir e preencher com a família, com os telefones, os pontos de encontro e quem ajuda quem, e uma com todas as fontes.',
+    botao: 'Baixar a ficha em PDF',
+    objeto: 'a ficha',
+    convite: 'Quer ver como montar o plano, passo a passo?',
+  },
+}
+
 const MATERIAIS: readonly Material[] = [
   KIT_DE_EMERGENCIA, MANUAL_DE_IDENTIDADE, KIT_DE_PRIMEIROS_SOCORROS, KIT_LEI_LUCAS, ROTEIRO_PLANO_DE_CONTINGENCIA,
+  MOCHILA_DE_EMERGENCIA, QUANDO_LIGAR_192, VERAO_SEGURO, PLANO_FAMILIAR,
 ]
 
 /** O id vai em endereço e em atributo de HTML: nada além disto. */
