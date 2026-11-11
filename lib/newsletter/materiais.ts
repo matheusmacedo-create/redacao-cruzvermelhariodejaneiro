@@ -1,6 +1,10 @@
 /**
  * Os materiais que o site entrega por e-mail a quem deixa o endereço (09/11/2026).
  *
+ * O quarto e o quinto (11/11/2026) são os materiais das páginas para instituições do site: o kit Lei Lucas para escolas,
+ * em /lei-lucas-para-escolas/, e o roteiro do plano de contingência, em /plano-de-contingencia/. Seguem o modelo do
+ * manual (o formulário da página é a porta do arquivo) e saem no padrão dos guias (scripts/gerar_guia_pdf.py, no site).
+ *
  * O terceiro (11/11/2026) é o guia do kit de primeiros socorros, em PDF: duas folhas para imprimir e marcar e uma com
  * as fontes. É pedido na página /kit-de-primeiros-socorros/ do site e na caixa das matérias de primeiros socorros
  * (lib/site/caixa-de-material.ts), que até então entregava a lista do kit de emergência.
@@ -140,7 +144,58 @@ export const KIT_DE_PRIMEIROS_SOCORROS: Material = {
   },
 }
 
-const MATERIAIS: readonly Material[] = [KIT_DE_EMERGENCIA, MANUAL_DE_IDENTIDADE, KIT_DE_PRIMEIROS_SOCORROS]
+
+export const KIT_LEI_LUCAS: Material = {
+  id: 'lei-lucas-escolas',
+  nome: 'o kit Lei Lucas para escolas',
+  arquivo: `${SITE}/lei-lucas-para-escolas/lei-lucas-para-escolas-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/lei-lucas-para-escolas/#baixar`,
+  rotuloDoGuia: 'guia da Lei Lucas para escolas',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o kit Lei Lucas para escolas '
+    + 'e, depois, notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo '
+    + 'link presente em todas as mensagens.',
+  recado: 'Pronto! O kit vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o kit em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O kit também está no guia da Lei Lucas para escolas, no nosso site.',
+  evento: 'leilucas_pedir',
+  email: {
+    assunto: 'Seu kit Lei Lucas para escolas (PDF)',
+    chamada: 'Toque no botão para baixar o checklist, a ficha dos capacitados e o cartaz de emergência.',
+    titulo: 'Seu kit Lei Lucas para escolas',
+    descricao: 'São três folhas em PDF: duas para imprimir, com o checklist de adequação à Lei Lucas, a ficha dos profissionais capacitados para afixar na escola e o cartaz de emergência da sala dos professores, e uma com as fontes.',
+    botao: 'Baixar o kit em PDF',
+    objeto: 'o kit',
+    convite: 'Quer saber o que a lei pede e como capacitar a equipe?',
+  },
+}
+
+export const ROTEIRO_PLANO_DE_CONTINGENCIA: Material = {
+  id: 'plano-de-contingencia',
+  nome: 'o roteiro do plano de contingência',
+  arquivo: `${SITE}/plano-de-contingencia/plano-de-contingencia-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/plano-de-contingencia/#baixar`,
+  rotuloDoGuia: 'guia do plano de contingência',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o roteiro do plano de '
+    + 'contingência e, depois, notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer '
+    + 'momento pelo link presente em todas as mensagens.',
+  recado: 'Pronto! O roteiro vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o roteiro em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O roteiro também está no guia do plano de contingência, no nosso site.',
+  evento: 'contingencia_pedir',
+  email: {
+    assunto: 'Seu roteiro do plano de contingência (PDF)',
+    chamada: 'Toque no botão para baixar as perguntas do plano e a ficha de quem faz o quê.',
+    titulo: 'Seu roteiro do plano de contingência',
+    descricao: 'São três folhas em PDF: duas para imprimir e preencher em reunião, com as perguntas que o plano precisa responder e a ficha de quem faz o quê, os níveis de alerta e os telefones, e uma com as fontes.',
+    botao: 'Baixar o roteiro em PDF',
+    objeto: 'o roteiro',
+    convite: 'Quer ver o que um bom plano precisa ter?',
+  },
+}
+
+const MATERIAIS: readonly Material[] = [
+  KIT_DE_EMERGENCIA, MANUAL_DE_IDENTIDADE, KIT_DE_PRIMEIROS_SOCORROS, KIT_LEI_LUCAS, ROTEIRO_PLANO_DE_CONTINGENCIA,
+]
 
 /** O id vai em endereço e em atributo de HTML: nada além disto. */
 const ID_VALIDO = /^[a-z0-9]+(?:-[a-z0-9]+)*$/

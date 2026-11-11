@@ -19,7 +19,10 @@ import { slugValido } from '../lib/site/slug'
 import {
   MATERIAS_COM_A_LISTA_DO_KIT, ROTA_DE_INSCRICAO_PADRAO, caixaDaMateria, htmlDaCaixaDeMaterial, type Variante,
 } from '../lib/site/caixa-de-material'
-import { KIT_DE_EMERGENCIA, KIT_DE_PRIMEIROS_SOCORROS, MANUAL_DE_IDENTIDADE, materialPorId, todosOsMateriais } from '../lib/newsletter/materiais'
+import {
+  KIT_DE_EMERGENCIA, KIT_DE_PRIMEIROS_SOCORROS, KIT_LEI_LUCAS, MANUAL_DE_IDENTIDADE, ROTEIRO_PLANO_DE_CONTINGENCIA, materialPorId,
+  todosOsMateriais,
+} from '../lib/newsletter/materiais'
 import { emailDoMaterial } from '../lib/newsletter/modelo'
 import { esquecerMateriaisConferidos, materialNoAr } from '../lib/site/material-no-ar'
 import { TEXTO_DO_CONSENTIMENTO } from '../lib/newsletter/inscricao'
@@ -130,6 +133,21 @@ ok(msgManual.html.includes('>Baixar o manual em PDF</a>') && msgManual.html.incl
 ok(!/\blista do kit\b|cada item da lista|baixa a lista/.test(msgManual.html + msgManual.texto), 'e nada nela fala da lista do kit')
 const msgManualInscrito = emailDoMaterial({ material: manual, urlBaixar: manual.arquivo, urlDeSaida, jaInscrito: true })
 ok(msgManualInscrito.html.includes('o botão abre o manual direto') && msgManualInscrito.texto.includes('acima abre o manual direto'), 'quem já está na lista: o botão abre o manual direto')
+
+// ---------------------------------------------------------------- os materiais das páginas para instituições (11/11/2026)
+// Pedidos nas páginas /lei-lucas-para-escolas/ e /plano-de-contingencia/ do site, como o manual: nenhuma matéria ganha caixa.
+for (const [m, id, arquivo, botao] of [
+  [KIT_LEI_LUCAS, 'lei-lucas-escolas', 'https://cruzvermelhariodejaneiro.org/lei-lucas-para-escolas/lei-lucas-para-escolas-cruz-vermelha-rj.pdf', 'Baixar o kit em PDF'],
+  [ROTEIRO_PLANO_DE_CONTINGENCIA, 'plano-de-contingencia', 'https://cruzvermelhariodejaneiro.org/plano-de-contingencia/plano-de-contingencia-cruz-vermelha-rj.pdf', 'Baixar o roteiro em PDF'],
+] as const) {
+  ok(materialPorId(id) === m, `${id}: o id acha o material`)
+  ok(m.arquivo === arquivo, `${id}: o arquivo é o que o site publica (scripts/gerar_guia_pdf.py)`)
+  ok(todas.every((s) => caixaDaMateria(s)?.material !== m), `${id}: nenhuma matéria ganha a caixa dele`)
+  const msg = emailDoMaterial({ material: m, urlBaixar: `https://palacio.cruzvermelhariodejaneiro.org/newsletter/confirmar?t=${'a'.repeat(48)}&m=${id}`, urlDeSaida })
+  ok(msg.html.includes(`>${botao}</a>`) && msg.html.includes(`você baixa ${m.email.objeto} e confirma o seu e-mail`), `${id}: a mensagem tem o botão e explica que ele baixa e confirma`)
+}
+ok(new Set(todosOsMateriais().map((m) => m.id)).size === todosOsMateriais().length && new Set(todosOsMateriais().map((m) => m.evento)).size === todosOsMateriais().length,
+  'nenhum id nem evento de medição se repete entre os materiais')
 
 // ---------------------------------------------------------------- quem já está na lista
 // O caso que motivou a regra (09/11/2026): um inscrito antigo pediu a lista, a caixa disse "vai para o seu e-mail" e
