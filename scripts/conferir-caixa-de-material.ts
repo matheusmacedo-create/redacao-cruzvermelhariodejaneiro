@@ -19,7 +19,7 @@ import { slugValido } from '../lib/site/slug'
 import {
   MATERIAS_COM_A_LISTA_DO_KIT, ROTA_DE_INSCRICAO_PADRAO, caixaDaMateria, htmlDaCaixaDeMaterial, type Variante,
 } from '../lib/site/caixa-de-material'
-import { KIT_DE_EMERGENCIA, MANUAL_DE_IDENTIDADE, materialPorId, todosOsMateriais } from '../lib/newsletter/materiais'
+import { KIT_DE_EMERGENCIA, KIT_DE_PRIMEIROS_SOCORROS, MANUAL_DE_IDENTIDADE, materialPorId, todosOsMateriais } from '../lib/newsletter/materiais'
 import { emailDoMaterial } from '../lib/newsletter/modelo'
 import { esquecerMateriaisConferidos, materialNoAr } from '../lib/site/material-no-ar'
 import { TEXTO_DO_CONSENTIMENTO } from '../lib/newsletter/inscricao'
@@ -78,8 +78,18 @@ ok((comCaixa.match(/class="news-material"/g) ?? []).length === 1, 'uma caixa só
 ok(problemasDaPagina(comCaixa).length === 0, `a guarda da página aceita a matéria com a caixa: ${problemasDaPagina(comCaixa).join('; ')}`)
 
 const primeirosSocorros = montarPaginaDoArtigo({ ...base, slug: 'suspeita-de-fratura-o-que-fazer' })
-ok(primeirosSocorros.includes('Receba a lista do kit de primeiros socorros no seu e\u2011mail') && primeirosSocorros.includes('data-variante="primeiros-socorros"') && primeirosSocorros.includes('value="kit-de-emergencia"'),
-  'a matéria de primeiros socorros muda o título e o texto, não o material')
+ok(primeirosSocorros.includes('Receba a lista do kit de primeiros socorros no seu e\u2011mail') && primeirosSocorros.includes('data-variante="primeiros-socorros"') && primeirosSocorros.includes('value="kit-de-primeiros-socorros"')
+  && primeirosSocorros.includes('data-evento="primeiros_socorros_pedir"') && primeirosSocorros.includes('href="/kit-de-primeiros-socorros/#baixar"')
+  && primeirosSocorros.includes(`<span>${escapado(KIT_DE_PRIMEIROS_SOCORROS.consentimento)}</span>`) && !primeirosSocorros.includes('value="kit-de-emergencia"'),
+  'a matéria de primeiros socorros pede o guia do kit de primeiros socorros: material, evento, guia e aceite dele')
+ok(MATERIAS_COM_A_LISTA_DO_KIT.emergencia.every((s) => caixaDaMateria(s)?.material === KIT_DE_EMERGENCIA)
+  && MATERIAS_COM_A_LISTA_DO_KIT['primeiros-socorros'].every((s) => caixaDaMateria(s)?.material === KIT_DE_PRIMEIROS_SOCORROS),
+  'cada variante entrega o seu material')
+ok(KIT_DE_PRIMEIROS_SOCORROS.arquivo === 'https://cruzvermelhariodejaneiro.org/kit-de-primeiros-socorros/kit-de-primeiros-socorros-cruz-vermelha-rj.pdf',
+  'o arquivo do kit de primeiros socorros é o que o site publica (o endereço não muda sem mudar o site)')
+const msgPs = emailDoMaterial({ material: KIT_DE_PRIMEIROS_SOCORROS, urlBaixar: 'https://palacio.cruzvermelhariodejaneiro.org/newsletter/confirmar?t=' + 'a'.repeat(48) + '&m=kit-de-primeiros-socorros', urlDeSaida: 'https://palacio.cruzvermelhariodejaneiro.org/newsletter/sair?t=' + 'b'.repeat(48) })
+ok(msgPs.assunto === KIT_DE_PRIMEIROS_SOCORROS.email.assunto && msgPs.html.includes('porque pediram a lista do kit de primeiros socorros no nosso site') && !/kit de emergência/.test(msgPs.html + msgPs.texto),
+  'a mensagem do kit de primeiros socorros fala dele, e não do kit de emergência')
 
 const comRota = montarPaginaDoArtigo({ ...base, slug: 'plano-familiar-de-emergencia-no-rio', rotaDeInscricao: 'https://exemplo.org/api/newsletter/inscrever?a=1&b="2"' })
 ok(comRota.includes('action="https://exemplo.org/api/newsletter/inscrever?a=1&amp;b=&quot;2&quot;"'), 'a rota informada entra no formulário, escapada')
