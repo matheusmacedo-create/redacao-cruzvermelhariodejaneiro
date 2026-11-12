@@ -20,7 +20,8 @@ import {
   MATERIAS_COM_A_LISTA_DO_KIT, ROTA_DE_INSCRICAO_PADRAO, caixaDaMateria, htmlDaCaixaDeMaterial, type Variante,
 } from '../lib/site/caixa-de-material'
 import {
-  ACIDENTES_EM_CASA, CARTAZ_DA_CRUZ_VERMELHA, CHECKLIST_DENGUE, GUIA_DO_CUIDADOR,
+  ACIDENTES_EM_CASA, CARTAZ_DA_CRUZ_VERMELHA, CHECKLIST_DENGUE, FEBRE_EM_CRIANCA, GUIA_DO_BOMBEIRO_CIVIL, GUIA_DO_CUIDADOR, GUIA_DOS_CURSOS,
+  INTOXICACAO_ALIMENTAR, ONDE_BUSCAR_AJUDA, PRESSAO_ALTA_E_BAIXA, QUEIMADURAS, RCP_E_HEIMLICH,
   KIT_DE_EMERGENCIA, KIT_DE_PRIMEIROS_SOCORROS, KIT_LEI_LUCAS, MANUAL_DE_IDENTIDADE, MOCHILA_DE_EMERGENCIA, PLANO_FAMILIAR, QUANDO_LIGAR_192,
   ROTEIRO_PLANO_DE_CONTINGENCIA, VERAO_SEGURO, materialPorId,
   todosOsMateriais,
@@ -43,9 +44,8 @@ ok(new Set(todas).size === todas.length, 'nenhuma matéria aparece duas vezes (n
 ok(variantes.every((v) => MATERIAS_COM_A_LISTA_DO_KIT[v].every((s) => caixaDaMateria(s)?.variante === v)), 'cada matéria da lista ganha a caixa da sua variante')
 ok(caixaDaMateria('lei-do-voluntariado-o-que-diz-a-lei-9608') === null && caixaDaMateria('') === null && caixaDaMateria(null) === null && caixaDaMateria('previa') === null,
   'matéria fora da lista, endereço vazio e a prévia sem endereço ficam sem caixa')
-ok(caixaDaMateria('kit-de-primeiros-socorros-escolar-lei-lucas') === null && caixaDaMateria('curso-de-primeiros-socorros-lei-lucas-o-que-a-lei-exige-das-escolas') === null
-  && caixaDaMateria('setembro-amarelo-cruz-vermelha-rj-e-a-valorizacao-da-vida') === null && caixaDaMateria('curso-de-cuidador-de-idosos-o-que-faz-e-como-se-capacitar') === null,
-  'advertorial e curso da Lei Lucas, saúde mental e matéria de curso ficam de fora')
+ok(caixaDaMateria('kit-de-primeiros-socorros-escolar-lei-lucas') === null && caixaDaMateria('beneficios-do-voluntariado') === null && caixaDaMateria('7-de-setembro') === null,
+  'o advertorial do kit escolar, voluntariado e notícia datada ficam de fora')
 
 // ---------------------------------------------------------------- o material
 const kit = KIT_DE_EMERGENCIA
@@ -107,6 +107,9 @@ for (const [variante, m, slug, titulo, botao, naoChegou] of [
   ['acidentes', ACIDENTES_EM_CASA, 'picada-de-cobra-o-que-fazer', 'Receba o cartaz “Acidentes em casa” no seu e\u2011mail', 'Enviar o cartaz para o meu e-mail', 'Não chegou? O cartaz também está no'],
   ['movimento', CARTAZ_DA_CRUZ_VERMELHA, 'henry-dunant-quem-foi-o-fundador-da-cruz-vermelha', 'Receba o cartaz “A Cruz Vermelha em uma página” no seu e\u2011mail', 'Enviar o cartaz para o meu e-mail', 'Não chegou? O cartaz também está no'],
   ['dengue', CHECKLIST_DENGUE, 'prevencao-da-dengue-no-verao-como-eliminar-focos-em-casa', 'Receba o checklist contra a dengue no seu e\u2011mail', 'Enviar o checklist para o meu e-mail', 'Não chegou? O checklist também está no'],
+  ['bombeiro-civil', GUIA_DO_BOMBEIRO_CIVIL, 'reciclagem-de-bombeiro-civil-no-rj', 'Receba o guia do bombeiro civil no seu e\u2011mail', 'Enviar o guia para o meu e-mail', 'Não chegou? O guia também está no'],
+  ['cursos', GUIA_DOS_CURSOS, 'curso-de-acesso-venoso-para-quem-e', 'Receba o guia dos cursos no seu e\u2011mail', 'Enviar o guia para o meu e-mail', 'Não chegou? O guia também está no'],
+  ['ajuda', ONDE_BUSCAR_AJUDA, 'deam-digital-rj-como-denunciar-violencia-domestica-online', 'Receba o cartaz “Onde buscar ajuda” no seu e\u2011mail', 'Enviar o cartaz para o meu e-mail', 'Não chegou? O cartaz também está no'],
 ] as const) {
   const pagina = montarPaginaDoArtigo({ ...base, slug })
   ok(materialPorId(m.id) === m && MATERIAS_COM_A_LISTA_DO_KIT[variante].every((s) => caixaDaMateria(s)?.material === m), `${variante}: o id acha o material e as matérias da variante o entregam`)
@@ -124,6 +127,13 @@ const leiLucas = montarPaginaDoArtigo({ ...base, slug: 'primeiros-socorros-em-cr
 ok(leiLucas.includes('Receba o kit Lei Lucas para escolas no seu e\u2011mail') && leiLucas.includes('value="lei-lucas-escolas"') && leiLucas.includes('data-evento="leilucas_pedir"')
   && leiLucas.includes('<button type="submit">Enviar o kit para o meu e-mail</button>') && leiLucas.includes('href="/lei-lucas-para-escolas/#baixar"'),
   'lei-lucas: a matéria de Lei Lucas pede o kit para escolas (material, evento, botão e guia dele)')
+// Os cinco guias das buscas (12/11/2026) são pedidos só na página deles: nenhuma matéria ganha a caixa.
+for (const m of [RCP_E_HEIMLICH, INTOXICACAO_ALIMENTAR, FEBRE_EM_CRIANCA, PRESSAO_ALTA_E_BAIXA, QUEIMADURAS]) {
+  ok(materialPorId(m.id) === m && todas.every((s) => caixaDaMateria(s)?.material !== m), `${m.id}: o id acha o material e nenhuma matéria ganha a caixa dele`)
+  ok(m.arquivo === `https://cruzvermelhariodejaneiro.org/${m.id}/${m.id}-cruz-vermelha-rj.pdf`, `${m.id}: o arquivo segue o nome do padrão dos guias, na pasta da página`)
+  const mensagem = emailDoMaterial({ material: m, urlBaixar: `https://palacio.cruzvermelhariodejaneiro.org/newsletter/confirmar?t=${'a'.repeat(48)}&m=${m.id}`, urlDeSaida: 'https://palacio.cruzvermelhariodejaneiro.org/newsletter/sair?t=' + 'b'.repeat(48) })
+  ok(mensagem.html.includes(`>${m.email.botao}</a>`) && mensagem.html.includes(`você baixa ${m.email.objeto} e confirma o seu e-mail`), `${m.id}: a mensagem tem o botão dele e explica que baixa e confirma`)
+}
 ok(comCaixa.includes('<button type="submit">Enviar a lista para o meu e-mail</button>') && comCaixa.includes('Não chegou? A lista também está no'), 'a caixa do kit de emergência continua dizendo "a lista"')
 
 const comRota = montarPaginaDoArtigo({ ...base, slug: 'o-que-fazer-em-alagamento', rotaDeInscricao: 'https://exemplo.org/api/newsletter/inscrever?a=1&b="2"' })

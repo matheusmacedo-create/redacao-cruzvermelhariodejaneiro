@@ -39,7 +39,15 @@
  *  - `dengue`: a matéria da prevenção da dengue ganha o checklist da vistoria semanal.
  *  - `lei-lucas`: três matérias de Lei Lucas sem botão de matrícula ganham o kit Lei Lucas para escolas, que já existia.
  *    As de curso e o advertorial do kit escolar continuam de fora (em advertorial a página nem monta a caixa).
- *  Continuam sem caixa de material: voluntariado, bombeiro civil, cursos, saúde mental, violência e notícias datadas.
+ *
+ * TRÊS GRUPOS A MAIS (12/11/2026, terceira leva). De 58 para 76 matérias na lista:
+ *  - `bombeiro-civil`: as seis matérias de bombeiro civil, brigada e Lei Kiss ganham o guia do bombeiro civil.
+ *  - `cursos`: as oito matérias de curso ganham o guia dos cursos. Nas que são advertorial a página não monta caixa
+ *    nenhuma (lib/site/artigo-html.ts): o clique ali é o da matrícula.
+ *  - `ajuda`: Setembro Amarelo, CAPS, DEAM Digital e Alcoólicos Anônimos ganham o cartaz "Onde buscar ajuda". Tinham
+ *    ficado de fora por cuidado com o assunto; entram porque os telefones estão todos na página do cartaz, sem e-mail,
+ *    e a caixa só oferece a versão para imprimir.
+ *  Continuam sem caixa de material: voluntariado e notícias datadas.
  *
  * A CAIXA SÓ SOBE COM O ARQUIVO NO AR. O PDF é publicado pelo repositório do site; na hora de gerar a página, a
  * publicação confere se ele responde (lib/site/material-no-ar.ts) e, se não, a página sai sem a caixa, com o motivo
@@ -50,7 +58,7 @@
 import { escapar } from '@/lib/site/esqueleto'
 import { ENDERECO_DO_PALACIO } from '@/lib/dominio'
 import {
-  ACIDENTES_EM_CASA, CARTAZ_DA_CRUZ_VERMELHA, CHECKLIST_DENGUE, GUIA_DO_CUIDADOR, KIT_DE_EMERGENCIA, KIT_DE_PRIMEIROS_SOCORROS, KIT_LEI_LUCAS,
+  ACIDENTES_EM_CASA, CARTAZ_DA_CRUZ_VERMELHA, CHECKLIST_DENGUE, GUIA_DO_BOMBEIRO_CIVIL, GUIA_DO_CUIDADOR, GUIA_DOS_CURSOS, ONDE_BUSCAR_AJUDA, KIT_DE_EMERGENCIA, KIT_DE_PRIMEIROS_SOCORROS, KIT_LEI_LUCAS,
   MOCHILA_DE_EMERGENCIA, PLANO_FAMILIAR, QUANDO_LIGAR_192, VERAO_SEGURO, type Material,
 } from '@/lib/newsletter/materiais'
 
@@ -62,6 +70,7 @@ import {
 export type Variante =
   | 'emergencia' | 'primeiros-socorros' | 'quando-ligar-192' | 'verao' | 'plano-familiar' | 'mochila'
   | 'cuidador' | 'acidentes' | 'movimento' | 'dengue' | 'lei-lucas'
+  | 'bombeiro-civil' | 'cursos' | 'ajuda'
 
 export const MATERIAS_COM_A_LISTA_DO_KIT: Readonly<Record<Variante, readonly string[]>> = {
   emergencia: [
@@ -142,6 +151,29 @@ export const MATERIAS_COM_A_LISTA_DO_KIT: Readonly<Record<Variante, readonly str
     'lei-lucas-na-pratica-checklist-para-escolas-e-creches',
     'primeiros-socorros-em-creche-lei-lucas',
     'quem-pode-ministrar-o-curso-de-primeiros-socorros-da-lei-lucas',
+  ],  'bombeiro-civil': [
+    'bombeiro-civil-ou-brigadista-qual-a-diferenca',
+    'curso-de-bombeiro-civil-o-que-faz-e-como-se-formar',
+    'curso-de-bombeiro-civil-credenciado-como-escolher',
+    'homologacao-de-bombeiro-civil-no-cbmerj-como-funciona',
+    'reciclagem-de-bombeiro-civil-no-rj',
+    'lei-kiss-o-que-mudou-na-prevencao-de-incendio',
+  ],
+  cursos: [
+    'curso-de-primeiros-socorros-infantil',
+    'curso-de-primeiros-socorros-lei-lucas-o-que-a-lei-exige-das-escolas',
+    'curso-de-socorrista-o-que-e-e-o-que-um-curso-livre-ensina',
+    'curso-de-suporte-basico-de-vida-o-que-e-e-quem-deveria-fazer',
+    'curso-de-puncao-venosa-para-quem-e-e-o-que-aprofunda',
+    'curso-de-acesso-venoso-para-quem-e',
+    'curso-de-coleta-de-sangue-quem-pode-coletar-e-como-se-capacitar',
+    'curso-de-cuidador-de-idosos-o-que-faz-e-como-se-capacitar',
+  ],
+  ajuda: [
+    'setembro-amarelo-cruz-vermelha-rj-e-a-valorizacao-da-vida',
+    'caps-e-capsi-atendem-mare-alemao-e-penha-mostra-reportagem',
+    'deam-digital-rj-como-denunciar-violencia-domestica-online',
+    'alcoolicos-anonimos-reuniao-com-traducao-em-libras-no-leblon-completa-79-anos',
   ],
 }
 
@@ -158,6 +190,9 @@ const MATERIAL_DA_VARIANTE: Readonly<Record<Variante, Material>> = {
   movimento: CARTAZ_DA_CRUZ_VERMELHA,
   dengue: CHECKLIST_DENGUE,
   'lei-lucas': KIT_LEI_LUCAS,
+  'bombeiro-civil': GUIA_DO_BOMBEIRO_CIVIL,
+  cursos: GUIA_DOS_CURSOS,
+  ajuda: ONDE_BUSCAR_AJUDA,
 }
 
 const TEXTOS: Readonly<Record<Variante, { titulo: string; texto: string }>> = {
@@ -203,6 +238,17 @@ const TEXTOS: Readonly<Record<Variante, { titulo: string; texto: string }>> = {
   'lei-lucas': {
     titulo: 'Receba o kit Lei Lucas para escolas no seu e\u2011mail',
     texto: 'Duas folhas em PDF para imprimir: o checklist de adequação à Lei Lucas, a ficha dos profissionais capacitados e o cartaz de emergência. E uma folha com as fontes.',
+  },  'bombeiro-civil': {
+    titulo: 'Receba o guia do bombeiro civil no seu e\u2011mail',
+    texto: 'Duas folhas em PDF para imprimir: o caminho da formação à homologação no Rio de Janeiro, os documentos, a reciclagem e as perguntas para fazer antes de escolher um curso. E uma folha com todas as fontes.',
+  },
+  cursos: {
+    titulo: 'Receba o guia dos cursos no seu e\u2011mail',
+    texto: 'Duas folhas em PDF para imprimir: o quadro dos cursos presenciais de saúde e primeiros socorros, para quem é cada um e as perguntas para fazer antes de se matricular. E uma folha com as fontes.',
+  },
+  ajuda: {
+    titulo: 'Receba o cartaz “Onde buscar ajuda” no seu e\u2011mail',
+    texto: 'Duas folhas em PDF para imprimir e afixar: os telefones e os serviços gratuitos de apoio emocional, de proteção contra a violência e de emergência no Rio de Janeiro. E uma folha com todas as fontes.',
   },
 }
 
