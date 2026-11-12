@@ -30,7 +30,16 @@
  *    Saíram da variante `emergencia`: a ficha do plano é o passo que essas matérias pedem.
  *  - `mochila`: a sirene e os sinais de deslizamento, as duas matérias em que a ordem é sair de casa. Também saíram
  *    de `emergencia`.
- *  Choque elétrico e picadas continuam sem caixa: nenhum dos guias trata deles.
+ *
+ * MAIS CINCO GRUPOS (12/11/2026, mesmo pedido). De 27 para 58 matérias:
+ *  - `cuidador`: banho no leito, Alzheimer, lesão por pressão, a caderneta da pessoa idosa e a sobrecarga de quem cuida.
+ *  - `acidentes`: picada de cobra, picada de escorpião e choque elétrico, que não tinham guia nenhum.
+ *  - `movimento`: as matérias de história, do Movimento, do direito humanitário e dos emblemas ganham o cartaz
+ *    "A Cruz Vermelha em uma página".
+ *  - `dengue`: a matéria da prevenção da dengue ganha o checklist da vistoria semanal.
+ *  - `lei-lucas`: três matérias de Lei Lucas sem botão de matrícula ganham o kit Lei Lucas para escolas, que já existia.
+ *    As de curso e o advertorial do kit escolar continuam de fora (em advertorial a página nem monta a caixa).
+ *  Continuam sem caixa de material: voluntariado, bombeiro civil, cursos, saúde mental, violência e notícias datadas.
  *
  * A CAIXA SÓ SOBE COM O ARQUIVO NO AR. O PDF é publicado pelo repositório do site; na hora de gerar a página, a
  * publicação confere se ele responde (lib/site/material-no-ar.ts) e, se não, a página sai sem a caixa, com o motivo
@@ -41,7 +50,8 @@
 import { escapar } from '@/lib/site/esqueleto'
 import { ENDERECO_DO_PALACIO } from '@/lib/dominio'
 import {
-  KIT_DE_EMERGENCIA, KIT_DE_PRIMEIROS_SOCORROS, MOCHILA_DE_EMERGENCIA, PLANO_FAMILIAR, QUANDO_LIGAR_192, VERAO_SEGURO, type Material,
+  ACIDENTES_EM_CASA, CARTAZ_DA_CRUZ_VERMELHA, CHECKLIST_DENGUE, GUIA_DO_CUIDADOR, KIT_DE_EMERGENCIA, KIT_DE_PRIMEIROS_SOCORROS, KIT_LEI_LUCAS,
+  MOCHILA_DE_EMERGENCIA, PLANO_FAMILIAR, QUANDO_LIGAR_192, VERAO_SEGURO, type Material,
 } from '@/lib/newsletter/materiais'
 
 /**
@@ -49,7 +59,9 @@ import {
  * emergência entregam a lista do kit de emergência; as de primeiros socorros, o guia do kit de primeiros socorros,
  * que ganhou PDF próprio. A caixa só troca na página de cada matéria quando ela é regerada, e só com o PDF novo no ar.
  */
-export type Variante = 'emergencia' | 'primeiros-socorros' | 'quando-ligar-192' | 'verao' | 'plano-familiar' | 'mochila'
+export type Variante =
+  | 'emergencia' | 'primeiros-socorros' | 'quando-ligar-192' | 'verao' | 'plano-familiar' | 'mochila'
+  | 'cuidador' | 'acidentes' | 'movimento' | 'dengue' | 'lei-lucas'
 
 export const MATERIAS_COM_A_LISTA_DO_KIT: Readonly<Record<Variante, readonly string[]>> = {
   emergencia: [
@@ -90,6 +102,46 @@ export const MATERIAS_COM_A_LISTA_DO_KIT: Readonly<Record<Variante, readonly str
   mochila: [
     'sirene-da-defesa-civil-o-que-fazer-quando-toca',
     'sinais-de-deslizamento-de-terra',
+  ],  cuidador: [
+    'banho-no-leito-do-idoso',
+    'como-cuidar-de-idoso-com-alzheimer-no-dia-a-dia',
+    'lesao-por-pressao-em-idoso-acamado',
+    'caderneta-da-pessoa-idosa-para-que-serve',
+    'sobrecarga-do-cuidador-quem-cuida-tambem-precisa-de-cuidado',
+  ],
+  acidentes: [
+    'picada-de-cobra-o-que-fazer',
+    'picada-de-escorpiao-o-que-fazer',
+    'choque-eletrico-o-que-fazer',
+  ],
+  movimento: [
+    'batalha-de-solferino-a-origem-da-cruz-vermelha',
+    'henry-dunant-quem-foi-o-fundador-da-cruz-vermelha',
+    'cicv-o-que-e-o-comite-internacional-da-cruz-vermelha',
+    'federacao-internacional-da-cruz-vermelha-o-que-e',
+    'cruz-vermelha-e-ong-como-a-instituicao-funciona',
+    'convencoes-de-genebra-o-que-sao-e-o-que-protegem',
+    'protocolos-adicionais-as-convencoes-de-genebra',
+    'prisioneiros-de-guerra-o-que-garante-a-convencao-de-genebra',
+    'armas-proibidas-em-guerra-o-que-diz-o-dih',
+    'restabelecimento-de-lacos-familiares',
+    'crescente-vermelho-o-que-e-e-por-que-existe',
+    'cristal-vermelho-o-terceiro-emblema-do-movimento',
+    'farmacia-pode-usar-a-cruz-vermelha',
+    'cruz-vermelha-brasileira-na-primeira-guerra',
+    'cruz-vermelha-brasileira-na-segunda-guerra',
+    'escola-de-enfermagem-da-cruz-vermelha-no-rio-a-historia',
+    'hospital-da-cruz-vermelha-no-rio-de-janeiro-a-historia',
+    'gripe-espanhola-no-rio-de-janeiro-e-a-cruz-vermelha-em-1918',
+    'oswaldo-cruz-e-a-cruz-vermelha-brasileira',
+  ],
+  dengue: [
+    'prevencao-da-dengue-no-verao-como-eliminar-focos-em-casa',
+  ],
+  'lei-lucas': [
+    'lei-lucas-na-pratica-checklist-para-escolas-e-creches',
+    'primeiros-socorros-em-creche-lei-lucas',
+    'quem-pode-ministrar-o-curso-de-primeiros-socorros-da-lei-lucas',
   ],
 }
 
@@ -101,6 +153,11 @@ const MATERIAL_DA_VARIANTE: Readonly<Record<Variante, Material>> = {
   verao: VERAO_SEGURO,
   'plano-familiar': PLANO_FAMILIAR,
   mochila: MOCHILA_DE_EMERGENCIA,
+  cuidador: GUIA_DO_CUIDADOR,
+  acidentes: ACIDENTES_EM_CASA,
+  movimento: CARTAZ_DA_CRUZ_VERMELHA,
+  dengue: CHECKLIST_DENGUE,
+  'lei-lucas': KIT_LEI_LUCAS,
 }
 
 const TEXTOS: Readonly<Record<Variante, { titulo: string; texto: string }>> = {
@@ -127,6 +184,25 @@ const TEXTOS: Readonly<Record<Variante, { titulo: string; texto: string }>> = {
   mochila: {
     titulo: 'Receba a lista da mochila de emergência no seu e\u2011mail',
     texto: 'Duas folhas em PDF para imprimir e marcar o que já está na mochila: o que levar para 3 dias, os documentos e o que fazer na hora de sair. E uma folha com todas as fontes.',
+  },  cuidador: {
+    titulo: 'Receba o guia do cuidador de idosos no seu e\u2011mail',
+    texto: 'Duas folhas em PDF para imprimir: a rotina de cuidados do dia, a ficha dos remédios e os sinais de alerta. E uma folha com todas as fontes.',
+  },
+  acidentes: {
+    titulo: 'Receba o cartaz “Acidentes em casa” no seu e\u2011mail',
+    texto: 'Duas folhas em PDF para imprimir e deixar à vista: o que fazer e o que não fazer em picada de cobra, picada de escorpião e choque elétrico. E uma folha com todas as fontes.',
+  },
+  movimento: {
+    titulo: 'Receba o cartaz “A Cruz Vermelha em uma página” no seu e\u2011mail',
+    texto: 'Duas folhas em PDF para imprimir e afixar: os 7 Princípios Fundamentais, os três emblemas, quem é quem no Movimento e uma linha do tempo. E uma folha com todas as fontes.',
+  },
+  dengue: {
+    titulo: 'Receba o checklist contra a dengue no seu e\u2011mail',
+    texto: 'Duas folhas em PDF para imprimir: a vistoria semanal da casa para marcar, os sintomas e os sinais de alarme. E uma folha com todas as fontes.',
+  },
+  'lei-lucas': {
+    titulo: 'Receba o kit Lei Lucas para escolas no seu e\u2011mail',
+    texto: 'Duas folhas em PDF para imprimir: o checklist de adequação à Lei Lucas, a ficha dos profissionais capacitados e o cartaz de emergência. E uma folha com as fontes.',
   },
 }
 

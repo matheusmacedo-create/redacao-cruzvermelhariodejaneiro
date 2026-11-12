@@ -1,6 +1,10 @@
 /**
  * Os materiais que o site entrega por e-mail a quem deixa o endereço (09/11/2026).
  *
+ * Do décimo ao décimo terceiro (12/11/2026, não publicados), mais quatro guias no mesmo padrão: o guia do cuidador de
+ * idosos, o cartaz "Acidentes em casa" (picadas e choque elétrico), o cartaz "A Cruz Vermelha em uma página" e o
+ * checklist contra a dengue. No mesmo dia, o kit Lei Lucas passou a ter caixa em três matérias de Lei Lucas.
+ *
  * Do sexto ao nono (11/11/2026, não publicados) são quatro guias no padrão dos guias gratuitos do site
  * (docs/padrao-guias-gratuitos.md, lá): a lista da mochila de emergência, o cartaz "Quando ligar 192", o guia
  * "Verão seguro no Rio" e a ficha do plano familiar de emergência. Cada um é pedido na página dele e na caixa de um
@@ -294,9 +298,106 @@ export const PLANO_FAMILIAR: Material = {
   },
 }
 
+export const GUIA_DO_CUIDADOR: Material = {
+  id: 'cuidador-de-idosos',
+  nome: 'o guia do cuidador de idosos',
+  arquivo: `${SITE}/cuidador-de-idosos/cuidador-de-idosos-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/cuidador-de-idosos/#baixar`,
+  rotuloDoGuia: 'guia do cuidador de idosos',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o guia do cuidador de idosos e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O guia vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o guia em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O guia também está no guia do cuidador de idosos, no nosso site.',
+  evento: 'cuidador_pedir',
+  email: {
+    assunto: 'Seu guia do cuidador de idosos (PDF)',
+    chamada: 'Toque no botão para baixar a rotina do dia e a ficha dos remédios.',
+    titulo: 'Seu guia do cuidador de idosos',
+    descricao: 'São três folhas em PDF: duas para imprimir, com a rotina de cuidados do dia, a ficha dos remédios e os sinais de alerta, e uma com todas as fontes.',
+    botao: 'Baixar o guia em PDF',
+    objeto: 'o guia',
+    convite: 'Quer ver cada cuidado explicado?',
+  },
+}
+
+export const ACIDENTES_EM_CASA: Material = {
+  id: 'acidentes-em-casa',
+  nome: 'o cartaz Acidentes em casa',
+  arquivo: `${SITE}/acidentes-em-casa/acidentes-em-casa-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/acidentes-em-casa/#baixar`,
+  rotuloDoGuia: 'guia Acidentes em casa',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o cartaz Acidentes em casa e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O cartaz vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o cartaz em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O cartaz também está no guia Acidentes em casa, no nosso site.',
+  evento: 'acidentes_pedir',
+  email: {
+    assunto: 'Seu cartaz Acidentes em casa (PDF)',
+    chamada: 'Toque no botão para baixar o cartaz das picadas e do choque elétrico.',
+    titulo: 'Seu cartaz Acidentes em casa',
+    descricao: 'São três folhas em PDF: duas para imprimir e deixar à vista, com o que fazer e o que não fazer em picada de cobra, picada de escorpião e choque elétrico, e uma com todas as fontes.',
+    botao: 'Baixar o cartaz em PDF',
+    objeto: 'o cartaz',
+    convite: 'Quer entender cada orientação?',
+  },
+}
+
+export const CARTAZ_DA_CRUZ_VERMELHA: Material = {
+  id: 'cartaz-da-cruz-vermelha',
+  nome: 'o cartaz A Cruz Vermelha em uma página',
+  arquivo: `${SITE}/cartaz-da-cruz-vermelha/cartaz-da-cruz-vermelha-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/cartaz-da-cruz-vermelha/#baixar`,
+  rotuloDoGuia: 'guia A Cruz Vermelha em uma página',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o cartaz A Cruz Vermelha em uma página e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O cartaz vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o cartaz em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O cartaz também está no guia A Cruz Vermelha em uma página, no nosso site.',
+  evento: 'movimento_pedir',
+  email: {
+    assunto: 'Seu cartaz A Cruz Vermelha em uma página (PDF)',
+    chamada: 'Toque no botão para baixar os 7 princípios, os emblemas e a linha do tempo.',
+    titulo: 'Seu cartaz A Cruz Vermelha em uma página',
+    descricao: 'São três folhas em PDF: duas para imprimir e afixar, com os 7 Princípios Fundamentais, os três emblemas, quem é quem no Movimento e uma linha do tempo, e uma com todas as fontes.',
+    botao: 'Baixar o cartaz em PDF',
+    objeto: 'o cartaz',
+    convite: 'Quer ler a história completa?',
+  },
+}
+
+export const CHECKLIST_DENGUE: Material = {
+  id: 'checklist-dengue',
+  nome: 'o checklist contra a dengue',
+  arquivo: `${SITE}/checklist-dengue/checklist-dengue-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/checklist-dengue/#baixar`,
+  rotuloDoGuia: 'guia do checklist contra a dengue',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o checklist contra a dengue e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O checklist vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o checklist em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O checklist também está no guia do checklist contra a dengue, no nosso site.',
+  evento: 'dengue_pedir',
+  email: {
+    assunto: 'Seu checklist contra a dengue (PDF)',
+    chamada: 'Toque no botão para baixar a vistoria de 10 minutos da casa.',
+    titulo: 'Seu checklist contra a dengue',
+    descricao: 'São três folhas em PDF: duas para imprimir, com a vistoria semanal da casa para marcar, os sintomas e os sinais de alarme, e uma com todas as fontes.',
+    botao: 'Baixar o checklist em PDF',
+    objeto: 'o checklist',
+    convite: 'Quer ver por que cada item entra na vistoria?',
+  },
+}
+
 const MATERIAIS: readonly Material[] = [
   KIT_DE_EMERGENCIA, MANUAL_DE_IDENTIDADE, KIT_DE_PRIMEIROS_SOCORROS, KIT_LEI_LUCAS, ROTEIRO_PLANO_DE_CONTINGENCIA,
   MOCHILA_DE_EMERGENCIA, QUANDO_LIGAR_192, VERAO_SEGURO, PLANO_FAMILIAR,
+  GUIA_DO_CUIDADOR, ACIDENTES_EM_CASA, CARTAZ_DA_CRUZ_VERMELHA, CHECKLIST_DENGUE,
 ]
 
 /** O id vai em endereço e em atributo de HTML: nada além disto. */
