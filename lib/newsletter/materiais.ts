@@ -1,6 +1,11 @@
 /**
  * Os materiais que o site entrega por e-mail a quem deixa o endereço (09/11/2026).
  *
+ * A terceira leva (12/11/2026, não publicada) traz oito: três para as matérias que ainda não tinham caixa (o guia do
+ * bombeiro civil, o guia dos cursos e o cartaz "Onde buscar ajuda") e cinco tirados das buscas mais fortes do Google
+ * (RCP e manobra de Heimlich, intoxicação alimentar, febre em criança, pressão alta e pressão baixa, queimaduras), que
+ * são pedidos só na página de cada um, no site.
+ *
  * Do décimo ao décimo terceiro (12/11/2026, não publicados), mais quatro guias no mesmo padrão: o guia do cuidador de
  * idosos, o cartaz "Acidentes em casa" (picadas e choque elétrico), o cartaz "A Cruz Vermelha em uma página" e o
  * checklist contra a dengue. No mesmo dia, o kit Lei Lucas passou a ter caixa em três matérias de Lei Lucas.
@@ -394,10 +399,204 @@ export const CHECKLIST_DENGUE: Material = {
   },
 }
 
+export const GUIA_DO_BOMBEIRO_CIVIL: Material = {
+  id: 'guia-do-bombeiro-civil',
+  nome: 'o guia do bombeiro civil',
+  arquivo: `${SITE}/guia-do-bombeiro-civil/guia-do-bombeiro-civil-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/guia-do-bombeiro-civil/#baixar`,
+  rotuloDoGuia: 'guia do bombeiro civil',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o guia do bombeiro civil e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O guia vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o guia em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O guia também está no guia do bombeiro civil, no nosso site.',
+  evento: 'bombeirocivil_pedir',
+  email: {
+    assunto: 'Seu guia do bombeiro civil (PDF)',
+    chamada: 'Toque no botão para baixar o caminho até a homologação e os prazos.',
+    titulo: 'Seu guia do bombeiro civil',
+    descricao: 'São três folhas em PDF: duas para imprimir, com o caminho da formação à homologação no Rio de Janeiro, os documentos, a reciclagem e as perguntas para fazer antes de escolher um curso, e uma com todas as fontes.',
+    botao: 'Baixar o guia em PDF',
+    objeto: 'o guia',
+    convite: 'Quer ver cada etapa explicada?',
+  },
+}
+
+export const GUIA_DOS_CURSOS: Material = {
+  id: 'guia-dos-cursos',
+  nome: 'o guia dos cursos',
+  arquivo: `${SITE}/guia-dos-cursos/guia-dos-cursos-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/guia-dos-cursos/#baixar`,
+  rotuloDoGuia: 'guia dos cursos',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o guia dos cursos e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O guia vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o guia em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O guia também está no guia dos cursos, no nosso site.',
+  evento: 'guiacursos_pedir',
+  email: {
+    assunto: 'Seu guia dos cursos de saúde e primeiros socorros (PDF)',
+    chamada: 'Toque no botão para baixar o quadro dos cursos e para quem é cada um.',
+    titulo: 'Seu guia dos cursos',
+    descricao: 'São três folhas em PDF: duas para imprimir, com o quadro dos cursos presenciais, para quem é cada um e as perguntas para fazer antes de se matricular, e uma com as fontes.',
+    botao: 'Baixar o guia em PDF',
+    objeto: 'o guia',
+    convite: 'Quer ver cada curso com calma?',
+  },
+}
+
+export const ONDE_BUSCAR_AJUDA: Material = {
+  id: 'onde-buscar-ajuda',
+  nome: 'o cartaz Onde buscar ajuda',
+  arquivo: `${SITE}/onde-buscar-ajuda/onde-buscar-ajuda-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/onde-buscar-ajuda/#baixar`,
+  rotuloDoGuia: 'guia Onde buscar ajuda',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o cartaz Onde buscar ajuda e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O cartaz vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o cartaz em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O cartaz também está no guia Onde buscar ajuda, no nosso site.',
+  evento: 'ajuda_pedir',
+  email: {
+    assunto: 'Seu cartaz Onde buscar ajuda (PDF)',
+    chamada: 'Toque no botão para baixar o cartaz com os telefones e serviços gratuitos.',
+    titulo: 'Seu cartaz Onde buscar ajuda',
+    descricao: 'São três folhas em PDF: duas para imprimir e afixar, com os telefones e os serviços gratuitos de apoio emocional, de proteção contra a violência e de emergência no Rio de Janeiro, e uma com todas as fontes.',
+    botao: 'Baixar o cartaz em PDF',
+    objeto: 'o cartaz',
+    convite: 'Quer saber como funciona cada serviço?',
+  },
+}
+
+export const RCP_E_HEIMLICH: Material = {
+  id: 'rcp-e-manobra-de-heimlich',
+  nome: 'o cartaz RCP e manobra de Heimlich',
+  arquivo: `${SITE}/rcp-e-manobra-de-heimlich/rcp-e-manobra-de-heimlich-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/rcp-e-manobra-de-heimlich/#baixar`,
+  rotuloDoGuia: 'guia RCP e manobra de Heimlich',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o cartaz RCP e manobra de Heimlich e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O cartaz vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o cartaz em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O cartaz também está no guia RCP e manobra de Heimlich, no nosso site.',
+  evento: 'rcp_pedir',
+  email: {
+    assunto: 'Seu cartaz RCP e manobra de Heimlich (PDF)',
+    chamada: 'Toque no botão para baixar o passo a passo da massagem cardíaca e do desengasgo.',
+    titulo: 'Seu cartaz RCP e manobra de Heimlich',
+    descricao: 'São três folhas em PDF: duas para imprimir e deixar à vista, com o passo a passo da massagem cardíaca só com as mãos e do desengasgo em adulto, criança e bebê, e uma com todas as fontes.',
+    botao: 'Baixar o cartaz em PDF',
+    objeto: 'o cartaz',
+    convite: 'Quer entender cada passo?',
+  },
+}
+
+export const INTOXICACAO_ALIMENTAR: Material = {
+  id: 'intoxicacao-alimentar',
+  nome: 'o guia da intoxicação alimentar',
+  arquivo: `${SITE}/intoxicacao-alimentar/intoxicacao-alimentar-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/intoxicacao-alimentar/#baixar`,
+  rotuloDoGuia: 'guia da intoxicação alimentar',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o guia da intoxicação alimentar e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O guia vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o guia em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O guia também está no guia da intoxicação alimentar, no nosso site.',
+  evento: 'intoxicacao_pedir',
+  email: {
+    assunto: 'Seu guia da intoxicação alimentar (PDF)',
+    chamada: 'Toque no botão para baixar a cozinha segura e os sinais de alerta.',
+    titulo: 'Seu guia da intoxicação alimentar',
+    descricao: 'São três folhas em PDF: duas para imprimir, com os cuidados da cozinha para afixar na geladeira, o que fazer quando alguém passa mal e os sinais de alerta, e uma com todas as fontes.',
+    botao: 'Baixar o guia em PDF',
+    objeto: 'o guia',
+    convite: 'Quer ver cada cuidado explicado?',
+  },
+}
+
+export const FEBRE_EM_CRIANCA: Material = {
+  id: 'febre-em-crianca',
+  nome: 'o guia da febre em criança',
+  arquivo: `${SITE}/febre-em-crianca/febre-em-crianca-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/febre-em-crianca/#baixar`,
+  rotuloDoGuia: 'guia da febre em criança',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o guia da febre em criança e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O guia vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o guia em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O guia também está no guia da febre em criança, no nosso site.',
+  evento: 'febre_pedir',
+  email: {
+    assunto: 'Seu guia da febre em criança (PDF)',
+    chamada: 'Toque no botão para baixar o que fazer, os sinais de alerta e a ficha da febre.',
+    titulo: 'Seu guia da febre em criança',
+    descricao: 'São três folhas em PDF: duas para imprimir, com o que fazer e o que não fazer, os sinais de alerta e a ficha para anotar a temperatura e levar ao médico, e uma com todas as fontes.',
+    botao: 'Baixar o guia em PDF',
+    objeto: 'o guia',
+    convite: 'Quer ver cada orientação explicada?',
+  },
+}
+
+export const PRESSAO_ALTA_E_BAIXA: Material = {
+  id: 'pressao-alta-e-pressao-baixa',
+  nome: 'o guia da pressão alta e da pressão baixa',
+  arquivo: `${SITE}/pressao-alta-e-pressao-baixa/pressao-alta-e-pressao-baixa-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/pressao-alta-e-pressao-baixa/#baixar`,
+  rotuloDoGuia: 'guia da pressão alta e da pressão baixa',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o guia da pressão alta e da pressão baixa e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O guia vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o guia em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O guia também está no guia da pressão alta e da pressão baixa, no nosso site.',
+  evento: 'pressao_pedir',
+  email: {
+    assunto: 'Seu guia da pressão alta e da pressão baixa (PDF)',
+    chamada: 'Toque no botão para baixar como medir, o que fazer e o diário da pressão.',
+    titulo: 'Seu guia da pressão alta e da pressão baixa',
+    descricao: 'São três folhas em PDF: duas para imprimir, com o jeito certo de medir, o que fazer na pressão alta e na baixa, os sinais de emergência e o diário da pressão para preencher, e uma com todas as fontes.',
+    botao: 'Baixar o guia em PDF',
+    objeto: 'o guia',
+    convite: 'Quer ver cada orientação explicada?',
+  },
+}
+
+export const QUEIMADURAS: Material = {
+  id: 'queimaduras',
+  nome: 'o cartaz das queimaduras',
+  arquivo: `${SITE}/queimaduras/queimaduras-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/queimaduras/#baixar`,
+  rotuloDoGuia: 'guia das queimaduras',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o cartaz das queimaduras e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O cartaz vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o cartaz em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O cartaz também está no guia das queimaduras, no nosso site.',
+  evento: 'queimaduras_pedir',
+  email: {
+    assunto: 'Seu cartaz das queimaduras (PDF)',
+    chamada: 'Toque no botão para baixar o que fazer e o que não fazer numa queimadura.',
+    titulo: 'Seu cartaz das queimaduras',
+    descricao: 'São três folhas em PDF: duas para imprimir e deixar na cozinha, com o que fazer e o que não fazer numa queimadura e quando procurar o hospital, e uma com todas as fontes.',
+    botao: 'Baixar o cartaz em PDF',
+    objeto: 'o cartaz',
+    convite: 'Quer entender cada orientação?',
+  },
+}
+
 const MATERIAIS: readonly Material[] = [
   KIT_DE_EMERGENCIA, MANUAL_DE_IDENTIDADE, KIT_DE_PRIMEIROS_SOCORROS, KIT_LEI_LUCAS, ROTEIRO_PLANO_DE_CONTINGENCIA,
   MOCHILA_DE_EMERGENCIA, QUANDO_LIGAR_192, VERAO_SEGURO, PLANO_FAMILIAR,
   GUIA_DO_CUIDADOR, ACIDENTES_EM_CASA, CARTAZ_DA_CRUZ_VERMELHA, CHECKLIST_DENGUE,
+  GUIA_DO_BOMBEIRO_CIVIL, GUIA_DOS_CURSOS, ONDE_BUSCAR_AJUDA, RCP_E_HEIMLICH, INTOXICACAO_ALIMENTAR, FEBRE_EM_CRIANCA,
+  PRESSAO_ALTA_E_BAIXA, QUEIMADURAS,
 ]
 
 /** O id vai em endereço e em atributo de HTML: nada além disto. */
