@@ -20,6 +20,7 @@ import {
   MATERIAS_COM_A_LISTA_DO_KIT, ROTA_DE_INSCRICAO_PADRAO, caixaDaMateria, htmlDaCaixaDeMaterial, type Variante,
 } from '../lib/site/caixa-de-material'
 import {
+  ACIDENTES_EM_CASA, CARTAZ_DA_CRUZ_VERMELHA, CHECKLIST_DENGUE, GUIA_DO_CUIDADOR,
   KIT_DE_EMERGENCIA, KIT_DE_PRIMEIROS_SOCORROS, KIT_LEI_LUCAS, MANUAL_DE_IDENTIDADE, MOCHILA_DE_EMERGENCIA, PLANO_FAMILIAR, QUANDO_LIGAR_192,
   ROTEIRO_PLANO_DE_CONTINGENCIA, VERAO_SEGURO, materialPorId,
   todosOsMateriais,
@@ -42,8 +43,9 @@ ok(new Set(todas).size === todas.length, 'nenhuma matéria aparece duas vezes (n
 ok(variantes.every((v) => MATERIAS_COM_A_LISTA_DO_KIT[v].every((s) => caixaDaMateria(s)?.variante === v)), 'cada matéria da lista ganha a caixa da sua variante')
 ok(caixaDaMateria('lei-do-voluntariado-o-que-diz-a-lei-9608') === null && caixaDaMateria('') === null && caixaDaMateria(null) === null && caixaDaMateria('previa') === null,
   'matéria fora da lista, endereço vazio e a prévia sem endereço ficam sem caixa')
-ok(caixaDaMateria('kit-de-primeiros-socorros-escolar-lei-lucas') === null && caixaDaMateria('picada-de-cobra-o-que-fazer') === null && caixaDaMateria('choque-eletrico-o-que-fazer') === null,
-  'advertorial da Lei Lucas, picada de cobra e choque elétrico ficam de fora: nenhum guia trata deles')
+ok(caixaDaMateria('kit-de-primeiros-socorros-escolar-lei-lucas') === null && caixaDaMateria('curso-de-primeiros-socorros-lei-lucas-o-que-a-lei-exige-das-escolas') === null
+  && caixaDaMateria('setembro-amarelo-cruz-vermelha-rj-e-a-valorizacao-da-vida') === null && caixaDaMateria('curso-de-cuidador-de-idosos-o-que-faz-e-como-se-capacitar') === null,
+  'advertorial e curso da Lei Lucas, saúde mental e matéria de curso ficam de fora')
 
 // ---------------------------------------------------------------- o material
 const kit = KIT_DE_EMERGENCIA
@@ -95,12 +97,16 @@ const msgPs = emailDoMaterial({ material: KIT_DE_PRIMEIROS_SOCORROS, urlBaixar: 
 ok(msgPs.assunto === KIT_DE_PRIMEIROS_SOCORROS.email.assunto && msgPs.html.includes('porque pediram a lista do kit de primeiros socorros no nosso site') && !/kit de emergência/.test(msgPs.html + msgPs.texto),
   'a mensagem do kit de primeiros socorros fala dele, e não do kit de emergência')
 
-// Os quatro guias de 11/11/2026: cada grupo de matérias pede o seu material, e a caixa fala dele (botão e recado).
+// Os guias de 11 e 12/11/2026: cada grupo de matérias pede o seu material, e a caixa fala dele (botão e recado).
 for (const [variante, m, slug, titulo, botao, naoChegou] of [
   ['quando-ligar-192', QUANDO_LIGAR_192, 'sinais-de-infarto-o-que-nao-ignorar', 'Receba o cartaz “Quando ligar 192” no seu e\u2011mail', 'Enviar o cartaz para o meu e-mail', 'Não chegou? O cartaz também está no'],
   ['verao', VERAO_SEGURO, 'onda-de-calor-o-que-fazer-para-se-proteger', 'Receba o guia “Verão seguro no Rio” no seu e\u2011mail', 'Enviar o guia para o meu e-mail', 'Não chegou? O guia também está no'],
   ['plano-familiar', PLANO_FAMILIAR, 'plano-familiar-de-emergencia-no-rio', 'Receba a ficha do plano familiar de emergência no seu e\u2011mail', 'Enviar a ficha para o meu e-mail', 'Não chegou? A ficha também está no'],
   ['mochila', MOCHILA_DE_EMERGENCIA, 'sirene-da-defesa-civil-o-que-fazer-quando-toca', 'Receba a lista da mochila de emergência no seu e\u2011mail', 'Enviar a lista para o meu e-mail', 'Não chegou? A lista também está no'],
+  ['cuidador', GUIA_DO_CUIDADOR, 'banho-no-leito-do-idoso', 'Receba o guia do cuidador de idosos no seu e\u2011mail', 'Enviar o guia para o meu e-mail', 'Não chegou? O guia também está no'],
+  ['acidentes', ACIDENTES_EM_CASA, 'picada-de-cobra-o-que-fazer', 'Receba o cartaz “Acidentes em casa” no seu e\u2011mail', 'Enviar o cartaz para o meu e-mail', 'Não chegou? O cartaz também está no'],
+  ['movimento', CARTAZ_DA_CRUZ_VERMELHA, 'henry-dunant-quem-foi-o-fundador-da-cruz-vermelha', 'Receba o cartaz “A Cruz Vermelha em uma página” no seu e\u2011mail', 'Enviar o cartaz para o meu e-mail', 'Não chegou? O cartaz também está no'],
+  ['dengue', CHECKLIST_DENGUE, 'prevencao-da-dengue-no-verao-como-eliminar-focos-em-casa', 'Receba o checklist contra a dengue no seu e\u2011mail', 'Enviar o checklist para o meu e-mail', 'Não chegou? O checklist também está no'],
 ] as const) {
   const pagina = montarPaginaDoArtigo({ ...base, slug })
   ok(materialPorId(m.id) === m && MATERIAS_COM_A_LISTA_DO_KIT[variante].every((s) => caixaDaMateria(s)?.material === m), `${variante}: o id acha o material e as matérias da variante o entregam`)
@@ -114,6 +120,10 @@ for (const [variante, m, slug, titulo, botao, naoChegou] of [
   ok(mensagem.html.includes(`>${m.email.botao}</a>`) && mensagem.html.includes(`você baixa ${m.email.objeto} e confirma o seu e-mail`) && !/kit de emergência/.test(mensagem.html + mensagem.texto),
     `${m.id}: a mensagem tem o botão dele, explica que baixa e confirma, e não fala do kit de emergência`)
 }
+const leiLucas = montarPaginaDoArtigo({ ...base, slug: 'primeiros-socorros-em-creche-lei-lucas' })
+ok(leiLucas.includes('Receba o kit Lei Lucas para escolas no seu e\u2011mail') && leiLucas.includes('value="lei-lucas-escolas"') && leiLucas.includes('data-evento="leilucas_pedir"')
+  && leiLucas.includes('<button type="submit">Enviar o kit para o meu e-mail</button>') && leiLucas.includes('href="/lei-lucas-para-escolas/#baixar"'),
+  'lei-lucas: a matéria de Lei Lucas pede o kit para escolas (material, evento, botão e guia dele)')
 ok(comCaixa.includes('<button type="submit">Enviar a lista para o meu e-mail</button>') && comCaixa.includes('Não chegou? A lista também está no'), 'a caixa do kit de emergência continua dizendo "a lista"')
 
 const comRota = montarPaginaDoArtigo({ ...base, slug: 'o-que-fazer-em-alagamento', rotaDeInscricao: 'https://exemplo.org/api/newsletter/inscrever?a=1&b="2"' })
@@ -164,7 +174,8 @@ for (const [m, id, arquivo, botao] of [
 ] as const) {
   ok(materialPorId(id) === m, `${id}: o id acha o material`)
   ok(m.arquivo === arquivo, `${id}: o arquivo é o que o site publica (scripts/gerar_guia_pdf.py)`)
-  ok(todas.every((s) => caixaDaMateria(s)?.material !== m), `${id}: nenhuma matéria ganha a caixa dele`)
+  ok(id === 'lei-lucas-escolas' ? MATERIAS_COM_A_LISTA_DO_KIT['lei-lucas'].every((s) => caixaDaMateria(s)?.material === m) && todas.filter((s) => caixaDaMateria(s)?.material === m).length === 3
+    : todas.every((s) => caixaDaMateria(s)?.material !== m), `${id}: ${id === 'lei-lucas-escolas' ? 'só as três matérias de Lei Lucas ganham a caixa dele' : 'nenhuma matéria ganha a caixa dele'}`)
   const msg = emailDoMaterial({ material: m, urlBaixar: `https://palacio.cruzvermelhariodejaneiro.org/newsletter/confirmar?t=${'a'.repeat(48)}&m=${id}`, urlDeSaida })
   ok(msg.html.includes(`>${botao}</a>`) && msg.html.includes(`você baixa ${m.email.objeto} e confirma o seu e-mail`), `${id}: a mensagem tem o botão e explica que ele baixa e confirma`)
 }
