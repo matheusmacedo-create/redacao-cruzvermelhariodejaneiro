@@ -25,6 +25,11 @@ const MARCACAO: { padrao: RegExp; motivo: string }[] = [
   { padrao: /!\[/, motivo: 'foto escrita em Markdown que não virou imagem ("![")' },
   { padrao: /\*\*/, motivo: 'negrito que não fechou ("**")' },
   { padrao: /\]\(/, motivo: 'link escrito em Markdown que não virou link ("](")' },
+  // A IA marca entre ⟦ ⟧ o contexto que acrescentou por conta própria
+  // (lib/ia/estilo.ts, regra 2). As redes já barravam (lib/publicacao/
+  // variantes.ts); o site não, e duas matérias foram ao ar com os colchetes
+  // em 04/09/2026. Acréscimo não conferido não vai ao ar em canal nenhum.
+  { padrao: /[⟦⟧]/u, motivo: 'trecho entre ⟦ ⟧, acréscimo da IA ainda não conferido (confirme o trecho e apague os colchetes, ou apague o trecho)' },
 ]
 
 /** O trecho em volta da ocorrência, para quem for corrigir achar o lugar. */
