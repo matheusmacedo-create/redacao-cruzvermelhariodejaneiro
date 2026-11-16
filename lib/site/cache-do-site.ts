@@ -33,6 +33,9 @@ export const REDIRECIONAMENTOS_DAS_NOTICIAS: { de: string; para: string }[] = [
   { de: 'recebemos-na-sede-da-cruz-vermelha-do-rio-de-janeiro-os-representantes-da-associacao-de-bombeiros-civis', para: '/noticias/recebemos-na-sede-da-cruz-vermelha-do-rio-de-janeiro-os-representantes-da/' },
   // 19/10/2026: fundida ao pilar de Primeiros Socorros Básico (canibalizavam a busca "curso de primeiros socorros"); o conteúdo útil foi para o pilar.
   { de: 'curso-de-primeiros-socorros-domine-com-poucas-aulas', para: '/noticias/curso-de-primeiros-socorros-basico-para-o-dia-a-dia-em-casa/' },
+  // 16/11/2026: endereço que nunca existiu, citado por engano na matéria da lesão por pressão; o Google o achou e
+  // o Search Console o listava como 404. A matéria da sobrecarga do cuidador está no outro endereço.
+  { de: 'sobrecarga-do-cuidador-sinais-e-como-pedir-apoio', para: '/noticias/sobrecarga-do-cuidador-quem-cuida-tambem-precisa-de-cuidado/' },
 ]
 
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/
