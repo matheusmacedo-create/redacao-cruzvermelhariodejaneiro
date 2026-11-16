@@ -657,7 +657,9 @@ confira em `/api/admin/ftp-check`.
    viram os endereços atuais (`LINKS_ANTIGOS_DO_SITE`).
 3. **Guardas** (`guarda-da-pagina.ts`): a página é recusada, com mensagem, se levaria
    endereço interno (`/api/private-blob`, Blob, workspace, localhost), Markdown que não
-   virou HTML (`![`, `**`, `](`) ou o domínio antigo.
+   virou HTML (`![`, `**`, `](`), acréscimo da IA entre ⟦ ⟧ ainda não conferido (desde
+   16/11/2026; as redes já barravam em `variantes.ts`) ou o domínio antigo.
+   `npx tsx scripts/conferir-guarda-da-pagina.ts` confere.
 4. **Subida** por FTPS e, depois, índice, sitemap e `.htaccess` (`vitrine.ts`).
 
 **Narração** (§8.7): com a voz ligada para as matérias, `gerarPaginaDaMateria` pede a
