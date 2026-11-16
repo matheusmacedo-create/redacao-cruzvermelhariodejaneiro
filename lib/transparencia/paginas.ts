@@ -10,7 +10,7 @@
  * trilha pública e o SHA-256, com o link para conferir em /verificar/.
  */
 
-import { montarPaginaDoSite, escapar } from '@/lib/site/esqueleto'
+import { montarPaginaDoSite, escapar, noDaOrganizacao, noDoSite } from '@/lib/site/esqueleto'
 import { DADOS_DA_FILIAL } from '@/lib/site/juridico'
 import { codigoEmGrupos } from '@/lib/auditoria/catalogo'
 import {
@@ -412,16 +412,53 @@ export function paginaDaTransparencia(p: { documentos: DocumentoNoPortal[]; parc
     ${JS_DA_TRANSPARENCIA}
   </main>`
 
+  const descricao = 'Os documentos oficiais da Cruz Vermelha Brasileira — Filial do Rio de Janeiro, cada um com impressão digital e código de verificação.'
   return montarPaginaDoSite({
     titulo: 'Transparência',
-    descricao: 'Os documentos oficiais da Cruz Vermelha Brasileira — Filial do Rio de Janeiro, cada um com impressão digital e código de verificação.',
+    descricao,
     caminho: '/transparencia/',
+    jsonLd: jsonLdDoPortal('Transparência', descricao, '/transparencia/'),
     corpo,
     cssExtra: CSS_DO_PORTAL + CSS_DA_TRANSPARENCIA,
     agora,
     ativo: 'transparencia',
     indexar: p.indexar ?? portalAberto(),
   })
+}
+
+/**
+ * Dados estruturados das páginas do portal: a página e a trilha (Início ›
+ * Página), como nas demais páginas do site. Sem isso, Transparência e Canais
+ * oficiais eram as únicas páginas indexáveis sem JSON-LD (revisão de SEO de
+ * 16/11/2026).
+ */
+function jsonLdDoPortal(nome: string, descricao: string, caminho: string) {
+  const origem = 'https://cruzvermelhariodejaneiro.org'
+  const url = `${origem}${caminho}`
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'WebPage',
+        '@id': `${url}#pagina`,
+        url,
+        name: nome,
+        description: descricao,
+        inLanguage: 'pt-BR',
+        isPartOf: noDoSite(),
+        publisher: noDaOrganizacao(),
+        breadcrumb: { '@id': `${url}#trilha` },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        '@id': `${url}#trilha`,
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Início', item: `${origem}/` },
+          { '@type': 'ListItem', position: 2, name: nome, item: url },
+        ],
+      },
+    ],
+  }
 }
 
 export function paginaDosCanais(p: {
@@ -448,10 +485,12 @@ export function paginaDosCanais(p: {
         ${p.chaveId ? `<p>Impressão digital da chave que assina os lotes diários da trilha: <code class="hash">${escapar(p.chaveId)}</code></p>` : ''}
       </div>
     </main>`
+  const descricao = 'Os endereços, telefones e perfis oficiais da Cruz Vermelha Brasileira — Filial do Estado do Rio de Janeiro. Desconfie de outros.'
   return montarPaginaDoSite({
     titulo: 'Canais oficiais',
-    descricao: 'Os endereços, telefones e perfis oficiais da Cruz Vermelha Brasileira — Filial do Estado do Rio de Janeiro. Desconfie de outros.',
+    descricao,
     caminho: '/canais-oficiais/',
+    jsonLd: jsonLdDoPortal('Canais oficiais', descricao, '/canais-oficiais/'),
     corpo,
     cssExtra: CSS_DO_PORTAL,
     agora,

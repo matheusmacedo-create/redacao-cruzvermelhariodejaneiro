@@ -169,9 +169,14 @@ export const ASSINATURA_DA_ABA = ` | ${NOME_DO_SITE}`
  * assinatura em vez do assunto. Então o assunto manda: a assinatura só entra
  * quando cabe inteira. Assunto maior que o limite é cortado na última pausa
  * perto do fim (dois-pontos, travessão, vírgula) ou, na falta, na última
- * palavra, sem terminar em preposição e sem partir o nome da instituição
- * (o corte vai para antes dele). O <h1> e o og:title continuam com o texto
- * inteiro.
+ * palavra, sem terminar em preposição e sem partir o nome da instituição:
+ * o corte vai para depois do nome, quando ele cabe inteiro, ou para antes
+ * dele. O <h1> e o og:title continuam com o texto inteiro.
+ *
+ * "Depois do nome" entrou em 16/11/2026: com o corte sempre antes, a manchete
+ * "Setembro Amarelo: a Cruz Vermelha Brasileira Rio de Janeiro e a valorização
+ * da vida" virava "Setembro Amarelo…" na busca, 17 caracteres, embora o nome
+ * coubesse inteiro no limite.
  */
 export function tituloDaAba(titulo: string, limite = 60): string {
   const limpo = titulo.replace(/\s+/g, ' ').trim()
@@ -184,7 +189,9 @@ export function tituloDaAba(titulo: string, limite = 60): string {
   let corte = pausa >= limite * 0.66 ? pausa : cabe.lastIndexOf(' ')
   for (const nome of [NOME_FORMAL_DA_FILIAL, NOME_DO_SITE]) {
     const inicio = limpo.indexOf(nome)
-    if (inicio > 0 && corte > inicio && corte < inicio + nome.length) corte = inicio
+    if (inicio > 0 && corte > inicio && corte < inicio + nome.length) {
+      corte = inicio + nome.length <= cabe.length ? inicio + nome.length : inicio
+    }
   }
   const cortado = semPalavraCurtaNoFim(corte > 0 ? cabe.slice(0, corte) : cabe)
   return `${cortado}…`
