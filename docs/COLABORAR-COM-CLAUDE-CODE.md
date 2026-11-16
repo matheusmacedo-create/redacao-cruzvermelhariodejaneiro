@@ -75,7 +75,7 @@ já vêm prontos.
 |---|---|
 | `AGENTS.md` (lido via `CLAUDE.md`) | As regras do projeto que o Claude segue: credenciais, banco de produção, migrações, pnpm, validação, PR. Outros agentes (Cursor, Copilot) também leem. |
 | `ARQUITETURA.md` | O mapa completo do sistema. O Claude consulta antes de mexer. |
-| `.claude/skills/` | Atalhos: **/validar** (tipos, lint e build), **/migracao** (como mexer no banco sem quebrar produção), **/entregar** (branch, commit, PR), além das skills do Supabase. |
+| `.claude/skills/` | Atalhos: **/validar** (tipos, lint e build), **/migracao** (como mexer no banco sem quebrar produção), **/entregar** (branch, commit, PR), **/redigir-materia** (escrever ou revisar matéria do site com a voz da casa e as regras de fato de `lib/ia/estilo.ts`), além das skills do Supabase. |
 | `.claude/settings.json` | Libera sem perguntar os comandos seguros (`pnpm build`, `npx tsc`, `git status`…) e **bloqueia** ler `.env`, `npm install`, push forçado, push direto na `main`, `supabase db push` e `vercel env pull`. |
 | `.claude/hooks/session-start.sh` | Na web, instala as dependências ao abrir a sessão. No seu computador não faz nada. |
 | `.mcp.json` | Conexões opcionais: **Supabase (somente leitura)** e **Vercel**. Na primeira vez o Claude pergunta se você aprova; o login é pela sua própria conta. Quem não tem acesso ao Supabase/Vercel simplesmente não usa. |
