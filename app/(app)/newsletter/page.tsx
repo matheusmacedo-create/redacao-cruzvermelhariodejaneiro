@@ -1,4 +1,7 @@
+import Link from 'next/link'
+import { PenLine } from 'lucide-react'
 import { PageHeader } from '@/components/app/page-header'
+import { Button } from '@/components/ui/button'
 import { requireWorkspace } from '@/lib/session'
 import { pode } from '@/lib/permissoes'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -29,8 +32,9 @@ export const dynamic = 'force-dynamic'
 /** Quantas linhas a tela carrega. Busca e filtro acontecem sobre estas. */
 const LIMITE_DA_TELA = 500
 
-export default async function NewsletterPage() {
+export default async function NewsletterPage({ searchParams }: { searchParams: Promise<{ aba?: string }> }) {
   const context = await requireWorkspace()
+  const { aba } = await searchParams
   const admin = createAdminClient()
   const espaco = context.workspace.id
 
@@ -94,7 +98,13 @@ export default async function NewsletterPage() {
     <div>
       <PageHeader
         title="Newsletter"
-        description="Quem pediu para receber as notícias da Cruz Vermelha do Rio de Janeiro, como a lista cresceu e o que já foi enviado."
+        description="Escreva para quem pediu as notícias da Cruz Vermelha do Rio de Janeiro e acompanhe a lista."
+        actions={
+          // O botão que faltava: escrever uma edição a partir daqui, sem passar por Publicações.
+          <Button data-ajuda="newsletter.nova" className="h-12 w-full px-5 text-base sm:w-auto" render={<Link href="/newsletter/nova" />}>
+            <PenLine className="size-5" />Nova edição
+          </Button>
+        }
       />
       <Central
         contagens={{ total, confirmados, pendentes, descadastrados, invalidos }}
@@ -110,6 +120,7 @@ export default async function NewsletterPage() {
         }}
         podeApagar={pode(context.role, 'newsletter.apagar')}
         podeExportar={pode(context.role, 'newsletter.exportar')}
+        abaInicial={aba}
       />
     </div>
   )

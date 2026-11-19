@@ -9,7 +9,10 @@ import { normalizarEmail, normalizarNome, novoToken, prazoDeConfirmacao, TEXTO_D
 import { urlBase, urlDeConfirmacao, urlDeSaida, urlDeSaidaEmUmClique } from '@/lib/newsletter/contexto'
 import { withFtp, baixarTexto, enviarNaRaizDoSite } from '@/lib/publicacao/ftp'
 import { ligarFormularioNaHome, candidatosDeIndex, MARCA } from '@/lib/site/formulario-newsletter'
-import { emailDeBoasVindas, emailDeConfirmacao } from '@/lib/newsletter/modelo'
+import { emailDaNewsletter, emailDeBoasVindas, emailDeConfirmacao } from '@/lib/newsletter/modelo'
+import { conferirEdicao, MINUTOS_SEM_REPETIR } from '@/lib/newsletter/edicao'
+import { enviarEdicao } from '@/lib/newsletter/envio'
+import { createClient } from '@/lib/supabase/server'
 import { enviarEmail, emailConfigurado, semChave } from '@/lib/newsletter/resend'
 
 /**
@@ -387,5 +390,137 @@ export async function ligarFormularioDoSite(): Promise<Resultado> {
     }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível ligar o formulário da home.') }
+  }
+}
+
+
+/**
+ * "Nova edição": a edição escrita na própria Newsletter (app/(app)/newsletter/nova).
+ *
+ * As duas ações abaixo conferem a edição de novo no servidor, com a mesma função que a tela usa
+ * (lib/newsletter/edicao.ts): a tela pode estar desatualizada, e e-mail enviado não volta.
+ */
+
+/** Quem pode escrever e enviar uma edição; devolve o contexto ou lança a mensagem para a tela. */
+async function autorizadoAEnviar() {
+  const context = await requireWorkspace()
+  if (!pode(context.role, 'newsletter.enviar')) {
+    throw new Error('Enviar uma edição para a lista é para administradores e editores. Peça a um deles, ou monte a edição em Publicações para aprovação.')
+  }
+  if (!emailConfigurado()) throw new Error('O envio de e-mail não está configurado: falta RESEND_API_KEY.')
+  return context
+}
+
+/**
+ * Manda a edição só para quem está escrevendo, para ver como chega na caixa de entrada.
+ *
+ * Vai para o e-mail da conta de quem pediu, nunca para um endereço digitado: um campo "enviar teste para" seria um
+ * jeito de mandar mensagem da filial a qualquer pessoa. O assunto leva "[Teste]" e o link de saída aponta para a
+ * página de saída sem inscrição nenhuma: tocar nele não tira ninguém da lista.
+ */
+export async function enviarTesteDaEdicao(rascunho: unknown): Promise<Resultado> {
+  try {
+    const context = await autorizadoAEnviar()
+    const para = context.user.email
+    if (!para) throw new Error('A sua conta não tem e-mail para receber o teste.')
+
+    const { erros, edicao } = conferirEdicao(rascunho)
+    if (erros.length) throw new Error(erros[0])
+
+    const saida = `${urlBase()}/newsletter/sair`
+    const modelo = emailDaNewsletter({ titulo: edicao.assunto, ...edicao, urlDeSaida: saida })
+    await enviarEmail({
+      para,
+      assunto: `[Teste] ${modelo.assunto}`,
+      html: modelo.html,
+      texto: modelo.texto,
+      urlDeSaidaEmUmClique: saida,
+    })
+    return { recado: `Teste enviado para ${para}. Confira como ficou no celular antes de enviar para a lista.` }
+  } catch (causa) {
+    return { erro: semChave(mensagemDoErro(causa, 'Não foi possível enviar o teste.')) }
+  }
+}
+
+/**
+ * Envia a edição para toda a lista.
+ *
+ * Grava a edição no mesmo lugar em que o pacote de Publicações grava a dele (um pacote livre com o destino
+ * "newsletter"), de propósito: o histórico da Newsletter, o Histórico geral e o calendário já leem dali, e uma edição
+ * não pode existir em dois formatos conforme a tela em que nasceu. O pacote nasce como "publicado" ou "falhou" e não
+ * passa por Publicações.
+ *
+ * A edição é gravada ANTES do envio, como "publicando": se a função morrer no meio, sobra o registro de que uma
+ * remessa começou, em vez de mensagens na rua sem rastro.
+ */
+export async function enviarEdicaoDaNewsletter(rascunho: unknown): Promise<Resultado & { enviados?: number }> {
+  try {
+    const context = await autorizadoAEnviar()
+    const workspaceId = context.workspace.id
+
+    const { erros, edicao } = conferirEdicao(rascunho)
+    if (erros.length) throw new Error(erros[0])
+
+    const supabase = await createClient()
+
+    // O toque duplo no botão, ou a tela reenviada depois de um tempo esgotado: o mesmo assunto não sai duas vezes
+    // seguidas. "falhou" não conta, para dar para tentar de novo depois de corrigir a causa.
+    const desde = new Date(Date.now() - MINUTOS_SEM_REPETIR * 60_000).toISOString()
+    const { data: recentes } = await supabase
+      .from('package_destinations').select('id, extras')
+      .eq('workspace_id', workspaceId).eq('canal', 'newsletter')
+      .in('estado', ['publicando', 'publicada', 'na_fila']).gte('created_at', desde)
+    if ((recentes ?? []).some((d) => (d.extras as Record<string, string> | null)?.assunto === edicao.assunto)) {
+      throw new Error(`Uma edição com este mesmo assunto saiu há menos de ${MINUTOS_SEM_REPETIR} minutos. Para não mandar duas vezes à mesma lista, nada foi enviado. Confira em “Edições”.`)
+    }
+
+    const corpo = edicao.paragrafos.join('\n\n')
+    const { data: pacote, error: erroDoPacote } = await supabase
+      .from('social_packages')
+      .insert({
+        workspace_id: workspaceId,
+        titulo_interno: edicao.assunto,
+        origem_tipo: 'livre',
+        mestre: { titulo: edicao.assunto, subtitulo: edicao.chamada ?? '', corpo, ...(edicao.urlDaMateria ? { linkUrl: edicao.urlDaMateria } : {}) },
+        created_by: context.user.id,
+      })
+      .select('id').single()
+    if (erroDoPacote || !pacote) throw new Error('Não foi possível registrar a edição. Nada foi enviado.')
+
+    const { data: destino, error: erroDoDestino } = await supabase
+      .from('package_destinations')
+      .insert({
+        workspace_id: workspaceId,
+        package_id: pacote.id,
+        canal: 'newsletter',
+        formato: 'edicao',
+        corpo,
+        extras: { assunto: edicao.assunto, chamada: edicao.chamada ?? '', rotuloDoBotao: edicao.rotuloDoBotao ?? '', origem: 'newsletter' },
+        // Escrita aqui, e não gerada do texto-mestre: regenerar as variantes do pacote não mexe nela.
+        descolada: true,
+        estado: 'publicando',
+      })
+      .select('id').single()
+    if (erroDoDestino || !destino) {
+      await supabase.from('social_packages').update({ status: 'falhou' }).eq('id', pacote.id).eq('workspace_id', workspaceId)
+      throw new Error('Não foi possível registrar a edição. Nada foi enviado.')
+    }
+
+    const remessa = await enviarEdicao(workspaceId, edicao)
+    const deu = !remessa.erro
+
+    const { error: erroAoFechar } = await supabase.from('package_destinations').update(deu
+      ? { estado: 'publicada', erro: null, external_url: `${remessa.enviados} destinatário${remessa.enviados === 1 ? '' : 's'}` }
+      : { estado: 'falhou', erro: (remessa.erro ?? '').slice(0, 500) },
+    ).eq('id', destino.id).eq('workspace_id', workspaceId)
+    await supabase.from('social_packages').update({ status: deu ? 'publicado' : 'falhou' }).eq('id', pacote.id).eq('workspace_id', workspaceId)
+    if (erroAoFechar) console.error('[newsletter] a edição saiu, mas o estado não foi gravado:', destino.id, erroAoFechar.message)
+
+    revalidatePath('/newsletter')
+    revalidatePath('/redes')
+    if (!deu) return { erro: semChave(remessa.erro ?? 'A edição não saiu.') }
+    return { recado: `Edição enviada para ${remessa.enviados} pessoa${remessa.enviados === 1 ? '' : 's'}.`, enviados: remessa.enviados }
+  } catch (causa) {
+    return { erro: semChave(mensagemDoErro(causa, 'Não foi possível enviar a edição.')) }
   }
 }

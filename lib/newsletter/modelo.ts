@@ -33,7 +33,7 @@ const LINHA = '#e2e8f0'
 export type Modelo = { assunto: string; html: string; texto: string }
 
 /** Por que a pessoa recebe a mensagem: a frase do rodapé, quando ninguém informa outra. */
-const MOTIVO_PADRAO = 'Você recebe esta mensagem porque confirmou a inscrição na nossa lista.'
+const MOTIVO_PADRAO = 'Você recebe esta mensagem porque se inscreveu para receber as nossas notícias.'
 
 /** Envolve o conteúdo no cabeçalho e rodapé comuns. `motivo` troca a frase do rodapé (texto puro, escapado aqui). */
 function moldura(opcoes: { miolo: string; urlDeSaida: string; preheader: string; motivo?: string }): string {

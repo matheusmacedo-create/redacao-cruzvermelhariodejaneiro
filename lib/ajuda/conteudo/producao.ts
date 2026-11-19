@@ -267,7 +267,7 @@ const PUBLICACOES: GuiaDaArea = {
         'Revise o texto do e-mail (o campo “Legenda”) e veja a “Prévia do e-mail”.',
         'Publique com “Publicar prontos”, junto com o resto do pacote, ou agende.',
       ],
-      dica: 'O e-mail vai para quem confirmou a inscrição na newsletter. O botão para a matéria e a foto de capa só vão se o pacote também publicar no site. E-mail enviado não volta: confira antes.',
+      dica: 'O e-mail vai para quem está na lista da newsletter. O botão para a matéria e a foto de capa só vão se o pacote também publicar no site. E-mail enviado não volta: confira antes.',
     },
   ],
   perguntas: [

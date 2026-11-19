@@ -751,6 +751,20 @@ endereço que devolve (por isso `RESEND_WEBHOOK_SECRET` deixou de ser opcional).
 direto. `pendente`, `app/newsletter/confirmar` e “Reenviar” ficaram só para as inscrições antigas e os links já enviados.
 Os textos acima desta nota que falam em convite e confirmação descrevem como era.
 
+**“Nova edição” e a tela em abas** (19/11/2026). A Newsletter era uma página só, de cima a baixo, e não tinha por onde
+escrever: a edição só saía por Publicações, como destino de um pacote. Agora o cabeçalho tem o botão “Nova edição”
+(`app/(app)/newsletter/nova`): assunto, chamada, texto, botão opcional, prévia (o mesmo `emailDaNewsletter` do envio,
+montado no navegador), “Enviar um teste para mim” e o envio para a lista, com confirmação. A conferência é um módulo
+puro, `lib/newsletter/edicao.ts`, usado pela tela e de novo pelo servidor (`enviarEdicaoDaNewsletter`), com as regras
+de assunto do canal. **Sem tabela nova**: a edição é gravada como um pacote livre com o destino `newsletter`
+(`extras.origem = 'newsletter'`, `descolada`), no mesmo lugar das edições de Publicações, e o histórico lê as duas.
+Enviar exige `newsletter.enviar` (admin e editor); o mesmo assunto não sai duas vezes em 10 minutos; o rascunho fica
+no `localStorage` do aparelho. Não há agendamento nem imagem nessa tela: para isso, e para a notícia que vai junto ao
+site, o caminho continua sendo o pacote. A página principal ficou em três abas, “Edições”, “Inscritos” e
+“Configuração” (`?aba=`), com os três painéis montados: a conferência do formulário do site roda ao abrir a tela e,
+se achar problema, vira aviso no alto e ponto na aba. No celular a lista de inscritos é em cartões, não em tabela.
+Conferência: `npx tsx scripts/conferir-newsletter-edicao.ts`.
+
 **Chat.** As páginas usam a versão (`?v=`) que a home usa, lida da home na hora
 (`chat-do-site.ts`); sem ela, saem sem o chat. **Redirecionamentos** 301 de notícias:
 `REDIRECIONAMENTOS_DAS_NOTICIAS` em `cache-do-site.ts` (vazio até alguém preencher).

@@ -24,55 +24,66 @@ import type { GuiaDaArea } from '../tipos'
 
 const NEWSLETTER: GuiaDaArea = {
   href: '/newsletter',
-  paraQueServe: 'A Newsletter guarda a lista de quem pediu para receber as notícias da Cruz Vermelha do Rio de Janeiro: quem está na lista e quem saiu. Mostra também como a lista cresceu e as últimas edições enviadas. A edição em si é escrita e enviada em “Publicações”, como mais um destino do pacote.',
-  quemUsa: 'Toda a equipe do Palácio Virtual vê a lista, acrescenta endereços e exporta. Apagar alguém da lista, ver a situação do formulário do site, ligá-lo e ver o diagnóstico completo do envio são só para administradores.',
+  paraQueServe: 'A Newsletter guarda a lista de quem pediu para receber as notícias da Cruz Vermelha do Rio de Janeiro: quem está na lista e quem saiu. É também onde se escreve e envia uma edição, em “Nova edição”, e onde se vê o que já saiu. A notícia que vai junto para o site e as redes continua saindo por “Publicações”, com a Newsletter como um dos destinos.',
+  quemUsa: 'Toda a equipe do Palácio Virtual vê a lista, acrescenta endereços e escreve edições; enviar uma edição para a lista e exportar são para administradores e editores. Apagar alguém da lista, ver a situação do formulário do site, ligá-lo e ver o diagnóstico completo do envio são só para administradores.',
   naPratica: {
     titulo: 'Quem pediu recebe as notícias, sem spam',
     passos: [
       'Uma pessoa deixa o e-mail no formulário do site pedindo as notícias da filial.',
       'Ela entra na lista na hora e recebe uma mensagem de boas-vindas, com o link para sair.',
-      'Na hora de publicar a notícia da campanha, a newsletter é mais um destino do pacote em “Publicações”.',
-      'Na Newsletter, a Carla acompanha quantas pessoas confirmaram no mês e as últimas edições.',
+      'Para avisar a lista das novas turmas, a Carla toca em “Nova edição”, escreve, manda um teste para ela e envia.',
+      'Na mesma tela ela acompanha quantas pessoas entraram no mês e as últimas edições.',
     ],
     resultado: 'A lista cresce só com quem quer receber, dentro da LGPD.',
   },
   tour: [
     {
       titulo: 'A Newsletter',
-      texto: 'Aqui fica a lista de quem pediu para receber as notícias da filial, como ela cresce e o que já foi enviado. A edição é escrita e enviada em “Publicações”.',
+      texto: 'Aqui você escreve para quem pediu as notícias da filial e acompanha a lista. São três partes: “Edições”, “Inscritos” e “Configuração”.',
     },
     {
-      alvo: 'newsletter.numeros',
-      titulo: 'Os números da lista',
-      texto: '“Na lista” são as pessoas que recebem as edições. “Aguardando” são inscrições antigas, de quando era preciso clicar num convite; “Saíram” pediram para parar; “Inválidos” são endereços que devolveram a mensagem.',
+      alvo: 'newsletter.nova',
+      titulo: 'Nova edição',
+      texto: 'Toque aqui para escrever uma edição: o assunto, o texto, a prévia, um teste para o seu e-mail e o envio para a lista.',
       lado: 'bottom',
     },
     {
-      alvo: 'newsletter.formulario',
-      titulo: 'Formulário do site',
-      texto: 'Confere sozinho se o formulário da página inicial do site manda as inscrições para cá (só administradores veem a situação). “Ligado” é o normal; “Não está ligado” quer dizer que quem se inscreve lá se perde.',
+      alvo: 'newsletter.numeros',
+      titulo: 'Os números',
+      texto: '“Na lista” é quantas pessoas recebem as edições. “Novas este mês” mostra se a lista está crescendo, e “Última edição”, quando foi a última que saiu.',
+      lado: 'bottom',
     },
     {
-      alvo: 'newsletter.envio',
-      titulo: 'Envio',
-      texto: 'De qual endereço a newsletter sai e para onde vão as respostas. “Conferir envio” faz o diagnóstico.',
-    },
-    {
-      alvo: 'newsletter.lista',
-      titulo: 'A lista',
-      texto: 'Filtre por situação, busque por e-mail ou nome, acrescente um endereço com “Acrescentar” (um por vez, com a declaração de consentimento) e baixe tudo com “Exportar”.',
+      alvo: 'newsletter.abas',
+      titulo: 'As três partes',
+      texto: '“Edições” mostra o que já saiu. “Inscritos” tem a lista de pessoas, com busca, “Acrescentar” e “Exportar”. “Configuração” confere o formulário do site e o envio; um ponto amarelo nela avisa que há algo a resolver.',
     },
     {
       alvo: 'newsletter.edicoes',
-      titulo: 'Edições enviadas',
+      titulo: 'Edições',
       texto: 'As últimas edições, com a data, para quantas pessoas foram e a situação: “Enviada”, “Agendada” ou “Falhou”. Quando falha, o motivo aparece em vermelho.',
     },
   ],
   tarefas: [
     {
+      id: 'escrever-edicao',
+      titulo: 'Escrever e enviar uma edição',
+      exemplo: 'A Carla quer avisar a lista das novas turmas de dezembro: escreve o assunto e três parágrafos, manda um teste para ela mesma, confere no celular e envia.',
+      passos: [
+        'Na Newsletter, toque em “Nova edição”.',
+        'Escreva o “Assunto” (até 90 letras; o principal no começo) e, se quiser, a “Chamada”.',
+        'Escreva o “Texto”, com uma linha em branco entre os parágrafos.',
+        'Para pôr um botão no fim, abra “Acrescentar um botão” e cole o endereço da página.',
+        'No celular, toque em “Ver como fica”; no computador, a prévia fica ao lado. É a mensagem como vai chegar.',
+        'Toque em “Enviar um teste para mim” e confira a mensagem no seu e-mail.',
+        'Toque em “Enviar para … pessoas” e confirme em “Sim, enviar agora”.',
+      ],
+      dica: 'Enviar para a lista é para administradores e editores; os demais escrevem e veem a prévia. O rascunho fica guardado no aparelho em que foi escrito. E-mail enviado não se corrige: mande o teste antes. O mesmo assunto não sai duas vezes em 10 minutos.',
+    },
+    {
       id: 'enviar-edicao',
-      titulo: 'Enviar uma edição da newsletter',
-      exemplo: 'No pacote “Campanha do agasalho: resultados”, o Bruno liga o destino “Newsletter”; a edição sai para os 1.240 inscritos confirmados junto com o site.',
+      titulo: 'Enviar a newsletter junto com a notícia do site',
+      exemplo: 'No pacote “Campanha do agasalho: resultados”, o Bruno liga o destino “Newsletter”; a edição sai para os 1.240 inscritos junto com o site.',
       passos: [
         'Abra “Publicações” e o pacote da matéria (ou crie um).',
         'Toque em “Adicionar destino” e, em “Newsletter”, escolha “Edição”.',
@@ -80,15 +91,15 @@ const NEWSLETTER: GuiaDaArea = {
         'Confira o “Assunto do e-mail” (até 90 caracteres; ele vem preenchido com o título), a “Chamada” e, se quiser, o “Texto do botão”.',
         'Confira a “Prévia do e-mail”: ela mostra a mensagem exatamente como vai sair.',
         'Toque em “Marcar como pronta”, depois em “Publicar prontos” (ou “Agendar prontos”, com horário marcado) e em “Confirmar”.',
-        'Volte à Newsletter: a edição aparece em “Edições enviadas”.',
+        'Volte à Newsletter: a edição aparece em “Edições”.',
       ],
-      dica: 'Quando o pacote publica no site junto, a newsletter sai depois da página, já com o botão para a matéria e a foto de capa. Pacote em aprovação só publica depois da decisão. E-mail enviado não se corrige: confira a prévia antes.',
+      dica: 'Use este caminho quando a notícia também vai para o site e as redes: a newsletter sai depois da página, já com o botão para a matéria e a foto de capa. Pacote em aprovação só publica depois da decisão. Para um aviso só para a lista, use “Nova edição”.',
     },
     {
       id: 'acrescentar-endereco',
       titulo: 'Acrescentar um endereço à mão',
       passos: [
-        'Na caixa da lista, toque em “Acrescentar”.',
+        'Toque em “Inscritos” e, na caixa da lista, em “Acrescentar”.',
         'Digite o “e-mail” e, se quiser, o “nome (opcional)”.',
         'Marque a declaração de que a pessoa pediu para receber a newsletter. Sem ela, o botão não habilita.',
         'Toque em “Acrescentar”.',
@@ -101,7 +112,7 @@ const NEWSLETTER: GuiaDaArea = {
       titulo: 'Procurar alguém na lista',
       passos: [
         'Digite no campo “Buscar por e-mail ou nome”.',
-        'Para ver só uma situação, toque em “Confirmados”, “Aguardando”, “Saíram” ou “Inválidos”. “Todos” volta à lista inteira.',
+        'Em “Inscritos”, para ver só uma situação, toque em “Confirmados”, “Saíram” ou “Inválidos” (o número ao lado diz quantos são). “Todos” volta à lista inteira.',
         'Na linha, “Situação” mostra onde a pessoa está e “Origem” diz de onde ela veio.',
       ],
       dica: 'A tabela mostra as 500 inscrições mais recentes, e a busca procura só nelas. Para a lista inteira, use “Exportar”.',
@@ -132,7 +143,7 @@ const NEWSLETTER: GuiaDaArea = {
       titulo: 'Ligar o formulário da página inicial do site',
       quem: 'Só administradores',
       passos: [
-        'Abra a Newsletter e espere o cartão “Formulário do site” terminar de conferir (“Conferindo…”).',
+        'Abra a Newsletter, toque em “Configuração” e espere o cartão “Formulário do site” terminar de conferir (“Conferindo…”).',
         'Se aparecer “Não está ligado”, toque em “Ligar o formulário”.',
         'Leia o recado no alto da tela: ele diz se a página inicial do site já está com o formulário ligado.',
         'Para conferir de novo mais tarde, toque em “Ver situação”.',
@@ -144,7 +155,7 @@ const NEWSLETTER: GuiaDaArea = {
       titulo: 'Conferir se o envio de e-mail funciona',
       quem: 'Diagnóstico: só administradores',
       passos: [
-        'No cartão “Envio”, veja o selo: “Configurado” ou “Sem chave do Resend”.',
+        'Toque em “Configuração” e, no cartão “Envio”, veja o selo: “Configurado” ou “Sem chave do Resend”.',
         'Toque em “Conferir envio”.',
         'Leia o resultado: ele diz se o domínio de onde a newsletter sai está verificado, ou que não deu para consultar, e o que fazer em seguida.',
       ],
@@ -167,7 +178,7 @@ const NEWSLETTER: GuiaDaArea = {
     {
       id: 'lista-nao-cresce',
       pergunta: 'Ninguém novo entra na lista. O que conferir?',
-      resposta: 'Veja o cartão “Formulário do site” (só administradores veem a situação). “Não está ligado” quer dizer que a conferência não achou, na página inicial do site, o formulário mandando as inscrições para cá: quem se inscreve lá pode estar tendo o endereço descartado sem saber. Um administrador resolve com “Ligar o formulário”.\n\n“Sem resposta agora” quer dizer que a conferência não respondeu naquele momento; toque em “Ver situação” daqui a pouco.',
+      resposta: 'Veja o cartão “Formulário do site”, em “Configuração” (só administradores veem a situação). “Não está ligado” quer dizer que a conferência não achou, na página inicial do site, o formulário mandando as inscrições para cá: quem se inscreve lá pode estar tendo o endereço descartado sem saber. Um administrador resolve com “Ligar o formulário”.\n\n“Sem resposta agora” quer dizer que a conferência não respondeu naquele momento; toque em “Ver situação” daqui a pouco.',
       termos: ['formulário', 'home', 'site', 'inscrições pararam', 'Não está ligado'],
     },
     {
@@ -208,7 +219,7 @@ const NEWSLETTER: GuiaDaArea = {
     },
     {
       id: 'situacao-da-edicao',
-      pergunta: 'O que significam “Enviada”, “Agendada” e “Falhou” em “Edições enviadas”?',
+      pergunta: 'O que significam “Enviada”, “Agendada” e “Falhou” em “Edições”?',
       resposta: '“Enviada”: a edição saiu, e a linha mostra para quantas pessoas. “Agendada”: a remessa foi entregue ao serviço de envio para sair no horário do pacote, e a linha continua assim mesmo depois desse horário. “Falhou”: não saiu, ou saiu só em parte; o motivo aparece em vermelho, e dá para reprocessar no pacote, em “Publicações”.\n\nEdição ainda em preparo no pacote também aparece, com a situação de lá (como “gerada” ou “pronta”); a lista mostra as 20 mais recentes.',
       termos: ['edição', 'status', 'agendada', 'falhou', 'enviada', 'gerada', 'pronta'],
     },

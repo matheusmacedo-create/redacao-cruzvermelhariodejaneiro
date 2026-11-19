@@ -118,7 +118,7 @@ export const GRUPOS: Grupo[] = [
     rotulo: 'Público',
     areas: [
       { href: '/direct', rotulo: 'Direct das redes', resumo: 'Mensagens e comentários do público nas redes sociais', icone: Inbox, termos: ['caixa de entrada', 'atendimento', 'comentários', 'dm', 'direct', 'instagram', 'mensagens do público'] },
-      { href: '/newsletter', rotulo: 'Newsletter', resumo: 'Inscritos, crescimento da lista e edições enviadas', icone: Mail, termos: ['central de e-mail', 'e-mail marketing', 'inscritos'] },
+      { href: '/newsletter', rotulo: 'Newsletter', resumo: 'Escreva e envie edições, e acompanhe os inscritos', icone: Mail, termos: ['central de e-mail', 'e-mail marketing', 'inscritos'] },
       { href: '/imprensa', rotulo: 'Imprensa e contatos', resumo: 'Contatos verificados, campanhas e quem leu', icone: Newspaper, termos: ['imprensa', 'jornalistas', 'contatos', 'release', 'hunter'] },
     ],
   },
