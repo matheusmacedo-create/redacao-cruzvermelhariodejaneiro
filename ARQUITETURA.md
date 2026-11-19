@@ -741,6 +741,16 @@ módulo puro: só a home inteira, com status 200, prova que o formulário saiu; 
 `RESEND_WEBHOOK_SECRET` não estava em produção (§7.39): o Resend tinha sete endereços devolvidos e a Newsletter mostrava
 “Inválidos: 0”. O “Conferir envio” passou a avisar quando a variável falta.
 
+**Inscrição sem clique de confirmação** (19/11/2026, decisão da filial). Até aqui a pessoa só entrava na lista depois de
+clicar no link do convite, e de 38 que pediram para receber, 28 não clicaram. Agora quem deixa o e-mail e marca o aceite
+**entra na lista na hora** (`estado = 'confirmado'`), no formulário da home, nas caixas das matérias e em “Acrescentar”.
+A primeira mensagem é `emailDeBoasVindas` (ou a do material, com `entraDireto`: o botão abre o arquivo direto), com o
+link de saída no corpo. O texto do aceite, o IP e o navegador continuam gravados. O que sobrou de defesa: armadilha,
+limite por IP, resposta sempre igual, o link de saída em toda mensagem e o webhook do Resend, que tira da lista o
+endereço que devolve (por isso `RESEND_WEBHOOK_SECRET` deixou de ser opcional). Quem saiu e se inscreve de novo volta
+direto. `pendente`, `app/newsletter/confirmar` e “Reenviar” ficaram só para as inscrições antigas e os links já enviados.
+Os textos acima desta nota que falam em convite e confirmação descrevem como era.
+
 **Chat.** As páginas usam a versão (`?v=`) que a home usa, lida da home na hora
 (`chat-do-site.ts`); sem ela, saem sem o chat. **Redirecionamentos** 301 de notícias:
 `REDIRECIONAMENTOS_DAS_NOTICIAS` em `cache-do-site.ts` (vazio até alguém preencher).

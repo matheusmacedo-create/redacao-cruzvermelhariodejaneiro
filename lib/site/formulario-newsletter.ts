@@ -88,7 +88,7 @@ export function blocoLigado(urlDaRota: string): string {
             body:JSON.stringify({nome:d.get('nome'),email:d.get('email'),site:d.get('site'),consentimento:d.get('consentimento')==='1'})})
             .then(function(x){return x.json().catch(function(){return{}})})
             .then(function(resp){
-              if(resp&&resp.ok){r.textContent=resp.recado||'Quase lá! Confira seu e-mail para confirmar.';f.reset()}
+              if(resp&&resp.ok){r.textContent=resp.recado||'Inscrição feita! Você passa a receber as nossas novidades no seu e-mail.';f.reset()}
               else{r.setAttribute('data-erro','1');r.textContent=(resp&&resp.erro)||'Não foi possível concluir agora. Tente de novo.'}
             })
             .catch(function(){r.setAttribute('data-erro','1');r.textContent='Não foi possível concluir agora. Confira sua conexão e tente de novo.'})

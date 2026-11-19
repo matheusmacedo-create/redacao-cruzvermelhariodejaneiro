@@ -226,7 +226,7 @@ const TERMOS: Termo[] = [
   {
     id: 'newsletter',
     termo: 'Newsletter',
-    definicao: 'As notícias da filial por e-mail, para quem se inscreveu e confirmou o endereço. A lista fica em Newsletter; cada edição é escrita e enviada em Publicações, como mais um destino do pacote.',
+    definicao: 'As notícias da filial por e-mail, para quem se inscreveu. A lista fica em Newsletter; cada edição é escrita e enviada em Publicações, como mais um destino do pacote.',
     areas: ['/newsletter', '/redes'],
     termos: ['boletim', 'e-mail de notícias', 'inscritos'],
     veja: ['pacote'],

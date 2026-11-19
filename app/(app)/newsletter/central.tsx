@@ -184,8 +184,8 @@ export function Central({
  */
 function Numeros({ contagens }: { contagens: Contagens }) {
   const tiles = [
-    { rotulo: 'Na lista', valor: contagens.confirmados, dica: 'Confirmaram e recebem as edições', destaque: true },
-    { rotulo: 'Aguardando', valor: contagens.pendentes, dica: 'Pediram, ainda não confirmaram' },
+    { rotulo: 'Na lista', valor: contagens.confirmados, dica: 'Recebem as edições', destaque: true },
+    { rotulo: 'Aguardando', valor: contagens.pendentes, dica: 'Inscrições antigas, à espera do clique' },
     { rotulo: 'Saíram', valor: contagens.descadastrados, dica: 'Pediram para não receber mais' },
     { rotulo: 'Inválidos', valor: contagens.invalidos, dica: 'O endereço devolveu a mensagem' },
   ]
@@ -495,8 +495,8 @@ function FormularioManual({ executar, processando, fechar }: {
       <label className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
         <input type="checkbox" checked={confirmou} onChange={(e) => setConfirmou(e.target.checked)} className="mt-0.5" />
         <span>
-          Declaro que esta pessoa pediu para receber a newsletter. Ela ainda vai receber um e-mail
-          de confirmação — só entra na lista depois de clicar. Um endereço por vez, de propósito.
+          Declaro que esta pessoa pediu para receber a newsletter. Ela entra na lista na hora e
+          recebe uma mensagem de boas-vindas, com o link para sair. Um endereço por vez, de propósito.
         </span>
       </label>
     </form>

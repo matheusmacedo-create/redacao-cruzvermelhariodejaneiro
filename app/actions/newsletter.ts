@@ -9,7 +9,7 @@ import { normalizarEmail, normalizarNome, novoToken, prazoDeConfirmacao, TEXTO_D
 import { urlBase, urlDeConfirmacao, urlDeSaida, urlDeSaidaEmUmClique } from '@/lib/newsletter/contexto'
 import { withFtp, baixarTexto, enviarNaRaizDoSite } from '@/lib/publicacao/ftp'
 import { ligarFormularioNaHome, candidatosDeIndex, MARCA } from '@/lib/site/formulario-newsletter'
-import { emailDeConfirmacao } from '@/lib/newsletter/modelo'
+import { emailDeBoasVindas, emailDeConfirmacao } from '@/lib/newsletter/modelo'
 import { enviarEmail, emailConfigurado, semChave } from '@/lib/newsletter/resend'
 
 /**
@@ -220,9 +220,9 @@ export async function apagarInscrito(formData: FormData): Promise<Resultado> {
  *  1. UM endereço por vez. Não há campo de colar lista, de propósito: o
  *     atrito é a defesa. Importação em massa sem prova de consentimento é o
  *     que faz uma instituição inteira ser marcada como spam.
- *  2. O endereço entra como PENDENTE e recebe o convite, como qualquer outro.
- *     Ninguém é inscrito por decisão de terceiro; a confirmação continua sendo
- *     da pessoa. Quem inseriu fica registrado no consentimento.
+ *  2. Quem inseriu fica registrado no consentimento. O endereço entra na lista
+ *     na hora, como no formulário do site (19/11/2026: sem clique de
+ *     confirmação), e recebe as boas-vindas com o link de saída.
  */
 export async function adicionarInscrito(formData: FormData): Promise<Resultado> {
   try {
@@ -242,14 +242,14 @@ export async function adicionarInscrito(formData: FormData): Promise<Resultado> 
       throw new Error('Este endereço pediu para sair da lista. Só a própria pessoa pode voltar, pelo formulário do site.')
     }
 
-    const token = novoToken()
     const linha = {
       workspace_id: workspaceId,
       email,
       nome,
-      estado: 'pendente' as const,
-      token_confirmacao: token,
-      token_confirmacao_expira_em: prazoDeConfirmacao(),
+      estado: 'confirmado' as const,
+      confirmado_em: new Date().toISOString(),
+      token_confirmacao: null,
+      token_confirmacao_expira_em: null,
       origem: 'manual' as const,
       // Registra QUEM inseriu: numa inscrição manual, o consentimento foi dado
       // fora do sistema, e a única prova possível é quem afirma tê-lo colhido.
@@ -263,11 +263,7 @@ export async function adicionarInscrito(formData: FormData): Promise<Resultado> 
 
     if (emailConfigurado()) {
       try {
-        const modelo = emailDeConfirmacao({
-          nome,
-          urlConfirmar: urlDeConfirmacao(token),
-          urlDeSaida: urlDeSaida(gravado.token_descadastro as string),
-        })
+        const modelo = emailDeBoasVindas({ nome, urlDeSaida: urlDeSaida(gravado.token_descadastro as string) })
         await enviarEmail({
           para: email,
           assunto: modelo.assunto,
@@ -276,17 +272,17 @@ export async function adicionarInscrito(formData: FormData): Promise<Resultado> 
           urlDeSaidaEmUmClique: urlDeSaidaEmUmClique(gravado.token_descadastro as string),
         })
       } catch (causa) {
-        console.error('[newsletter] convite manual não saiu:', semChave(causa instanceof Error ? causa.message : String(causa)))
+        console.error('[newsletter] as boas-vindas da inscrição manual não saíram:', semChave(causa instanceof Error ? causa.message : String(causa)))
         revalidatePath('/newsletter')
-        return { recado: `${email} foi acrescentado, mas o convite não saiu. Veja o diagnóstico e reenvie.` }
+        return { recado: `${email} entrou na lista, mas a mensagem de boas-vindas não saiu. Veja o diagnóstico do envio.` }
       }
     }
 
     revalidatePath('/newsletter')
     return {
       recado: emailConfigurado()
-        ? `Convite enviado para ${email}. Ele entra na lista quando confirmar.`
-        : `${email} foi acrescentado como pendente. O convite sai quando o envio for configurado.`,
+        ? `${email} entrou na lista e recebeu a mensagem de boas-vindas.`
+        : `${email} entrou na lista. A mensagem de boas-vindas não saiu: o envio de e-mail não está configurado.`,
     }
   } catch (causa) {
     return { erro: semChave(mensagemDoErro(causa, 'Não foi possível acrescentar o endereço.')) }

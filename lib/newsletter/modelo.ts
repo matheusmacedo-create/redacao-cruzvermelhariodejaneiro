@@ -84,8 +84,60 @@ function botao(url: string, rotulo: string): string {
 }
 
 /**
- * O convite de confirmação — a única mensagem que vai para quem ainda não
- * confirmou.
+ * As boas-vindas: a primeira mensagem de quem se inscreveu (19/11/2026).
+ *
+ * Desde essa data não há mais o clique de confirmação: quem deixa o e-mail e marca o aceite entra na lista na hora
+ * (app/api/newsletter/inscrever). Esta mensagem diz que a inscrição valeu, o que a pessoa vai receber e, logo no
+ * corpo, como sair. A saída à mostra é o que sobrou de defesa para quem foi inscrito por outra pessoa: ela precisa de
+ * um caminho que não seja o botão de spam.
+ */
+export function emailDeBoasVindas(dados: { nome: string; urlDeSaida: string }): Modelo {
+  const ola = dados.nome ? `Olá, ${escapar(dados.nome.split(' ')[0])}!` : 'Olá!'
+
+  const miolo = `
+      <p style="margin:0 0 4px;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;color:${VERMELHO};">Inscrição feita</p>
+      <h1 style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:26px;line-height:1.25;color:#0f1318;">Que bom ter você por perto</h1>
+      <p style="margin:0 0 16px;">${ola}</p>
+      <p style="margin:0 0 16px;">Você pediu, no nosso site, para receber as novidades da Cruz Vermelha do Rio de Janeiro. A partir de agora elas chegam neste e-mail: notícias, campanhas e informações sobre cursos.</p>
+      <p style="margin:0 0 16px;">Não precisa fazer mais nada.</p>
+      ${botao(SITE, 'Visitar o site')}
+      <p style="margin:0;font-size:14px;color:${SUAVE};"><strong>Não foi você, ou mudou de ideia?</strong> <a href="${escapar(dados.urlDeSaida)}" style="color:${VERMELHO};font-weight:bold;">Saia da lista aqui</a> e nada mais é enviado.</p>`
+
+  const texto = [
+    'INSCRIÇÃO FEITA',
+    '',
+    dados.nome ? `Olá, ${dados.nome.split(' ')[0]}!` : 'Olá!',
+    '',
+    'Você pediu, no nosso site, para receber as novidades da Cruz Vermelha do Rio',
+    'de Janeiro. A partir de agora elas chegam neste e-mail: notícias, campanhas e',
+    'informações sobre cursos.',
+    '',
+    'Não precisa fazer mais nada.',
+    '',
+    'Não foi você, ou mudou de ideia? Saia da lista neste endereço e nada mais é',
+    'enviado:',
+    dados.urlDeSaida,
+    '',
+    '--',
+    'Cruz Vermelha Brasileira — Filial do Estado do Rio de Janeiro',
+    SITE,
+  ].join('\n')
+
+  return {
+    assunto: 'Sua inscrição na newsletter da Cruz Vermelha RJ está feita',
+    html: moldura({
+      miolo,
+      urlDeSaida: dados.urlDeSaida,
+      preheader: 'Você passa a receber as nossas novidades neste e-mail.',
+      motivo: 'Você recebe esta mensagem porque pediram a nossa newsletter no site com este endereço de e-mail.',
+    }),
+    texto,
+  }
+}
+
+/**
+ * O convite de confirmação. Desde 19/11/2026 o formulário não o envia mais (quem se inscreve entra direto e recebe
+ * `emailDeBoasVindas`); ele ficou para o "Reenviar" das inscrições antigas que ainda aguardam o clique.
  *
  * O texto diz de onde veio o pedido e o que fazer se não foi a pessoa: quem
  * recebe um convite que não pediu precisa de uma saída que não seja o botão
@@ -164,13 +216,21 @@ export function emailDoMaterial(dados: {
   urlBaixar: string
   urlDeSaida: string
   jaInscrito?: boolean
+  /**
+   * A pessoa acabou de entrar na lista por este pedido, sem clique de confirmação (19/11/2026). O botão vai direto
+   * ao arquivo, e a mensagem diz, com as palavras do aceite que ela marcou, que as notícias passam a chegar.
+   */
+  entraDireto?: boolean
 }): Modelo {
   const m = dados.material
+  const aviso = 'Como você autorizou ao pedir, passa a receber também as notícias, campanhas e informações sobre cursos da Cruz Vermelha do Rio de Janeiro. Dá para sair quando quiser, pelo link no fim de cada mensagem.'
   const oQueOBotaoFaz = dados.jaInscrito
     ? `Você já recebe as nossas notícias, então não há nada a confirmar: o botão abre ${m.email.objeto} direto.`
+    : dados.entraDireto ? `O botão abre ${m.email.objeto} direto. ${aviso}`
     : `Ao tocar no botão, você baixa ${m.email.objeto} e confirma o seu e-mail: passa a receber também as notícias, campanhas e informações sobre cursos da Cruz Vermelha do Rio de Janeiro. Dá para sair quando quiser, pelo link no fim de cada mensagem.`
   const seNaoFoiVoce = dados.jaInscrito
     ? 'Pode ignorar esta mensagem: nada muda na sua inscrição.'
+    : dados.entraDireto ? 'Toque em “Sair da lista”, no fim desta mensagem, e nada mais é enviado.'
     : 'Então não faça nada: sem o toque no botão, nada mais é enviado e o pedido expira sozinho.'
 
   const miolo = `
@@ -197,6 +257,7 @@ export function emailDoMaterial(dados: {
     '',
     ...(dados.jaInscrito
       ? ['Você já recebe as nossas notícias, então não há nada a confirmar: o endereço', `acima abre ${m.email.objeto} direto.`]
+      : dados.entraDireto ? [`O endereço acima abre ${m.email.objeto} direto.`, '', aviso]
       : [
           `Ao abrir esse endereço, você baixa ${m.email.objeto} e confirma o seu e-mail: passa a`,
           'receber também as notícias, campanhas e informações sobre cursos da Cruz',
@@ -209,6 +270,7 @@ export function emailDoMaterial(dados: {
     '',
     ...(dados.jaInscrito
       ? ['Não foi você? Pode ignorar esta mensagem: nada muda na sua inscrição.']
+      : dados.entraDireto ? ['Não foi você? Abra o endereço de "Sair da lista", logo abaixo, e nada mais é enviado.']
       : ['Não foi você? Então não faça nada: sem abrir o endereço acima, nada mais é', 'enviado e o pedido expira sozinho.']),
     '',
     '--',
