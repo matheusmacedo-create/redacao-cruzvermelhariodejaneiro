@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { requirePermissao } from '@/lib/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { emailConfigurado, remetente, respostaPara, listarDominios } from '@/lib/newsletter/resend'
-import { vereditoDoEnvio, type ListagemDeDominios } from '@/lib/newsletter/diagnostico'
+import { vereditoDoEnvio, leituraDaHome, type ListagemDeDominios } from '@/lib/newsletter/diagnostico'
 import { urlBase, espacoDaNewsletter, origensPermitidas } from '@/lib/newsletter/contexto'
 import { TETO_DE_DESTINATARIOS } from '@/lib/newsletter/envio'
 
@@ -32,20 +32,23 @@ export const dynamic = 'force-dynamic'
 /**
  * O formulário do site está apontando para cá? Confere o HTML público da
  * home: é o jeito de descobrir que alguém republicou o site por cima e levou
- * o formulário junto.
+ * o formulário junto. O veredito da leitura é de lib/newsletter/diagnostico.ts
+ * (`leituraDaHome`): página de erro da hospedagem não é "formulário desligado".
  */
 async function lerFormularioDaHome(): Promise<string> {
-  try {
-    const res = await fetch('https://cruzvermelhariodejaneiro.org/', { cache: 'no-store' })
-    const html = await res.text()
-    return html.includes('/api/newsletter/inscrever')
-      ? 'ligado'
-      : /newsletter-form/.test(html)
-        ? 'DECORATIVO — o formulário existe na home mas não envia para lugar nenhum'
-        : 'não encontrado na home'
-  } catch {
-    return 'não deu para conferir daqui'
+  // Até três leituras: a hospedagem do site oscila por instantes (504, ou 307 para o próprio endereço), e uma
+  // leitura só transformava cada oscilação em "Sem resposta agora" na tela.
+  let leitura: string = 'sem-resposta'
+  for (let tentativa = 0; tentativa < 3 && leitura === 'sem-resposta'; tentativa++) {
+    if (tentativa) await new Promise((r) => setTimeout(r, 1500))
+    try {
+      const res = await fetch('https://cruzvermelhariodejaneiro.org/', { cache: 'no-store', signal: AbortSignal.timeout(10_000) })
+      leitura = leituraDaHome({ status: res.status, html: await res.text() })
+    } catch {
+      leitura = leituraDaHome(null)
+    }
   }
+  return leitura
 }
 
 export async function GET(request: NextRequest) {
@@ -99,6 +102,7 @@ export async function GET(request: NextRequest) {
     lista: lista ? { confirmados: lista.confirmados, pendentes: lista.pendentes } : null,
     formularioDaHome,
     temRespostaPara: Boolean(respostaPara()),
+    temSegredoDoWebhook: Boolean(process.env.RESEND_WEBHOOK_SECRET?.trim()),
   })
 
   return NextResponse.json({

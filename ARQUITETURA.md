@@ -733,6 +733,14 @@ recusado de verdade não depende desse botão: `chamar()` avisa a administraçã
 leitura da home, que é o que o cartão “Formulário do site” pede a cada abertura da tela, sem chamar o Resend.
 Conferência: `npx tsx scripts/conferir-newsletter-diagnostico.ts`.
 
+**“Não está ligado” com o formulário ligado** (19/11/2026). A hospedagem do site oscila: por alguns minutos devolve 504,
+ou 307 para o próprio endereço. A leitura da home não olhava o status, lia a página de erro, não achava o formulário e
+o cartão acusava “Não está ligado”, com o botão de religar à mostra. Agora quem decide é `leituraDaHome`, no mesmo
+módulo puro: só a home inteira, com status 200, prova que o formulário saiu; qualquer outra resposta é `sem-resposta`
+(“Sem resposta agora”, sem botão), e a rota tenta até três vezes antes de desistir. No mesmo dia apareceu que
+`RESEND_WEBHOOK_SECRET` não estava em produção (§7.39): o Resend tinha sete endereços devolvidos e a Newsletter mostrava
+“Inválidos: 0”. O “Conferir envio” passou a avisar quando a variável falta.
+
 **Chat.** As páginas usam a versão (`?v=`) que a home usa, lida da home na hora
 (`chat-do-site.ts`); sem ela, saem sem o chat. **Redirecionamentos** 301 de notícias:
 `REDIRECIONAMENTOS_DAS_NOTICIAS` em `cache-do-site.ts` (vazio até alguém preencher).

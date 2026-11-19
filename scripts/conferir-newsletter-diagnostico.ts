@@ -6,7 +6,7 @@
  * listagem de domínios com 401 "restricted_api_key", e o diagnóstico respondia que o domínio não estava verificado,
  * com o envio funcionando. A regra conferida aqui: o diagnóstico só afirma o que conferiu.
  */
-import { recusaDeChaveSoDeEnvio, vereditoDoEnvio, type ListagemDeDominios } from '../lib/newsletter/diagnostico'
+import { leituraDaHome, recusaDeChaveSoDeEnvio, vereditoDoEnvio, type ListagemDeDominios } from '../lib/newsletter/diagnostico'
 
 let falhas = 0
 const ok = (cond: boolean, msg: string) => { if (!cond) { falhas++; console.error('✗', msg) } else console.log('✓', msg) }
@@ -25,6 +25,21 @@ ok(!recusaDeChaveSoDeEnvio(403, { name: 'invalid_api_key', message: 'API key is 
 ok(!recusaDeChaveSoDeEnvio(401, { name: 'outro_erro', message: 'This API key is restricted to only send emails' }), 'nome diferente manda mais que a mensagem')
 ok([null, undefined, '', 'restricted_api_key', 42, []].every((corpo) => !recusaDeChaveSoDeEnvio(401, corpo)) && !recusaDeChaveSoDeEnvio(200, { name: 'restricted_api_key' }) && !recusaDeChaveSoDeEnvio(500, { name: 'restricted_api_key' }),
   'corpo vazio, texto solto ou outro status: não')
+
+// ---------------------------------------------------------------- a leitura da home
+// O caso de 19/11/2026: a hospedagem devolveu 504 e 307, e o cartão acusou o formulário de estar desligado.
+const HOME = '<html><head><title>Cruz Vermelha Brasileira Rio de Janeiro</title></head><body>CORPO</body></html>'
+const LIGADA = HOME.replace('CORPO', '<form class="newsletter-form" action="https://redacao.cruzvermelhariodejaneiro.org/api/newsletter/inscrever">')
+const ERRO_504 = '<html>\n<head><title>504 Gateway Time-out</title></head>\n<body>\n<center><h1>504 Gateway Time-out</h1></center>\n<hr><center>nginx</center>\n</body>\n</html>'
+ok(leituraDaHome({ status: 200, html: LIGADA }) === 'ligado', 'home com a rota de inscrição: ligado')
+ok(leituraDaHome({ status: 504, html: ERRO_504 }) === 'sem-resposta', '504 da hospedagem: sem resposta, e não "desligado"')
+ok(leituraDaHome({ status: 307, html: ERRO_504.replace(/504 Gateway Time-out/g, '307 Temporary Redirect') }) === 'sem-resposta', '307 da hospedagem: sem resposta')
+ok(leituraDaHome({ status: 503, html: LIGADA }) === 'sem-resposta', 'status de erro manda mais que o corpo')
+ok(leituraDaHome(null) === 'sem-resposta', 'rede caiu: sem resposta')
+ok(leituraDaHome({ status: 200, html: ERRO_504 }) === 'sem-resposta' && leituraDaHome({ status: 200, html: '' }) === 'sem-resposta' && leituraDaHome({ status: 200, html: HOME.slice(0, 60) }) === 'sem-resposta',
+  '200 que não é a home (página de erro, vazio, resposta cortada): sem resposta')
+ok(leituraDaHome({ status: 200, html: HOME.replace('CORPO', '<form class="newsletter-form" action="#">') }).startsWith('DECORATIVO'), 'a home com o formulário sem destino: decorativo')
+ok(leituraDaHome({ status: 200, html: HOME }) === 'não encontrado na home', 'a home inteira, sem formulário: aí sim, não encontrado')
 
 // ---------------------------------------------------------------- chave só de envio: não acusa o domínio
 const soEnvio = vereditoDoEnvio({ ...base, listagem: { tipo: 'chave-so-de-envio' } })
@@ -56,6 +71,12 @@ ok(fora.tom === 'atencao' && fora.dominioVerificado === null && !fora.veredito.i
   'listagem que falhou: "não deu para conferir", e não "não está verificado"')
 ok(fora.oQueFazer[0] === 'Não deu para listar os domínios do Resend: o Resend não respondeu a tempo.', 'com o motivo da falha logo abaixo')
 ok(vereditoDoEnvio({ ...base, listagem: null }).dominioVerificado === null, 'listagem que nem foi feita: também "não sei"')
+
+// ---------------------------------------------------------------- o webhook do Resend
+const semWebhook = vereditoDoEnvio({ ...base, temSegredoDoWebhook: false, listagem: lista([DOMINIO, 'verified']) })
+ok(semWebhook.oQueFazer.some((f) => f.includes('RESEND_WEBHOOK_SECRET') && f.includes('devolvido')), 'sem o segredo do webhook: avisa que devolução e denúncia não chegam')
+ok(!tudo(vereditoDoEnvio({ ...base, temSegredoDoWebhook: true, listagem: lista([DOMINIO, 'verified']) })).includes('RESEND_WEBHOOK_SECRET') && !tudo(certo).includes('RESEND_WEBHOOK_SECRET'),
+  'com o segredo, ou sem a informação, nada é dito')
 
 const semChave = vereditoDoEnvio({ ...base, configurado: false, listagem: null })
 ok(semChave.veredito === 'Falta a chave do Resend.' && semChave.tom === 'atencao' && semChave.oQueFazer[0].startsWith('Cadastre RESEND_API_KEY'), 'sem chave: o veredito e a instrução de sempre')

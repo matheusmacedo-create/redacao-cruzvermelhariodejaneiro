@@ -33,6 +33,28 @@ export function recusaDeChaveSoDeEnvio(status: number, corpo: unknown): boolean 
   return name === undefined && typeof message === 'string' && /restricted to only send/i.test(message)
 }
 
+/**
+ * O que a leitura da home do site diz sobre o formulário da newsletter.
+ *
+ * Só responde sobre a página quando recebeu A PÁGINA. Em 19/11/2026 o cartão "Formulário do site" amanheceu em
+ * "Não está ligado", com o botão de religar, e o formulário estava ligado: a hospedagem do site oscilava e devolvia
+ * 504 (e um 307 para o próprio endereço) por alguns minutos. A rota lia o corpo dessa página de erro, não achava o
+ * formulário e concluía que ele tinha saído da home. Resposta que não é 200, ou que não é a home, é "sem-resposta":
+ * dúvida, e não defeito (a tela mostra "Sem resposta agora", sem o botão de religar).
+ */
+export type LeituraDaHome = 'ligado' | 'sem-resposta' | (string & {})
+
+export function leituraDaHome(resposta: { status: number; html: string } | null): LeituraDaHome {
+  if (!resposta || resposta.status !== 200) return 'sem-resposta'
+  const html = resposta.html
+  if (html.includes('/api/newsletter/inscrever')) return 'ligado'
+  if (/newsletter-form/.test(html)) return 'DECORATIVO — o formulário existe na home mas não envia para lugar nenhum'
+  // Um 200 que não é a home (página de manutenção, desafio contra robô, resposta cortada no meio) também não prova
+  // nada. Só a home inteira, reconhecida pelo fechamento do documento e pelo nome da instituição, prova a ausência.
+  const ehAHome = /<\/html>/i.test(html) && /Cruz Vermelha/i.test(html)
+  return ehAHome ? 'não encontrado na home' : 'sem-resposta'
+}
+
 /** ok: conferido e certo. neutro: não deu para conferir, e não há sinal de problema. atencao: há o que fazer. */
 export type TomDoVeredito = 'ok' | 'neutro' | 'atencao'
 
@@ -59,6 +81,8 @@ export function vereditoDoEnvio(e: {
   formularioDaHome?: string
   /** Há endereço de resposta configurado (NEWSLETTER_RESPONDER_PARA)? */
   temRespostaPara: boolean
+  /** Há segredo do webhook do Resend (RESEND_WEBHOOK_SECRET)? Sem informar, o diagnóstico não fala disso. */
+  temSegredoDoWebhook?: boolean
 }): Veredito {
   const dominio = e.dominioDoRemetente
   const oQueFazer: string[] = []
@@ -85,6 +109,10 @@ export function vereditoDoEnvio(e: {
   }
   if (e.lista?.pendentes && !e.lista.confirmados) {
     oQueFazer.push(`Há ${e.lista.pendentes} inscrição(ões) pendente(s) e nenhuma confirmada — sinal de que os convites não estão chegando.`)
+  }
+  if (e.temSegredoDoWebhook === false) {
+    // Achado em 19/11/2026: o Resend tinha sete endereços devolvidos e a tela mostrava "Inválidos: 0".
+    oQueFazer.push('Falta RESEND_WEBHOOK_SECRET na Vercel: sem ela o Palácio não fica sabendo de e-mail devolvido nem de denúncia de spam, e o endereço que não existe continua na lista como se estivesse esperando. Como ligar: ARQUITETURA.md, "Para ligar o webhook".')
   }
   if (!e.temRespostaPara) oQueFazer.push('Sem NEWSLETTER_RESPONDER_PARA, quem responder à newsletter escreve para o vazio.')
 
