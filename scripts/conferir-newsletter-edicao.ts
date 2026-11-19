@@ -4,13 +4,16 @@
  *
  * É o que a tela "Nova edição" e a ação de envio têm em comum: limpar o que foi digitado e dizer o que impede o envio.
  */
-import { conferirEdicao, lerRascunho, linkDoBotao, paragrafosDe, LIMITES, RASCUNHO_VAZIO } from '../lib/newsletter/edicao'
+import {
+  conferirEdicao, horarioDoAgendamento, imagemDaEdicao, lerRascunho, linkDoBotao, nomeDaImagem, paraOCampoDeHorario, paragrafosDe,
+  LIMITES, RASCUNHO_VAZIO,
+} from '../lib/newsletter/edicao'
 import { emailDaNewsletter } from '../lib/newsletter/modelo'
 
 let falhas = 0
 const ok = (cond: boolean, msg: string) => { if (!cond) { falhas++; console.error('✗', msg) } else console.log('✓', msg) }
 
-const boa = { assunto: 'Novas turmas de dezembro', chamada: 'Inscrições abertas', texto: 'Olá!\n\nAbrimos novas turmas.\nVeja as datas.\n\n\nAté breve.', link: '', rotuloDoBotao: '' }
+const boa = { assunto: 'Novas turmas de dezembro', chamada: 'Inscrições abertas', texto: 'Olá!\n\nAbrimos novas turmas.\nVeja as datas.\n\n\nAté breve.', link: '', rotuloDoBotao: '', imagem: '' }
 
 // ---------------------------------------------------------------- parágrafos
 ok(JSON.stringify(paragrafosDe(boa.texto)) === JSON.stringify(['Olá!', 'Abrimos novas turmas. Veja as datas.', 'Até breve.']), 'linha em branco separa parágrafos; quebra simples vira espaço; linhas em branco a mais somem')
@@ -53,6 +56,34 @@ const perigosa = conferirEdicao({ ...boa, assunto: 'Aviso <script>alert(1)</scri
 const msgPerigosa = emailDaNewsletter({ titulo: perigosa.edicao.assunto, ...perigosa.edicao, urlDeSaida: '#' })
 ok(!msgPerigosa.html.includes('<script>alert') && !msgPerigosa.html.includes('<img src=x'), 'HTML digitado no assunto ou no texto sai escapado na mensagem')
 ok(!msg.html.includes('confirmou a inscrição'), 'o rodapé não fala mais em confirmar a inscrição')
+
+// ---------------------------------------------------------------- a imagem do topo
+const ID = '3f2b8c1e-4d5a-4f6b-8a7c-9d0e1f2a3b4c'
+const IMAGEM = `https://palacio.cruzvermelhariodejaneiro.org/api/newsletter/imagem/${ID}.jpg`
+ok(imagemDaEdicao(IMAGEM) === IMAGEM && imagemDaEdicao(IMAGEM.replace('.jpg', '.png')) !== null && imagemDaEdicao('') === null, 'a imagem que o Palácio devolveu vale (jpg e png); vazio é sem imagem')
+ok([
+  'https://outro-site.org/foto.jpg', IMAGEM.replace('https:', 'http:'), IMAGEM.replace('.jpg', '.webp'), IMAGEM.replace('.jpg', '.svg'),
+  `${IMAGEM}?x=1`, `${IMAGEM}#a`, IMAGEM.replace(ID, '../../files/1'), IMAGEM.replace(ID, 'abc'), 'javascript:alert(1)', 'data:image/png;base64,AAAA',
+].every((u) => imagemDaEdicao(u) === null), 'imagem de fora, http, webp, svg, com parâmetros, com caminho montado ou embutida: recusadas')
+ok(nomeDaImagem(`${ID}.jpg`) === `${ID}.jpg` && [`${ID}.gif`, `../${ID}.jpg`, `${ID}.jpg/x`, 'avatars/x.jpg', '', `${ID.toUpperCase()}.jpg`].every((n) => nomeDaImagem(n) === null),
+  'a rota pública só serve o nome exato de uma imagem de edição')
+const comImagem = conferirEdicao({ ...boa, imagem: IMAGEM })
+ok(comImagem.erros.length === 0 && comImagem.edicao.imagemUrl === IMAGEM && certa.edicao.imagemUrl === undefined, 'com imagem: o endereço vai na edição; sem, o campo nem vai')
+ok(conferirEdicao({ ...boa, imagem: 'https://outro-site.org/foto.jpg' }).erros.some((e) => e.includes('imagem')), 'imagem que não é do Palácio: erro, e não mensagem com imagem de terceiros')
+const msgComImagem = emailDaNewsletter({ titulo: comImagem.edicao.assunto, ...comImagem.edicao, urlDeSaida: '#' })
+ok(msgComImagem.html.includes(`<img src="${IMAGEM}"`) && msgComImagem.html.includes('alt="Novas turmas de dezembro"') && msgComImagem.html.indexOf('<img src="' + IMAGEM) < msgComImagem.html.indexOf('<h1'),
+  'a mensagem leva a imagem acima do título, com o assunto como texto alternativo')
+
+// ---------------------------------------------------------------- o horário do agendamento
+const AGORA = new Date('2026-11-19T18:00:00Z') // 15:00 em Brasília
+const h = (local: unknown) => horarioDoAgendamento(local, AGORA)
+ok(JSON.stringify(h('2026-11-20T09:00')) === JSON.stringify({ quando: '2026-11-20T12:00:00.000Z' }), '9h de Brasília é 12h UTC')
+ok(JSON.stringify(h('2026-11-19T23:30')) === JSON.stringify({ quando: '2026-11-20T02:30:00.000Z' }), '23h30 de Brasília cai no dia seguinte em UTC')
+ok('erro' in h('2026-11-19T15:05') && 'erro' in h('2026-11-19T14:00') && 'erro' in h('2020-01-01T09:00'), 'menos de 10 minutos à frente, ou no passado: não agenda')
+ok('quando' in h('2026-11-19T15:10') && 'quando' in h('2027-01-18T15:00') && 'erro' in h('2027-01-18T15:01'), 'os limites: 10 minutos e 60 dias, inclusive')
+ok(['', null, undefined, 42, 'amanhã', '2026-13-01T09:00', '2026-02-31T09:00', '2026-11-20T25:00', '2026-11-20'].every((v) => 'erro' in h(v)), 'vazio, formato errado e data que não existe (31 de fevereiro, 25 horas): erro, sem quebrar')
+ok(paraOCampoDeHorario(AGORA) === '2026-11-19T15:00' && JSON.stringify(h(paraOCampoDeHorario(new Date('2026-11-20T12:00:00Z')))) === JSON.stringify({ quando: '2026-11-20T12:00:00.000Z' }),
+  'o campo mostra a hora de Brasília, e ida e volta dão no mesmo instante')
 
 console.log(falhas ? `\n${falhas} falha(s).` : '\nTudo certo.')
 process.exit(falhas ? 1 : 0)

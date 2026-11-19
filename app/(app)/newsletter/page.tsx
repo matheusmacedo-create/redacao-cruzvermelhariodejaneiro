@@ -61,7 +61,7 @@ export default async function NewsletterPage({ searchParams }: { searchParams: P
     admin.from('newsletter_inscritos')
       .select('created_at, estado').eq('workspace_id', espaco).limit(50_000),
     admin.from('package_destinations')
-      .select('id, estado, external_url, erro, publicado_em, agendar_para, extras, social_packages(titulo_interno)')
+      .select('id, package_id, estado, external_url, erro, publicado_em, agendar_para, extras, social_packages(titulo_interno, agendar_para)')
       .eq('workspace_id', espaco).eq('canal', 'newsletter')
       .order('created_at', { ascending: false }).limit(20),
   ])
@@ -81,16 +81,29 @@ export default async function NewsletterPage({ searchParams }: { searchParams: P
     if (mes) mes.quantos++
   }
 
+  // As edições que esperam na fila de agendamento (a mesma dos pacotes de Publicações): é o pedido vivo na fila que
+  // diz "agendada", e não o estado do destino, que fica "pronta" até a hora.
+  const esperando = (edicoes ?? []).filter((d) => d.estado === 'pronta').map((d) => d.package_id as string)
+  const { data: naFila } = esperando.length
+    ? await admin.from('publicacoes_agendadas').select('package_id, quando')
+        .eq('workspace_id', espaco).eq('estado', 'agendada').in('package_id', esperando)
+    : { data: [] as { package_id: string; quando: string }[] }
+  const horarioNaFila = new Map((naFila ?? []).map((f) => [f.package_id as string, f.quando as string]))
+
   const historico: Edicao[] = (edicoes ?? []).map((d) => {
     const pacote = Array.isArray(d.social_packages) ? d.social_packages[0] : d.social_packages
     const extras = (d.extras ?? {}) as Record<string, string>
+    const agendadaPara = horarioNaFila.get(d.package_id as string) ?? ''
     return {
       id: d.id as string,
+      pacoteId: d.package_id as string,
+      agendadaPara,
+      daNewsletter: extras.origem === 'newsletter',
       assunto: extras.assunto || (pacote as { titulo_interno?: string } | null)?.titulo_interno || 'Edição sem assunto',
       estado: d.estado as string,
       destinatarios: (d.external_url as string | null) ?? '',
       erro: (d.erro as string | null) ?? '',
-      quando: (d.publicado_em as string | null) ?? (d.agendar_para as string | null) ?? '',
+      quando: (d.publicado_em as string | null) ?? (agendadaPara || null) ?? (d.agendar_para as string | null) ?? '',
     }
   })
 
@@ -120,6 +133,7 @@ export default async function NewsletterPage({ searchParams }: { searchParams: P
         }}
         podeApagar={pode(context.role, 'newsletter.apagar')}
         podeExportar={pode(context.role, 'newsletter.exportar')}
+        podeEnviar={pode(context.role, 'newsletter.enviar')}
         abaInicial={aba}
       />
     </div>

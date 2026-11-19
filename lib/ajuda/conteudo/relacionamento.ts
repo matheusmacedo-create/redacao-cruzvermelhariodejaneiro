@@ -61,7 +61,7 @@ const NEWSLETTER: GuiaDaArea = {
     {
       alvo: 'newsletter.edicoes',
       titulo: 'Edições',
-      texto: 'As últimas edições, com a data, para quantas pessoas foram e a situação: “Enviada”, “Agendada” ou “Falhou”. Quando falha, o motivo aparece em vermelho.',
+      texto: 'As últimas edições, com a data, para quantas pessoas foram e a situação: “Enviada”, “Agendada” ou “Falhou”. Quando falha, o motivo aparece em vermelho. A agendada tem o botão para cancelar.',
     },
   ],
   tarefas: [
@@ -73,12 +73,25 @@ const NEWSLETTER: GuiaDaArea = {
         'Na Newsletter, toque em “Nova edição”.',
         'Escreva o “Assunto” (até 90 letras; o principal no começo) e, se quiser, a “Chamada”.',
         'Escreva o “Texto”, com uma linha em branco entre os parágrafos.',
-        'Para pôr um botão no fim, abra “Acrescentar um botão” e cole o endereço da página.',
+        'Se quiser, toque em “Escolher uma foto” para pôr uma imagem no topo, e abra “Acrescentar um botão” para um botão com link no fim.',
         'No celular, toque em “Ver como fica”; no computador, a prévia fica ao lado. É a mensagem como vai chegar.',
         'Toque em “Enviar um teste para mim” e confira a mensagem no seu e-mail.',
-        'Toque em “Enviar para … pessoas” e confirme em “Sim, enviar agora”.',
+        'Toque em “Enviar agora para … pessoas” e confirme em “Sim, enviar agora”.',
       ],
       dica: 'Enviar para a lista é para administradores e editores; os demais escrevem e veem a prévia. O rascunho fica guardado no aparelho em que foi escrito. E-mail enviado não se corrige: mande o teste antes. O mesmo assunto não sai duas vezes em 10 minutos.',
+    },
+    {
+      id: 'agendar-edicao',
+      titulo: 'Agendar uma edição e cancelar o agendamento',
+      exemplo: 'Na sexta à tarde, a Carla deixa o aviso das turmas agendado para segunda às 9h.',
+      passos: [
+        'Em “Nova edição”, escreva a edição e mande o teste para você.',
+        'Toque em “Agendar para depois”.',
+        'Escolha o dia e a hora (horário de Brasília) e toque em “Agendar para …”.',
+        'A edição aparece em “Edições” como “Agendada”, com o dia e a hora.',
+        'Para desistir, toque em “Cancelar o agendamento” na linha dela e em “Sim, cancelar o envio”.',
+      ],
+      dica: 'A edição agendada sai para quem estiver na lista na hora do envio. O horário precisa estar pelo menos 10 minutos à frente e no máximo 60 dias. Quem agendou recebe um aviso no sino quando ela sai, ou se não sair. Depois de agendada, o texto não se edita: cancele e escreva de novo.',
     },
     {
       id: 'enviar-edicao',

@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/server'
 import { adapter, formatoDoAdapter, ehCanalDeRede, type Mestre } from '@/lib/publicacao/canais'
 import { textoParaRede } from '@/lib/publicacao/texto-plano'
 import { enviarEdicao } from '@/lib/newsletter/envio'
+import { imagemDaEdicao } from '@/lib/newsletter/edicao'
 import { gerarVariante, validarVariante, temErro, separarHashtags, type DadosDoArquivo } from '@/lib/publicacao/variantes'
 import { corpoComMidias, lerLegendas, type LegendaDaMidia } from '@/lib/publicacao/legendas'
 import { normalizarQuebras } from '@/lib/content-blocks'
@@ -1115,7 +1116,8 @@ async function dispararPacote(
         rotuloDoBotao: extras.rotuloDoBotao,
         // Sem site publicado não há imagem pública, e a edição sai sem capa —
         // melhor do que sair com um quadro quebrado em toda caixa de entrada.
-        imagemUrl: imagensDoSite[0],
+        // A edição escrita na Newsletter traz a imagem dela (app/api/newsletter/imagem); a do site, quando há, manda.
+        imagemUrl: imagensDoSite[0] ?? (imagemDaEdicao(extras.imagemUrl ?? '') ?? undefined),
         // Sem isto, um destino agendado sairia na hora. E-mail enviado não volta.
         agendarPara: quandoOBoletim,
       })

@@ -10,8 +10,9 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { rotuloDoEstado } from '@/lib/newsletter/csv'
+import { horarioParaLer } from '@/lib/publicacao/agendamento'
 import {
-  adicionarInscrito, apagarInscrito, ligarFormularioDoSite, reenviarConvite,
+  adicionarInscrito, apagarInscrito, cancelarEdicaoAgendada, ligarFormularioDoSite, reenviarConvite,
   reenviarConvitesPendentes,
 } from '@/app/actions/newsletter'
 
@@ -28,6 +29,11 @@ export type Inscrito = {
 
 export type Edicao = {
   id: string
+  pacoteId: string
+  /** O horário na fila de agendamento, quando a edição ainda espera para sair; vazio nas demais. */
+  agendadaPara: string
+  /** Escrita em "Nova edição" (e não como destino de um pacote de Publicações). */
+  daNewsletter: boolean
   assunto: string
   estado: string
   destinatarios: string
@@ -81,7 +87,7 @@ const ABAS = [
 type Aba = (typeof ABAS)[number]['id']
 
 export function Central({
-  contagens, inscritos, truncada, limiteDaTela, meses, historico, envio, podeApagar, podeExportar, abaInicial,
+  contagens, inscritos, truncada, limiteDaTela, meses, historico, envio, podeApagar, podeExportar, podeEnviar, abaInicial,
 }: {
   contagens: Contagens
   inscritos: Inscrito[]
@@ -92,6 +98,7 @@ export function Central({
   envio: { configurado: boolean; remetente: string; responderPara: string }
   podeApagar: boolean
   podeExportar: boolean
+  podeEnviar: boolean
   abaInicial?: string
 }) {
   const [aba, setAba] = useState<Aba>(ABAS.some((a) => a.id === abaInicial) ? (abaInicial as Aba) : 'edicoes')
@@ -185,7 +192,7 @@ export function Central({
       {/* Os três painéis ficam montados e só um aparece: trocar de aba não perde a busca digitada, e a conferência do
           formulário do site (na Configuração) roda ao abrir a tela, esteja a aba aberta ou não. */}
       <div id="painel-edicoes" role="tabpanel" hidden={aba !== 'edicoes'}>
-        <Historico edicoes={historico} naLista={contagens.confirmados} />
+        <Historico edicoes={historico} naLista={contagens.confirmados} podeCancelar={podeEnviar} executar={executar} processando={processando} />
       </div>
 
       <div id="painel-inscritos" role="tabpanel" hidden={aba !== 'inscritos'} className="space-y-5">
@@ -727,13 +734,20 @@ function Tabela({ lista, vazia, buscando, podeApagar, executar, processando }: {
   )
 }
 
-function Historico({ edicoes, naLista }: { edicoes: Edicao[]; naLista: number }) {
+function Historico({ edicoes, naLista, podeCancelar, executar, processando }: {
+  edicoes: Edicao[]
+  naLista: number
+  podeCancelar: boolean
+  executar: (a: () => Promise<{ erro?: string; recado?: string }>) => void
+  processando: boolean
+}) {
+  const [confirmandoCancelar, setConfirmandoCancelar] = useState<string | null>(null)
   return (
     <Card data-ajuda="newsletter.edicoes">
       <div className="border-b border-border p-4">
         <h2 className="text-base font-semibold">Edições</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          O que já saiu para a lista, da mais recente para a mais antiga.
+          O que saiu e o que está agendado, da mais recente para a mais antiga.
         </p>
       </div>
       {edicoes.length === 0 ? (
@@ -751,27 +765,59 @@ function Historico({ edicoes, naLista }: { edicoes: Edicao[]; naLista: number })
         </div>
       ) : (
         <ul className="divide-y divide-border">
-          {edicoes.map((e) => (
-            <li key={e.id} className="flex items-start justify-between gap-3 p-4">
-              <div className="min-w-0">
-                <p className="text-base font-medium leading-snug">{e.assunto}</p>
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  {e.quando ? dataCurta(e.quando) : '—'}
-                  {e.destinatarios ? ` · ${e.destinatarios}` : ''}
-                </p>
-                {e.erro && <p className="mt-1 text-sm text-destructive">{e.erro}</p>}
-              </div>
-              <span className={cn(
-                'shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
-                e.estado === 'publicada' ? 'bg-success/14 text-success'
-                  : e.estado === 'na_fila' ? 'bg-info/12 text-info'
-                  : e.estado === 'falhou' ? 'bg-destructive/12 text-destructive'
-                  : 'bg-secondary text-secondary-foreground',
-              )}>
-                {ROTULO_DA_EDICAO[e.estado] ?? e.estado}
-              </span>
-            </li>
-          ))}
+          {edicoes.map((e) => {
+            const agendada = Boolean(e.agendadaPara)
+            const rotulo = agendada ? 'Agendada'
+              : e.estado === 'ignorada' && e.daNewsletter ? 'Cancelada'
+              : ROTULO_DA_EDICAO[e.estado] ?? e.estado
+            return (
+              <li key={e.id} className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-base font-medium leading-snug">{e.assunto}</p>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      {agendada
+                        ? `Sai em ${horarioParaLer(e.agendadaPara)}, para quem estiver na lista na hora`
+                        : `${e.quando ? dataCurta(e.quando) : '—'}${e.destinatarios ? ` · ${e.destinatarios}` : ''}`}
+                    </p>
+                    {e.erro && <p className="mt-1 text-sm text-destructive">{e.erro}</p>}
+                  </div>
+                  <span className={cn(
+                    'shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
+                    e.estado === 'publicada' ? 'bg-success/14 text-success'
+                      : agendada || e.estado === 'na_fila' ? 'bg-info/12 text-info'
+                      : e.estado === 'falhou' ? 'bg-destructive/12 text-destructive'
+                      : 'bg-secondary text-secondary-foreground',
+                  )}>
+                    {rotulo}
+                  </span>
+                </div>
+                {agendada && podeCancelar && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {confirmandoCancelar === e.id ? (
+                      <>
+                        <Button
+                          variant="outline" className="h-11 px-4 text-destructive" disabled={processando}
+                          onClick={() => {
+                            const dados = new FormData(); dados.set('pacoteId', e.pacoteId)
+                            setConfirmandoCancelar(null)
+                            executar(() => cancelarEdicaoAgendada(dados))
+                          }}
+                        >
+                          Sim, cancelar o envio
+                        </Button>
+                        <Button variant="ghost" className="h-11 px-4" onClick={() => setConfirmandoCancelar(null)}>Deixar agendada</Button>
+                      </>
+                    ) : (
+                      <Button variant="outline" className="h-11 px-4" onClick={() => setConfirmandoCancelar(e.id)}>
+                        <X className="size-4" />Cancelar o agendamento
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </li>
+            )
+          })}
         </ul>
       )}
       <p className="border-t border-border px-4 py-3 text-sm text-muted-foreground">

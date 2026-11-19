@@ -2,13 +2,17 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { AlertTriangle, ArrowLeft, CheckCircle2, Eye, Info, Loader2, PencilLine, Send, TestTube2, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CalendarClock, CheckCircle2, Eye, ImagePlus, Info, Loader2, PencilLine, Send, TestTube2, Trash2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { conferirEdicao, lerRascunho, LIMITES, RASCUNHO_VAZIO, type RascunhoDaEdicao } from '@/lib/newsletter/edicao'
+import {
+  conferirEdicao, horarioDoAgendamento, lerRascunho, paraOCampoDeHorario, LIMITES, MINUTOS_MINIMOS_PARA_AGENDAR, RASCUNHO_VAZIO,
+  type RascunhoDaEdicao,
+} from '@/lib/newsletter/edicao'
+import { horarioParaLer } from '@/lib/publicacao/agendamento'
 import { emailDaNewsletter } from '@/lib/newsletter/modelo'
-import { enviarEdicaoDaNewsletter, enviarTesteDaEdicao } from '@/app/actions/newsletter'
+import { agendarEdicaoDaNewsletter, enviarEdicaoDaNewsletter, enviarTesteDaEdicao } from '@/app/actions/newsletter'
 
 /**
  * O compositor da edição.
@@ -21,6 +25,13 @@ import { enviarEdicaoDaNewsletter, enviarTesteDaEdicao } from '@/app/actions/new
  *
  * O RASCUNHO fica guardado neste aparelho (localStorage), para um toque errado em "voltar" não custar o texto. É
  * conveniência de quem escreve: não vai ao servidor nem aparece para os colegas, e a tela funciona sem ele.
+ *
+ * A IMAGEM é reduzida aqui mesmo, antes de subir (1.200 px de largura, JPEG): foto de celular tem 4 a 12 MB, e uma
+ * imagem desse tamanho num e-mail demora a abrir e pesa no plano de dados de quem lê. Reduzida, sobe em um instante
+ * mesmo no 4G.
+ *
+ * AGENDAR usa a fila dos pacotes de Publicações: sai para quem estiver na lista na hora, e dá para cancelar em
+ * "Edições" até lá.
  */
 
 const CHAVE_DO_RASCUNHO = 'cvrj.newsletter.nova-edicao'
@@ -40,9 +51,18 @@ export function Compositor({ destinatarios, teto, remetente, envioConfigurado, p
   const [rascunho, setRascunho] = useState<RascunhoDaEdicao>(RASCUNHO_VAZIO)
   const [carregado, setCarregado] = useState(false)
   const [vista, setVista] = useState<'escrever' | 'previa'>('escrever')
-  const [confirmando, setConfirmando] = useState(false)
+  // O passo final aberto: a confirmação do envio agora, ou a escolha do dia e da hora.
+  const [passo, setPasso] = useState<null | 'enviar' | 'agendar'>(null)
   const [aviso, setAviso] = useState<Aviso | null>(null)
   const [enviada, setEnviada] = useState<number | null>(null)
+  const [agendadaPara, setAgendadaPara] = useState<string | null>(null)
+  const [horario, setHorario] = useState('')
+  // O mais cedo que o campo aceita, calculado quando o passo abre (o relógio não se lê durante o desenho da tela).
+  const [horarioMinimo, setHorarioMinimo] = useState('')
+  const [subindo, setSubindo] = useState(false)
+  // A imagem recém-escolhida, embutida, para a prévia mostrar na hora (e mesmo onde o endereço público ainda não
+  // responde, como num ambiente de teste). Não vai para o rascunho guardado: é grande, e o endereço basta.
+  const [imagemLocal, setImagemLocal] = useState<{ url: string; dados: string } | null>(null)
   const [testando, comecarTeste] = useTransition()
   const [enviando, comecarEnvio] = useTransition()
   // Trava além do `disabled`: dois toques no mesmo instante chegam antes de o botão desabilitar.
@@ -59,29 +79,33 @@ export function Compositor({ destinatarios, teto, remetente, envioConfigurado, p
   }, [])
 
   useEffect(() => {
-    if (!carregado || enviada !== null) return
+    if (!carregado || enviada !== null || agendadaPara !== null) return
     try {
       const vazio = Object.values(rascunho).every((v) => !v.trim())
       if (vazio) window.localStorage.removeItem(CHAVE_DO_RASCUNHO)
       else window.localStorage.setItem(CHAVE_DO_RASCUNHO, JSON.stringify(rascunho))
     } catch { /* o rascunho é conveniência */ }
-  }, [rascunho, carregado, enviada])
+  }, [rascunho, carregado, enviada, agendadaPara])
 
   const mudar = (campo: keyof RascunhoDaEdicao, valor: string) => {
     setRascunho((r) => ({ ...r, [campo]: valor }))
-    setConfirmando(false)
+    if (passo === 'enviar') setPasso(null)
   }
 
   const conferencia = useMemo(() => conferirEdicao(rascunho), [rascunho])
   const temAlgo = Object.values(rascunho).some((v) => v.trim())
   const pronta = conferencia.erros.length === 0
 
-  const previa = useMemo(() => emailDaNewsletter({
-    titulo: conferencia.edicao.assunto || 'O assunto aparece aqui',
-    ...conferencia.edicao,
-    paragrafos: conferencia.edicao.paragrafos.length ? conferencia.edicao.paragrafos : ['O texto da edição aparece aqui, do jeito que chega na caixa de entrada.'],
-    urlDeSaida: '#',
-  }).html, [conferencia])
+  const previa = useMemo(() => {
+    const html = emailDaNewsletter({
+      titulo: conferencia.edicao.assunto || 'O assunto aparece aqui',
+      ...conferencia.edicao,
+      paragrafos: conferencia.edicao.paragrafos.length ? conferencia.edicao.paragrafos : ['O texto da edição aparece aqui, do jeito que chega na caixa de entrada.'],
+      urlDeSaida: '#',
+    }).html
+    // Na prévia, a imagem recém-escolhida entra embutida; no envio vai o endereço público.
+    return imagemLocal && conferencia.edicao.imagemUrl === imagemLocal.url ? html.replaceAll(imagemLocal.url, imagemLocal.dados) : html
+  }, [conferencia, imagemLocal])
 
   const motivoDeNaoEnviar = !podeEnviar
     ? 'Enviar para a lista é para administradores e editores. Você pode escrever e ver a prévia; peça a um deles para enviar.'
@@ -96,8 +120,56 @@ export function Compositor({ destinatarios, teto, remetente, envioConfigurado, p
 
   const limpar = () => {
     setRascunho(RASCUNHO_VAZIO)
-    setConfirmando(false)
+    setImagemLocal(null)
+    setPasso(null)
     setAviso(null)
+  }
+
+  const escolherImagem = async (arquivo: File | undefined) => {
+    if (!arquivo) return
+    setSubindo(true)
+    setAviso(null)
+    try {
+      const reduzida = await reduzirImagem(arquivo)
+      const dados = new FormData()
+      dados.set('arquivo', reduzida.blob, 'imagem.jpg')
+      const r = await fetch('/api/newsletter/imagem', { method: 'POST', body: dados })
+      const resposta = await r.json().catch(() => ({})) as { url?: string; erro?: string }
+      if (!r.ok || !resposta.url) throw new Error(resposta.erro || 'Não foi possível enviar a imagem. Tente de novo.')
+      setImagemLocal({ url: resposta.url, dados: reduzida.dados })
+      setRascunho((atual) => ({ ...atual, imagem: resposta.url ?? '' }))
+    } catch (causa) {
+      setAviso({ tom: 'erro', texto: causa instanceof Error ? causa.message : 'Não foi possível usar esta imagem.' })
+    } finally {
+      setSubindo(false)
+    }
+  }
+
+  const abrirAgendamento = () => {
+    setAviso(null)
+    // A sugestão: amanhã às 9h, a hora em que mais gente abre e-mail. Só na primeira vez; depois vale o que a pessoa pôs.
+    if (!horario) {
+      const amanha = new Date(Date.now() + 24 * 3600_000)
+      setHorario(`${paraOCampoDeHorario(amanha).slice(0, 10)}T09:00`)
+    }
+    setHorarioMinimo(paraOCampoDeHorario(new Date(Date.now() + MINUTOS_MINIMOS_PARA_AGENDAR * 60_000)))
+    setPasso('agendar')
+  }
+
+  const horarioConferido = horarioDoAgendamento(horario)
+
+  const agendar = () => {
+    if (jaEnviando.current) return
+    jaEnviando.current = true
+    comecarEnvio(async () => {
+      const r = await agendarEdicaoDaNewsletter(rascunho, horario)
+      jaEnviando.current = false
+      if (r.erro || !r.quando) { setAviso({ tom: 'erro', texto: r.erro ?? 'Não foi possível agendar.' }); return }
+      try { window.localStorage.removeItem(CHAVE_DO_RASCUNHO) } catch { /* conveniência */ }
+      setAviso(null)
+      setPasso(null)
+      setAgendadaPara(r.quando)
+    })
   }
 
   const testar = () => comecarTeste(async () => {
@@ -111,7 +183,7 @@ export function Compositor({ destinatarios, teto, remetente, envioConfigurado, p
     comecarEnvio(async () => {
       const r = await enviarEdicaoDaNewsletter(rascunho)
       jaEnviando.current = false
-      setConfirmando(false)
+      setPasso(null)
       if (r.erro) { setAviso({ tom: 'erro', texto: r.erro }); return }
       try { window.localStorage.removeItem(CHAVE_DO_RASCUNHO) } catch { /* conveniência */ }
       setAviso(null)
@@ -119,22 +191,20 @@ export function Compositor({ destinatarios, teto, remetente, envioConfigurado, p
     })
   }
 
-  if (enviada !== null) {
+  if (enviada !== null || agendadaPara !== null) {
+    const recomecar = () => { setRascunho(RASCUNHO_VAZIO); setImagemLocal(null); setEnviada(null); setAgendadaPara(null); setHorario(''); setVista('escrever') }
     return (
       <Card className="mx-auto max-w-xl p-8 text-center">
         <CheckCircle2 className="mx-auto size-12 text-success" />
-        <h2 className="mt-4 text-xl font-bold">Edição enviada</h2>
+        <h2 className="mt-4 text-xl font-bold">{agendadaPara ? 'Edição agendada' : 'Edição enviada'}</h2>
         <p className="mt-2 text-base leading-relaxed text-muted-foreground">
-          “{conferencia.edicao.assunto}” saiu para {enviada} pessoa{enviada === 1 ? '' : 's'}. Ela já aparece em Edições.
+          {agendadaPara
+            ? `“${conferencia.edicao.assunto}” sai em ${horarioParaLer(agendadaPara)}, para quem estiver na lista na hora. Você recebe um aviso no sino quando sair. Até lá, dá para cancelar em Edições.`
+            : `“${conferencia.edicao.assunto}” saiu para ${enviada} pessoa${enviada === 1 ? '' : 's'}. Ela já aparece em Edições.`}
         </p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Button className="h-12 px-5 text-base" render={<Link href="/newsletter" />}>Ver as edições</Button>
-          <Button
-            variant="outline" className="h-12 px-5 text-base"
-            onClick={() => { setRascunho(RASCUNHO_VAZIO); setEnviada(null); setVista('escrever') }}
-          >
-            Escrever outra
-          </Button>
+          <Button variant="outline" className="h-12 px-5 text-base" onClick={recomecar}>Escrever outra</Button>
         </div>
       </Card>
     )
@@ -201,6 +271,37 @@ export function Compositor({ destinatarios, teto, remetente, envioConfigurado, p
               className={cn(CAMPO, 'min-h-64 resize-y py-3 leading-relaxed')}
             />
           </Campo>
+
+          <div>
+            <p className="mb-1.5 text-base font-semibold">Imagem no topo <span className="ml-2 text-sm font-normal text-muted-foreground">(opcional)</span></p>
+            {rascunho.imagem ? (
+              <div className="flex items-center gap-3 rounded-lg border border-border p-3">
+                <img src={imagemLocal?.url === rascunho.imagem ? imagemLocal.dados : rascunho.imagem} alt="" className="h-16 w-24 shrink-0 rounded-md bg-muted object-cover" />
+                <p className="min-w-0 flex-1 text-sm text-muted-foreground">Aparece acima do título.</p>
+                <button
+                  type="button" onClick={() => { mudar('imagem', ''); setImagemLocal(null) }}
+                  className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg px-2 text-sm font-medium hover:bg-muted"
+                >
+                  <Trash2 className="size-4" />Tirar
+                </button>
+              </div>
+            ) : (
+              <label className={cn(
+                'flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border px-4 text-base font-medium transition-colors hover:bg-muted',
+                subindo && 'pointer-events-none opacity-60',
+              )}>
+                {subindo ? <Loader2 className="size-5 animate-spin" /> : <ImagePlus className="size-5" />}
+                {subindo ? 'Enviando a imagem…' : 'Escolher uma foto'}
+                <input
+                  type="file" accept="image/jpeg,image/png,image/*" className="sr-only" disabled={subindo}
+                  onChange={(e) => { void escolherImagem(e.target.files?.[0]); e.target.value = '' }}
+                />
+              </label>
+            )}
+            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+              Foto deitada fica melhor. Muita gente vê o e-mail sem as imagens: o texto precisa fazer sentido sozinho.
+            </p>
+          </div>
 
           <details className="rounded-lg border border-border" open={Boolean(rascunho.link || rascunho.rotuloDoBotao)}>
             <summary className="flex min-h-12 cursor-pointer items-center px-4 text-base font-medium">
@@ -277,7 +378,7 @@ export function Compositor({ destinatarios, teto, remetente, envioConfigurado, p
         </p>
       )}
 
-      {confirmando ? (
+      {passo === 'enviar' && (
         <Card className="border-primary/40 p-5">
           <h2 className="text-lg font-bold">Enviar agora para {destinatarios} pessoa{destinatarios === 1 ? '' : 's'}?</h2>
           <p className="mt-1 text-base leading-relaxed text-muted-foreground">
@@ -288,24 +389,58 @@ export function Compositor({ destinatarios, teto, remetente, envioConfigurado, p
               {enviando ? <Loader2 className="size-5 animate-spin" /> : <Send className="size-5" />}
               {enviando ? 'Enviando…' : 'Sim, enviar agora'}
             </Button>
-            <Button variant="outline" className="h-12 px-5 text-base" disabled={enviando} onClick={() => setConfirmando(false)}>
+            <Button variant="outline" className="h-12 px-5 text-base" disabled={enviando} onClick={() => setPasso(null)}>
               <ArrowLeft className="size-5" />Voltar e revisar
             </Button>
           </div>
         </Card>
-      ) : (
-        <div data-ajuda="newsletter.nova.enviar" className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <Button
-            variant="outline" className="h-12 px-5 text-base"
-            disabled={testando || !pronta || !podeEnviar || !envioConfigurado}
-            onClick={testar}
-          >
-            {testando ? <Loader2 className="size-5 animate-spin" /> : <TestTube2 className="size-5" />}
-            {testando ? 'Enviando o teste…' : 'Enviar um teste para mim'}
-          </Button>
-          <Button className="h-12 px-5 text-base" disabled={!podeMandar} onClick={() => { setAviso(null); setConfirmando(true) }}>
-            <Send className="size-5" />Enviar para {destinatarios} pessoa{destinatarios === 1 ? '' : 's'}
-          </Button>
+      )}
+
+      {passo === 'agendar' && (
+        <Card className="border-primary/40 p-5">
+          <label htmlFor="horario" className="block text-lg font-bold">Quando a edição deve sair?</label>
+          <p className="mt-1 text-base leading-relaxed text-muted-foreground">
+            Horário de Brasília. Sai para quem estiver na lista na hora, e dá para cancelar em Edições até lá.
+          </p>
+          <input
+            id="horario" type="datetime-local" value={horario}
+            min={horarioMinimo}
+            onChange={(e) => setHorario(e.target.value)}
+            className={cn(CAMPO, 'mt-3 h-12 sm:max-w-xs')}
+          />
+          {horario && 'erro' in horarioConferido && (
+            <p className="mt-2 flex items-start gap-2 text-sm text-destructive"><AlertTriangle className="mt-0.5 size-4 shrink-0" />{horarioConferido.erro}</p>
+          )}
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <Button className="h-12 px-5 text-base" disabled={enviando || 'erro' in horarioConferido} onClick={agendar}>
+              {enviando ? <Loader2 className="size-5 animate-spin" /> : <CalendarClock className="size-5" />}
+              {enviando ? 'Agendando…' : 'quando' in horarioConferido ? `Agendar para ${horarioParaLer(horarioConferido.quando)}` : 'Agendar'}
+            </Button>
+            <Button variant="outline" className="h-12 px-5 text-base" disabled={enviando} onClick={() => setPasso(null)}>
+              <ArrowLeft className="size-5" />Voltar
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {passo === null && (
+        <div data-ajuda="newsletter.nova.enviar" className="space-y-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <Button
+              variant="outline" className="h-12 px-5 text-base"
+              disabled={testando || !pronta || !podeEnviar || !envioConfigurado}
+              onClick={testar}
+            >
+              {testando ? <Loader2 className="size-5 animate-spin" /> : <TestTube2 className="size-5" />}
+              {testando ? 'Enviando o teste…' : 'Enviar um teste para mim'}
+            </Button>
+            <Button className="h-12 px-5 text-base" disabled={!podeMandar} onClick={() => { setAviso(null); setPasso('enviar') }}>
+              <Send className="size-5" />Enviar agora para {destinatarios} pessoa{destinatarios === 1 ? '' : 's'}
+            </Button>
+            <Button variant="outline" className="h-12 px-5 text-base" disabled={!podeMandar} onClick={abrirAgendamento}>
+              <CalendarClock className="size-5" />Agendar para depois
+            </Button>
+          </div>
           {emailDeQuemEscreve && podeEnviar && (
             <p className="min-w-0 break-words text-sm text-muted-foreground">O teste vai para {emailDeQuemEscreve}.</p>
           )}
@@ -370,4 +505,34 @@ function Campo({ id, rotulo, opcional, dica, valor, max, children }: {
       {dica && <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{dica}</p>}
     </div>
   )
+}
+
+/**
+ * Reduz a foto para o tamanho de e-mail: até 1.200 px de largura (o dobro dos 600 px da mensagem, para tela de
+ * celular nítida), em JPEG. Devolve o arquivo para subir e a mesma imagem embutida, para a prévia.
+ */
+const LARGURA_DA_IMAGEM = 1200
+
+async function reduzirImagem(arquivo: File): Promise<{ blob: Blob; dados: string }> {
+  if (!arquivo.type.startsWith('image/')) throw new Error('Escolha uma foto (JPEG ou PNG).')
+  let imagem: ImageBitmap
+  try {
+    imagem = await createImageBitmap(arquivo, { imageOrientation: 'from-image' })
+  } catch {
+    throw new Error('Não consegui abrir esta imagem. Tente uma foto em JPEG ou PNG.')
+  }
+  const escala = Math.min(1, LARGURA_DA_IMAGEM / imagem.width)
+  const tela = document.createElement('canvas')
+  tela.width = Math.max(1, Math.round(imagem.width * escala))
+  tela.height = Math.max(1, Math.round(imagem.height * escala))
+  const contexto = tela.getContext('2d')
+  if (!contexto) throw new Error('Este navegador não conseguiu preparar a imagem.')
+  // Fundo branco: PNG com transparência viraria preto ao passar para JPEG.
+  contexto.fillStyle = '#ffffff'
+  contexto.fillRect(0, 0, tela.width, tela.height)
+  contexto.drawImage(imagem, 0, 0, tela.width, tela.height)
+  imagem.close()
+  const blob = await new Promise<Blob | null>((ok) => tela.toBlob(ok, 'image/jpeg', 0.85))
+  if (!blob) throw new Error('Este navegador não conseguiu preparar a imagem.')
+  return { blob, dados: tela.toDataURL('image/jpeg', 0.85) }
 }

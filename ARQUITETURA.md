@@ -765,6 +765,19 @@ site, o caminho continua sendo o pacote. A página principal ficou em três abas
 se achar problema, vira aviso no alto e ponto na aba. No celular a lista de inscritos é em cartões, não em tabela.
 Conferência: `npx tsx scripts/conferir-newsletter-edicao.ts`.
 
+**Imagem e agendamento na “Nova edição”** (19/11/2026). *Imagem*: o armazenamento é todo privado e o e-mail precisa
+de endereço público, então a foto vai para uma pasta só dela (`newsletter/edicoes/<uuid>.jpg|png`, por
+`POST /api/newsletter/imagem`, que exige `newsletter.enviar` e confere a assinatura do arquivo) e é servida pela rota
+pública `GET /api/newsletter/imagem/[nome]`, que só entrega essa pasta, pelo nome exato (`nomeDaImagem`). A tela reduz
+a foto antes de subir (1.200 px, JPEG). A edição só aceita esse endereço (`imagemDaEdicao`): nada de imagem hospedada
+por terceiros. O endereço usa `urlBase()`, o domínio de produção: num preview da Vercel a imagem só responde depois
+do merge (a prévia da tela mostra a imagem embutida). *Agendamento*: usa a fila dos pacotes
+(`publicacoes_agendadas`, §7 de Publicações), e não o `scheduled_at` do Resend: a edição fica como pacote com o
+destino `pronta` e um pedido na fila; na hora, `dispararPacote` envia (lendo `extras.imagemUrl`) para a lista **daquele
+momento**, e quem agendou recebe o aviso no sino. Por ser a fila, dá para cancelar (`cancelarEdicaoAgendada`: pedido
+`cancelada`, destino `ignorada`, pacote `arquivado`; a tela mostra “Cancelada”). Horário em Brasília, de 10 minutos a
+60 dias à frente (`horarioDoAgendamento`). Edição agendada não se edita: cancela-se e escreve-se outra.
+
 **Chat.** As páginas usam a versão (`?v=`) que a home usa, lida da home na hora
 (`chat-do-site.ts`); sem ela, saem sem o chat. **Redirecionamentos** 301 de notícias:
 `REDIRECIONAMENTOS_DAS_NOTICIAS` em `cache-do-site.ts` (vazio até alguém preencher).

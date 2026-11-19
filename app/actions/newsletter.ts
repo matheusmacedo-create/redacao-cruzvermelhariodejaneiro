@@ -10,7 +10,8 @@ import { urlBase, urlDeConfirmacao, urlDeSaida, urlDeSaidaEmUmClique } from '@/l
 import { withFtp, baixarTexto, enviarNaRaizDoSite } from '@/lib/publicacao/ftp'
 import { ligarFormularioNaHome, candidatosDeIndex, MARCA } from '@/lib/site/formulario-newsletter'
 import { emailDaNewsletter, emailDeBoasVindas, emailDeConfirmacao } from '@/lib/newsletter/modelo'
-import { conferirEdicao, MINUTOS_SEM_REPETIR } from '@/lib/newsletter/edicao'
+import { conferirEdicao, horarioDoAgendamento, MINUTOS_SEM_REPETIR, type EdicaoPronta } from '@/lib/newsletter/edicao'
+import { horarioParaLer } from '@/lib/publicacao/agendamento'
 import { enviarEdicao } from '@/lib/newsletter/envio'
 import { createClient } from '@/lib/supabase/server'
 import { enviarEmail, emailConfigurado, semChave } from '@/lib/newsletter/resend'
@@ -442,16 +443,77 @@ export async function enviarTesteDaEdicao(rascunho: unknown): Promise<Resultado>
   }
 }
 
+type Sessao = Awaited<ReturnType<typeof createClient>>
+
 /**
- * Envia a edição para toda a lista.
- *
  * Grava a edição no mesmo lugar em que o pacote de Publicações grava a dele (um pacote livre com o destino
- * "newsletter"), de propósito: o histórico da Newsletter, o Histórico geral e o calendário já leem dali, e uma edição
- * não pode existir em dois formatos conforme a tela em que nasceu. O pacote nasce como "publicado" ou "falhou" e não
- * passa por Publicações.
+ * "newsletter"), de propósito: o histórico da Newsletter, o Histórico geral e a fila de agendamento já leem dali, e
+ * uma edição não pode existir em dois formatos conforme a tela em que nasceu.
+ *
+ * Antes de gravar, a defesa contra o toque duplo no botão (ou a tela reenviada depois de um tempo esgotado): o mesmo
+ * assunto não entra duas vezes seguidas. "falhou" e a edição cancelada não contam, para dar para tentar de novo.
+ */
+async function registrarEdicao(
+  supabase: Sessao,
+  quem: { workspaceId: string; userId: string },
+  edicao: EdicaoPronta,
+  como: { estado: 'publicando' } | { estado: 'pronta'; quando: string },
+): Promise<{ pacoteId: string; destinoId: string }> {
+  const desde = new Date(Date.now() - MINUTOS_SEM_REPETIR * 60_000).toISOString()
+  const { data: recentes } = await supabase
+    .from('package_destinations').select('id, extras')
+    .eq('workspace_id', quem.workspaceId).eq('canal', 'newsletter')
+    .in('estado', ['publicando', 'publicada', 'na_fila', 'pronta']).gte('created_at', desde)
+  if ((recentes ?? []).some((d) => (d.extras as Record<string, string> | null)?.assunto === edicao.assunto)) {
+    throw new Error(`Uma edição com este mesmo assunto foi enviada ou agendada há menos de ${MINUTOS_SEM_REPETIR} minutos. Para não mandar duas vezes à mesma lista, nada foi feito. Confira em “Edições”.`)
+  }
+
+  const corpo = edicao.paragrafos.join('\n\n')
+  const { data: pacote, error: erroDoPacote } = await supabase
+    .from('social_packages')
+    .insert({
+      workspace_id: quem.workspaceId,
+      titulo_interno: edicao.assunto,
+      origem_tipo: 'livre',
+      mestre: { titulo: edicao.assunto, subtitulo: edicao.chamada ?? '', corpo, ...(edicao.urlDaMateria ? { linkUrl: edicao.urlDaMateria } : {}) },
+      // O horário mora no pacote, como em Publicações: na hora da fila ele já venceu e a edição sai "agora".
+      ...(como.estado === 'pronta' ? { agendar_para: como.quando } : {}),
+      created_by: quem.userId,
+    })
+    .select('id').single()
+  if (erroDoPacote || !pacote) throw new Error('Não foi possível registrar a edição. Nada foi enviado.')
+
+  const { data: destino, error: erroDoDestino } = await supabase
+    .from('package_destinations')
+    .insert({
+      workspace_id: quem.workspaceId,
+      package_id: pacote.id,
+      canal: 'newsletter',
+      formato: 'edicao',
+      corpo,
+      extras: {
+        assunto: edicao.assunto, chamada: edicao.chamada ?? '', rotuloDoBotao: edicao.rotuloDoBotao ?? '',
+        ...(edicao.imagemUrl ? { imagemUrl: edicao.imagemUrl } : {}),
+        origem: 'newsletter',
+      },
+      // Escrita aqui, e não gerada do texto-mestre: regenerar as variantes do pacote não mexe nela.
+      descolada: true,
+      estado: como.estado,
+    })
+    .select('id').single()
+  if (erroDoDestino || !destino) {
+    await supabase.from('social_packages').update({ status: 'falhou' }).eq('id', pacote.id).eq('workspace_id', quem.workspaceId)
+    throw new Error('Não foi possível registrar a edição. Nada foi enviado.')
+  }
+  return { pacoteId: pacote.id as string, destinoId: destino.id as string }
+}
+
+/**
+ * Envia a edição para toda a lista, agora.
  *
  * A edição é gravada ANTES do envio, como "publicando": se a função morrer no meio, sobra o registro de que uma
- * remessa começou, em vez de mensagens na rua sem rastro.
+ * remessa começou, em vez de mensagens na rua sem rastro. O pacote nasce como "publicado" ou "falhou" e não passa
+ * por Publicações.
  */
 export async function enviarEdicaoDaNewsletter(rascunho: unknown): Promise<Resultado & { enviados?: number }> {
   try {
@@ -462,49 +524,7 @@ export async function enviarEdicaoDaNewsletter(rascunho: unknown): Promise<Resul
     if (erros.length) throw new Error(erros[0])
 
     const supabase = await createClient()
-
-    // O toque duplo no botão, ou a tela reenviada depois de um tempo esgotado: o mesmo assunto não sai duas vezes
-    // seguidas. "falhou" não conta, para dar para tentar de novo depois de corrigir a causa.
-    const desde = new Date(Date.now() - MINUTOS_SEM_REPETIR * 60_000).toISOString()
-    const { data: recentes } = await supabase
-      .from('package_destinations').select('id, extras')
-      .eq('workspace_id', workspaceId).eq('canal', 'newsletter')
-      .in('estado', ['publicando', 'publicada', 'na_fila']).gte('created_at', desde)
-    if ((recentes ?? []).some((d) => (d.extras as Record<string, string> | null)?.assunto === edicao.assunto)) {
-      throw new Error(`Uma edição com este mesmo assunto saiu há menos de ${MINUTOS_SEM_REPETIR} minutos. Para não mandar duas vezes à mesma lista, nada foi enviado. Confira em “Edições”.`)
-    }
-
-    const corpo = edicao.paragrafos.join('\n\n')
-    const { data: pacote, error: erroDoPacote } = await supabase
-      .from('social_packages')
-      .insert({
-        workspace_id: workspaceId,
-        titulo_interno: edicao.assunto,
-        origem_tipo: 'livre',
-        mestre: { titulo: edicao.assunto, subtitulo: edicao.chamada ?? '', corpo, ...(edicao.urlDaMateria ? { linkUrl: edicao.urlDaMateria } : {}) },
-        created_by: context.user.id,
-      })
-      .select('id').single()
-    if (erroDoPacote || !pacote) throw new Error('Não foi possível registrar a edição. Nada foi enviado.')
-
-    const { data: destino, error: erroDoDestino } = await supabase
-      .from('package_destinations')
-      .insert({
-        workspace_id: workspaceId,
-        package_id: pacote.id,
-        canal: 'newsletter',
-        formato: 'edicao',
-        corpo,
-        extras: { assunto: edicao.assunto, chamada: edicao.chamada ?? '', rotuloDoBotao: edicao.rotuloDoBotao ?? '', origem: 'newsletter' },
-        // Escrita aqui, e não gerada do texto-mestre: regenerar as variantes do pacote não mexe nela.
-        descolada: true,
-        estado: 'publicando',
-      })
-      .select('id').single()
-    if (erroDoDestino || !destino) {
-      await supabase.from('social_packages').update({ status: 'falhou' }).eq('id', pacote.id).eq('workspace_id', workspaceId)
-      throw new Error('Não foi possível registrar a edição. Nada foi enviado.')
-    }
+    const { pacoteId, destinoId } = await registrarEdicao(supabase, { workspaceId, userId: context.user.id }, edicao, { estado: 'publicando' })
 
     const remessa = await enviarEdicao(workspaceId, edicao)
     const deu = !remessa.erro
@@ -512,9 +532,9 @@ export async function enviarEdicaoDaNewsletter(rascunho: unknown): Promise<Resul
     const { error: erroAoFechar } = await supabase.from('package_destinations').update(deu
       ? { estado: 'publicada', erro: null, external_url: `${remessa.enviados} destinatário${remessa.enviados === 1 ? '' : 's'}` }
       : { estado: 'falhou', erro: (remessa.erro ?? '').slice(0, 500) },
-    ).eq('id', destino.id).eq('workspace_id', workspaceId)
-    await supabase.from('social_packages').update({ status: deu ? 'publicado' : 'falhou' }).eq('id', pacote.id).eq('workspace_id', workspaceId)
-    if (erroAoFechar) console.error('[newsletter] a edição saiu, mas o estado não foi gravado:', destino.id, erroAoFechar.message)
+    ).eq('id', destinoId).eq('workspace_id', workspaceId)
+    await supabase.from('social_packages').update({ status: deu ? 'publicado' : 'falhou' }).eq('id', pacoteId).eq('workspace_id', workspaceId)
+    if (erroAoFechar) console.error('[newsletter] a edição saiu, mas o estado não foi gravado:', destinoId, erroAoFechar.message)
 
     revalidatePath('/newsletter')
     revalidatePath('/redes')
@@ -522,5 +542,77 @@ export async function enviarEdicaoDaNewsletter(rascunho: unknown): Promise<Resul
     return { recado: `Edição enviada para ${remessa.enviados} pessoa${remessa.enviados === 1 ? '' : 's'}.`, enviados: remessa.enviados }
   } catch (causa) {
     return { erro: semChave(mensagemDoErro(causa, 'Não foi possível enviar a edição.')) }
+  }
+}
+
+/**
+ * Agenda a edição para um dia e hora.
+ *
+ * Usa a fila que já agenda os pacotes de Publicações (`publicacoes_agendadas`, migração 20261102180000): o relógio do
+ * banco chama a rota a cada minuto, a edição sai pelo mesmo `dispararPacote`, e quem agendou recebe o aviso do
+ * resultado no sino. Não usa o agendamento do Resend: lá a mensagem já fica montada para a lista de hoje e não dá
+ * para cancelar daqui. Pela fila, a lista é a da HORA DO ENVIO (quem entrar até lá recebe, quem sair não) e o
+ * agendamento se cancela em “Edições”.
+ */
+export async function agendarEdicaoDaNewsletter(rascunho: unknown, horarioLocal: unknown): Promise<Resultado & { quando?: string }> {
+  try {
+    const context = await autorizadoAEnviar()
+    const workspaceId = context.workspace.id
+
+    const { erros, edicao } = conferirEdicao(rascunho)
+    if (erros.length) throw new Error(erros[0])
+    const horario = horarioDoAgendamento(horarioLocal)
+    if ('erro' in horario) throw new Error(horario.erro)
+
+    const supabase = await createClient()
+    const { pacoteId, destinoId } = await registrarEdicao(supabase, { workspaceId, userId: context.user.id }, edicao, { estado: 'pronta', quando: horario.quando })
+
+    const { error } = await supabase.from('publicacoes_agendadas')
+      .insert({ workspace_id: workspaceId, package_id: pacoteId, quando: horario.quando, agendado_por: context.user.id, incluir: [] })
+    if (error) {
+      // Sem o pedido na fila a edição nunca sairia, e ficaria na tela como se fosse sair.
+      await supabase.from('package_destinations').update({ estado: 'ignorada' }).eq('id', destinoId).eq('workspace_id', workspaceId)
+      await supabase.from('social_packages').update({ status: 'arquivado' }).eq('id', pacoteId).eq('workspace_id', workspaceId)
+      throw new Error('Não foi possível agendar a edição. Nada foi agendado.')
+    }
+
+    revalidatePath('/newsletter')
+    revalidatePath('/redes')
+    return { recado: `Edição agendada para ${horarioParaLer(horario.quando)}.`, quando: horario.quando }
+  } catch (causa) {
+    return { erro: semChave(mensagemDoErro(causa, 'Não foi possível agendar a edição.')) }
+  }
+}
+
+/** Cancela uma edição agendada que ainda espera. Depois que a fila começou a enviar, não há o que cancelar. */
+export async function cancelarEdicaoAgendada(formData: FormData): Promise<Resultado> {
+  try {
+    const context = await requireWorkspace()
+    if (!pode(context.role, 'newsletter.enviar')) throw new Error('Cancelar uma edição agendada é para administradores e editores.')
+    const workspaceId = context.workspace.id
+    const pacoteId = String(formData.get('pacoteId') ?? '')
+    if (!pacoteId) throw new Error('Edição não informada.')
+
+    const supabase = await createClient()
+    const { data: destino } = await supabase
+      .from('package_destinations').select('id')
+      .eq('workspace_id', workspaceId).eq('package_id', pacoteId).eq('canal', 'newsletter').eq('estado', 'pronta').maybeSingle()
+    if (!destino) throw new Error('Esta edição não está mais esperando: ela já saiu ou já foi cancelada.')
+
+    const { data: cancelados, error } = await supabase.from('publicacoes_agendadas')
+      .update({ estado: 'cancelada', executado_em: new Date().toISOString() })
+      .eq('package_id', pacoteId).eq('workspace_id', workspaceId).eq('estado', 'agendada')
+      .select('id')
+    if (error) throw new Error('Não foi possível cancelar o agendamento.')
+    if (!cancelados?.length) throw new Error('Não há agendamento esperando para esta edição. Se ela já começou a sair, confira em um minuto.')
+
+    await supabase.from('package_destinations').update({ estado: 'ignorada' }).eq('id', destino.id).eq('workspace_id', workspaceId)
+    await supabase.from('social_packages').update({ status: 'arquivado' }).eq('id', pacoteId).eq('workspace_id', workspaceId)
+
+    revalidatePath('/newsletter')
+    revalidatePath('/redes')
+    return { recado: 'Agendamento cancelado. A edição não vai sair.' }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível cancelar o agendamento.') }
   }
 }
