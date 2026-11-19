@@ -31,6 +31,8 @@
  * (lib/site/caixa-de-material.ts), a pessoa informa o e-mail, marca a autorização e recebe UMA mensagem com o botão
  * "Baixar a lista em PDF". O toque nesse botão baixa o arquivo e confirma a inscrição na newsletter: é a confirmação
  * em duas etapas de sempre (app/newsletter/confirmar), com o material no lugar do convite.
+ * (19/11/2026: não há mais confirmação. Quem pede o material entra na lista na hora, e o botão abre o arquivo direto:
+ * `entraDireto`, em lib/newsletter/modelo.ts. O que se lê aqui sobre confirmar vale para as mensagens já enviadas.)
  *
  * Três decisões que estão aqui, e não espalhadas:
  *

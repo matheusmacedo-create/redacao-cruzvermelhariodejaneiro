@@ -26,7 +26,7 @@ import {
   ROTEIRO_PLANO_DE_CONTINGENCIA, VERAO_SEGURO, materialPorId,
   todosOsMateriais,
 } from '../lib/newsletter/materiais'
-import { emailDoMaterial } from '../lib/newsletter/modelo'
+import { emailDeBoasVindas, emailDoMaterial } from '../lib/newsletter/modelo'
 import { esquecerMateriaisConferidos, materialNoAr } from '../lib/site/material-no-ar'
 import { TEXTO_DO_CONSENTIMENTO } from '../lib/newsletter/inscricao'
 import {
@@ -226,6 +226,19 @@ ok(igual(decide(linha('pendente', ha(5 * 60_000)), { pedeMaterial: true }), { ac
 ok(igual(decide(linha('descadastrado', ha(HORA)), { pedeMaterial: true }), { acao: 'gravar', atualizar: 'inscrito-1' })
   && igual(decide(linha('invalido', ha(HORA)), { pedeMaterial: true }), { acao: 'gravar', atualizar: 'inscrito-1' }),
   'quem saiu da lista não recebe a entrega direta: volta a pendente e só entra de novo confirmando')
+
+// ---------------------------------------------------------------- entrada direta na lista (19/11/2026)
+// Sem clique de confirmação: quem pede o material entra na lista na hora, e a mensagem diz isso.
+const msgDireto = emailDoMaterial({ material: kit, urlBaixar: kit.arquivo, urlDeSaida, entraDireto: true })
+ok(msgDireto.html.includes(`href="${escapado(kit.arquivo)}"`) && [msgDireto.html, msgDireto.texto].every((t) => !t.includes('newsletter/confirmar')), 'entrada direta: o botão é o arquivo, sem link de confirmação')
+ok([msgDireto.html, msgDireto.texto].every((t) => t.includes('Como você autorizou ao pedir, passa a receber também as notícias') && t.includes('sair quando quiser') && !t.includes('confirma o seu e-mail') && !t.includes('expira')),
+  'entrada direta: a mensagem diz que as notícias passam a chegar e como sair, e não fala em confirmar (HTML e texto)')
+ok(msgDireto.html.includes('Sair da lista') && msgDireto.texto.includes(`Sair da lista: ${urlDeSaida}`), 'entrada direta: leva o link de saída')
+const boasVindas = emailDeBoasVindas({ nome: 'Maria <b>Silva</b>', urlDeSaida })
+ok(boasVindas.assunto.includes('está feita') && boasVindas.html.includes('Olá, Maria!') && !boasVindas.html.includes('<b>Silva'), 'boas-vindas: assunto diz que a inscrição está feita, e o nome entra escapado, só o primeiro')
+ok([boasVindas.html, boasVindas.texto].every((t) => t.includes(t === boasVindas.html ? escapado(urlDeSaida) : urlDeSaida) && !t.includes('newsletter/confirmar') && !/[Cc]onfirme|Falta um passo/.test(t)),
+  'boas-vindas: tem o link de saída no corpo e não pede confirmação nenhuma (HTML e texto)')
+ok(emailDeBoasVindas({ nome: '', urlDeSaida }).html.includes('Olá!'), 'boas-vindas sem nome: "Olá!"')
 
 // A mensagem de quem já está na lista: o botão é o arquivo, e nada nela fala em confirmar.
 const msgInscrito = emailDoMaterial({ material: kit, urlBaixar: kit.arquivo, urlDeSaida, jaInscrito: true })

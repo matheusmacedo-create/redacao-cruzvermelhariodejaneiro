@@ -733,6 +733,38 @@ recusado de verdade não depende desse botão: `chamar()` avisa a administraçã
 leitura da home, que é o que o cartão “Formulário do site” pede a cada abertura da tela, sem chamar o Resend.
 Conferência: `npx tsx scripts/conferir-newsletter-diagnostico.ts`.
 
+**“Não está ligado” com o formulário ligado** (19/11/2026). A hospedagem do site oscila: por alguns minutos devolve 504,
+ou 307 para o próprio endereço. A leitura da home não olhava o status, lia a página de erro, não achava o formulário e
+o cartão acusava “Não está ligado”, com o botão de religar à mostra. Agora quem decide é `leituraDaHome`, no mesmo
+módulo puro: só a home inteira, com status 200, prova que o formulário saiu; qualquer outra resposta é `sem-resposta`
+(“Sem resposta agora”, sem botão), e a rota tenta até três vezes antes de desistir. No mesmo dia apareceu que
+`RESEND_WEBHOOK_SECRET` não estava em produção (§7.39): o Resend tinha sete endereços devolvidos e a Newsletter mostrava
+“Inválidos: 0”. O “Conferir envio” passou a avisar quando a variável falta.
+
+**Inscrição sem clique de confirmação** (19/11/2026, decisão da filial). Até aqui a pessoa só entrava na lista depois de
+clicar no link do convite, e de 38 que pediram para receber, 28 não clicaram. Agora quem deixa o e-mail e marca o aceite
+**entra na lista na hora** (`estado = 'confirmado'`), no formulário da home, nas caixas das matérias e em “Acrescentar”.
+A primeira mensagem é `emailDeBoasVindas` (ou a do material, com `entraDireto`: o botão abre o arquivo direto), com o
+link de saída no corpo. O texto do aceite, o IP e o navegador continuam gravados. O que sobrou de defesa: armadilha,
+limite por IP, resposta sempre igual, o link de saída em toda mensagem e o webhook do Resend, que tira da lista o
+endereço que devolve (por isso `RESEND_WEBHOOK_SECRET` deixou de ser opcional). Quem saiu e se inscreve de novo volta
+direto. `pendente`, `app/newsletter/confirmar` e “Reenviar” ficaram só para as inscrições antigas e os links já enviados.
+Os textos acima desta nota que falam em convite e confirmação descrevem como era.
+
+**“Nova edição” e a tela em abas** (19/11/2026). A Newsletter era uma página só, de cima a baixo, e não tinha por onde
+escrever: a edição só saía por Publicações, como destino de um pacote. Agora o cabeçalho tem o botão “Nova edição”
+(`app/(app)/newsletter/nova`): assunto, chamada, texto, botão opcional, prévia (o mesmo `emailDaNewsletter` do envio,
+montado no navegador), “Enviar um teste para mim” e o envio para a lista, com confirmação. A conferência é um módulo
+puro, `lib/newsletter/edicao.ts`, usado pela tela e de novo pelo servidor (`enviarEdicaoDaNewsletter`), com as regras
+de assunto do canal. **Sem tabela nova**: a edição é gravada como um pacote livre com o destino `newsletter`
+(`extras.origem = 'newsletter'`, `descolada`), no mesmo lugar das edições de Publicações, e o histórico lê as duas.
+Enviar exige `newsletter.enviar` (admin e editor); o mesmo assunto não sai duas vezes em 10 minutos; o rascunho fica
+no `localStorage` do aparelho. Não há agendamento nem imagem nessa tela: para isso, e para a notícia que vai junto ao
+site, o caminho continua sendo o pacote. A página principal ficou em três abas, “Edições”, “Inscritos” e
+“Configuração” (`?aba=`), com os três painéis montados: a conferência do formulário do site roda ao abrir a tela e,
+se achar problema, vira aviso no alto e ponto na aba. No celular a lista de inscritos é em cartões, não em tabela.
+Conferência: `npx tsx scripts/conferir-newsletter-edicao.ts`.
+
 **Chat.** As páginas usam a versão (`?v=`) que a home usa, lida da home na hora
 (`chat-do-site.ts`); sem ela, saem sem o chat. **Redirecionamentos** 301 de notícias:
 `REDIRECIONAMENTOS_DAS_NOTICIAS` em `cache-do-site.ts` (vazio até alguém preencher).

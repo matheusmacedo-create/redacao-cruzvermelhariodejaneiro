@@ -1,13 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
-  normalizarEmail, normalizarNome, novoToken, prazoDeConfirmacao, ipDoPedido,
+  normalizarEmail, normalizarNome, ipDoPedido,
   TEXTO_DO_CONSENTIMENTO,
 } from '@/lib/newsletter/inscricao'
 import {
-  espacoDaNewsletter, urlDeConfirmacao, urlDeSaida, urlDeSaidaEmUmClique, cabecalhosDeCors,
+  espacoDaNewsletter, urlDeSaida, urlDeSaidaEmUmClique, cabecalhosDeCors,
 } from '@/lib/newsletter/contexto'
-import { emailDeConfirmacao, emailDoMaterial } from '@/lib/newsletter/modelo'
+import { emailDeBoasVindas, emailDoMaterial } from '@/lib/newsletter/modelo'
 import { materialPorId } from '@/lib/newsletter/materiais'
 import { enviarEmail, emailConfigurado, semChave } from '@/lib/newsletter/resend'
 import { decidirInscricao, LIMITE_POR_IP, HORAS_ENTRE_ENTREGAS, type InscritoExistente } from '@/lib/newsletter/decisao'
@@ -38,13 +38,21 @@ export const dynamic = 'force-dynamic'
  *     um a um. A lista de quem apoia uma instituição humanitária não é
  *     informação pública.
  *
- *  4. CONFIRMAÇÃO EM DUAS ETAPAS. Nada é enviado antes de a pessoa clicar no
- *     link que chega na caixa dela.
+ *  4. ACEITE GRAVADO E SAÍDA À MOSTRA. Até 19/11/2026 a quarta defesa era a
+ *     confirmação em duas etapas: a pessoa só entrava depois de clicar no
+ *     link do convite. Saiu por decisão da filial: de 38 pessoas que pediram
+ *     para receber, 28 não clicaram e ficaram de fora, com o aceite marcado.
+ *     Agora quem deixa o e-mail e marca o aceite ENTRA NA LISTA NA HORA. O
+ *     que protege quem foi inscrito por outra pessoa é o link de saída, no
+ *     corpo das boas-vindas e no rodapé de toda mensagem; e o que tira da
+ *     lista o endereço que não existe é o webhook do Resend
+ *     (app/api/webhooks/resend, que depende de RESEND_WEBHOOK_SECRET).
+ *     Vale também para quem um dia saiu: voltar pelo formulário, marcando o
+ *     aceite de novo, é um pedido novo.
  *
- * O endereço é SEMPRE gravado antes de tentar enviar o convite. Se o Resend
- * estiver fora, ou nem configurado ainda, o pedido fica registrado como
- * pendente e o convite pode sair depois — perder o endereço de quem quis se
- * inscrever seria o único erro irreversível aqui.
+ * O endereço é SEMPRE gravado antes de tentar enviar a primeira mensagem. Se
+ * o Resend estiver fora, a pessoa já está na lista e recebe a próxima edição:
+ * perder o endereço de quem quis se inscrever seria o único erro irreversível.
  *
  * PEDIDO DE MATERIAL (09/11/2026). A caixa "Receba a lista do kit de emergência"
  * das matérias (lib/site/caixa-de-material.ts) manda para cá com o campo
@@ -66,22 +74,16 @@ export const dynamic = 'force-dynamic'
  */
 
 /** A mesma resposta para todo caminho de sucesso — inclusive os que não gravam. */
-const RECADO = 'Quase lá! Enviamos um e-mail para você confirmar a inscrição. Confira também a caixa de spam.'
+const RECADO = 'Inscrição feita! Você passa a receber as novidades da Cruz Vermelha do Rio de Janeiro no seu e-mail.'
 
 /**
- * O recado de quando o convite NÃO saiu.
+ * O recado de quando a primeira mensagem NÃO saiu (sem chave do Resend, ou a chamada falhou).
  *
- * Vale para os dois jeitos de não sair: a chave do Resend ainda não existe, ou
- * ela existe e a chamada falhou (domínio não verificado é a causa nº 1). Nos
- * dois casos o endereço está guardado — o que muda é o que se diz a quem está
- * do outro lado.
- *
- * Responder "confira seu e-mail" quando o e-mail comprovadamente não saiu é
- * mandar a pessoa esperar por uma mensagem que não vem; ela conclui que a
- * inscrição falhou e vai embora. Este texto diz a verdade sem expor a falha
- * técnica, e o cadastro segue valendo.
+ * Na inscrição comum é o mesmo recado: a pessoa está na lista de qualquer jeito, e as boas-vindas não carregam nada
+ * de que ela precise. No pedido de material é outro (o do material): ali a mensagem é o que ela pediu, e dizer "vai
+ * para o seu e-mail" de uma mensagem que comprovadamente não saiu é mandar esperar pelo que não vem.
  */
-const RECADO_SEM_ENVIO = 'Recebemos seu cadastro! O e-mail de confirmação será enviado assim que nosso envio de newsletter entrar no ar.'
+const RECADO_SEM_ENVIO = RECADO
 
 type Campos = { email: unknown; nome: unknown; armadilha: unknown; consentimento: unknown; material: unknown; origem: unknown }
 
@@ -269,16 +271,17 @@ export async function POST(request: NextRequest) {
     return responder(true, recado)
   }
 
-  const token = novoToken()
   const linha = {
     workspace_id: espaco.id,
     email,
     nome: nome || (decisao.atualizar ? undefined : ''),
-    estado: 'pendente' as const,
-    token_confirmacao: token,
-    token_confirmacao_expira_em: prazoDeConfirmacao(),
-    // Quem saiu e voltou tem o registro de saída limpo: o pedido novo é dela,
-    // e a confirmação em duas etapas prova que é.
+    // Entra na lista na hora, sem clique de confirmação (defesa 4, acima). Convite antigo que estivesse pendente
+    // deixa de valer: o token sai junto.
+    estado: 'confirmado' as const,
+    confirmado_em: new Date().toISOString(),
+    token_confirmacao: null,
+    token_confirmacao_expira_em: null,
+    // Quem saiu e voltou tem o registro de saída limpo: marcou o aceite de novo, e o pedido novo é o que vale.
     descadastrado_em: null,
     // De onde veio: a caixa de material e a caixa "Receba as notícias" (lib/site/convites-da-materia.ts, que manda
     // origem=materia) ficam no fim das matérias; a inscrição comum, na home. Qualquer outro valor conta como home.
@@ -300,27 +303,23 @@ export async function POST(request: NextRequest) {
     return responder(false, 'Não foi possível concluir a inscrição agora. Tente mais tarde.', 500)
   }
 
-  // Defesa 4: o convite. Falha aqui NÃO desfaz o cadastro — o endereço já
-  // está guardado, e o convite pode ser reenviado depois pela tela de gestão.
+  // A primeira mensagem: boas-vindas, ou o material pedido. Falha aqui NÃO desfaz o cadastro: a pessoa já está na
+  // lista.
   if (!emailConfigurado()) {
-    console.warn('[newsletter] inscrição gravada, mas RESEND_API_KEY não está configurada: convite não enviado para', email)
+    console.warn('[newsletter] inscrição gravada, mas RESEND_API_KEY não está configurada: a primeira mensagem não saiu para', email)
     return responder(true, recadoSemEnvio)
   }
 
   try {
-    // Com material, o convite é a mensagem que entrega o arquivo: o botão é o link de confirmação com o material
-    // junto, e a rota de confirmação termina no arquivo (app/newsletter/confirmar).
+    // Com material, a mensagem entrega o arquivo (o botão vai direto a ele) e avisa que as notícias passam a chegar.
     const modelo = material
       ? emailDoMaterial({
           material,
-          urlBaixar: `${urlDeConfirmacao(token)}&m=${encodeURIComponent(material.id)}`,
+          urlBaixar: material.arquivo,
           urlDeSaida: urlDeSaida(gravado.token_descadastro as string),
+          entraDireto: true,
         })
-      : emailDeConfirmacao({
-          nome,
-          urlConfirmar: urlDeConfirmacao(token),
-          urlDeSaida: urlDeSaida(gravado.token_descadastro as string),
-        })
+      : emailDeBoasVindas({ nome, urlDeSaida: urlDeSaida(gravado.token_descadastro as string) })
     await enviarEmail({
       para: email,
       assunto: modelo.assunto,
@@ -332,7 +331,7 @@ export async function POST(request: NextRequest) {
     // O cadastro fica: perder o endereço de quem quis se inscrever seria o
     // único erro irreversível aqui. Mas a resposta muda — dizer "enviamos" de
     // um e-mail que não saiu é a promessa que este projeto começou consertando.
-    console.error('[newsletter] convite não saiu:', semChave(causa instanceof Error ? causa.message : String(causa)))
+    console.error('[newsletter] a primeira mensagem não saiu:', semChave(causa instanceof Error ? causa.message : String(causa)))
     return responder(true, recadoSemEnvio)
   }
 

@@ -34,7 +34,7 @@ export type InscritoExistente = {
 } | null
 
 export type Decisao =
-  /** Grava (inserindo ou atualizando) e manda o convite. */
+  /** Grava (inserindo ou atualizando) já como inscrito na lista e manda a primeira mensagem (19/11/2026: sem convite). */
   | { acao: 'gravar'; atualizar: string | null }
   /**
    * Já está na lista e pediu um material: recebe só o material. Nada do registro dela muda (nem o aceite, nem a
@@ -107,8 +107,8 @@ export function decidirInscricao(entrada: {
     }
   }
 
-  // Descadastrado que volta é atualizado, não bloqueado: a pessoa pediu, e a
-  // confirmação em duas etapas prova que é ela. Bloquear para sempre quem um
-  // dia saiu transformaria um "não quero agora" num "nunca mais".
+  // Descadastrado que volta é atualizado, não bloqueado: a pessoa pediu de
+  // novo, marcando o aceite. Bloquear para sempre quem um dia saiu
+  // transformaria um "não quero agora" num "nunca mais".
   return { acao: 'gravar', atualizar: existente.id }
 }
