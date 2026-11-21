@@ -7,6 +7,7 @@ import { claudeConfigurado } from '@/lib/ia/anthropic'
 import { garantirBaseNoSite } from '@/app/actions/pacotes'
 import { lerLegendas } from '@/lib/publicacao/legendas'
 import { lerOrientacao } from '@/lib/cerebro/orientacao'
+import { hojeNoRio, lerAcao, sugestaoDaPauta } from '@/lib/site/marca-de-acao'
 import type { DestinoRegistro, PacoteRegistro } from '@/components/app/hub/tipos'
 
 // Publicar a notícia no site pode narrar o texto (lib/voz, até PRAZO_DA_NARRACAO_MS) antes de subir as fotos e a página.
@@ -27,7 +28,7 @@ export default async function PacotePage({ params }: { params: Promise<{ id: str
 
   const { data: linha } = await supabase
     .from('social_packages')
-    .select('id,titulo_interno,origem_tipo,status,agendar_para,mestre,mestre_file_ids')
+    .select('id,titulo_interno,origem_tipo,origem_id,content_id,status,agendar_para,mestre,mestre_file_ids')
     .eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
   if (!linha) notFound()
 
@@ -54,6 +55,21 @@ export default async function PacotePage({ params }: { params: Promise<{ id: str
       .maybeSingle(),
   ])
 
+  // "Nossas ações": a marca gravada e, sem ela, o dia e o local que a pauta da
+  // matéria já sabe (pauta registrada como Ação ou Evento), só como sugestão.
+  const marcaDeAcao = lerAcao(linha.mestre)
+  let sugestaoDeAcao = null
+  const idDaMateria = linha.content_id ?? (linha.origem_tipo === 'materia' ? linha.origem_id : null)
+  if (!marcaDeAcao && idDaMateria) {
+    const { data: peca } = await supabase
+      .from('content_pieces').select('pautas(tags,data_inicio,due_date,details)')
+      .eq('id', idDaMateria).eq('workspace_id', context.workspace.id).maybeSingle()
+    const pauta = Array.isArray(peca?.pautas) ? peca.pautas[0] : peca?.pautas
+    const sugerida = sugestaoDaPauta(pauta)
+    // Dia no futuro não é histórico: a tela não sugere o que o servidor recusaria.
+    sugestaoDeAcao = sugerida && sugerida.data <= hojeNoRio() ? sugerida : null
+  }
+
   const m = (linha.mestre ?? {}) as Record<string, string>
   // A orientação estruturada do Cérebro, quando o pacote veio de uma pauta
   // dele. Pacote escrito do zero (ou importado antes desta chave existir) não
@@ -77,6 +93,7 @@ export default async function PacotePage({ params }: { params: Promise<{ id: str
     },
     fileIds: linha.mestre_file_ids ?? [],
     naFila: naFila ? { quando: naFila.quando, estado: naFila.estado } : null,
+    acao: { marca: marcaDeAcao, sugestao: sugestaoDeAcao },
   }
 
   const destinos: DestinoRegistro[] = (destinosLinhas ?? []).map((d) => ({

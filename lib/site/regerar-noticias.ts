@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { withFtp, enviarArquivo, removerNarracoesAntigas } from '@/lib/publicacao/ftp'
 import { slugValido } from '@/lib/site/slug'
 import { prepararChatDoSite } from '@/lib/site/chat-do-site'
-import { atualizarVitrine, noticiasPublicadas, type NoticiaPublicada } from '@/lib/site/vitrine'
+import { atualizarVitrine, marcasDeAcao, noticiasPublicadas, type NoticiaPublicada } from '@/lib/site/vitrine'
 import { relacionadasPorTema } from '@/lib/site/relacionadas'
 import { PRAZO_DA_NARRACAO_MS, vozPara } from '@/lib/voz/elevenlabs'
 import { ehAudioDeNarracao } from '@/lib/voz/regras'
@@ -124,6 +124,8 @@ export async function regerarNoticias(p: {
   let noAr: NoticiaPublicada[] = []
   try { noAr = await noticiasPublicadas(p.workspaceId) } catch { noAr = [] }
   const chat = await prepararChatDoSite()
+  // As matérias que são relato de ação da filial (lib/site/acoes.ts) saem com o dia e o local no cabeçalho.
+  const marcas = lote.length ? await marcasDeAcao(p.workspaceId).catch(() => null) : null
   // A narração que já está no ar continua tocando (mesmo texto, mesma voz). Áudio novo só com `narrar` ("Regerar e narrar
   // as que faltam"), que alguém pede sabendo do crédito; a regeração comum não gasta crédito em lote.
   const voz = lote.length || p.narrar ? await vozPara(p.workspaceId, 'materias') : null
@@ -176,6 +178,7 @@ export async function regerarNoticias(p: {
           rastreio: await rastreioDaMateria(p.workspaceId, peca.id),
           chat,
           narracao: voz ? { voz, gerar: Boolean(p.narrar) } : null,
+          acao: marcas?.get(peca.id) ?? null,
         })
         for (const arquivo of pagina.paraSubir) await enviarArquivo(client, config, `${slug}/${arquivo.nome}`, arquivo.bytes)
         await enviarArquivo(client, config, `${slug}/index.html`, pagina.html)
@@ -219,6 +222,7 @@ export async function regerarNoticias(p: {
     const agora = new Date()
     const vitrine = await atualizarVitrine(client, config, p.workspaceId, agora)
     if (vitrine.indice) detalhes.push(`/noticias/ regerada (${vitrine.noticias} matéria(s))`)
+    if (vitrine.acoes) detalhes.push('/acoes/ (Nossas ações) regerada')
     if (vitrine.sitemap) detalhes.push('sitemap.xml e robots.txt regerados')
     if (vitrine.aviso) detalhes.push(`atenção: ${vitrine.aviso}`)
     resultado.vitrine = { feita: vitrine.indice && vitrine.sitemap, detalhes }

@@ -325,7 +325,8 @@ export async function regravarPaginaListada(
  * /privacidade/ e /termos/ saíram: as políticas são do repositório do site
  * (scripts/gerar_politicas.py), e daqui não se grava por cima delas.
  */
-const PASTAS_PERMITIDAS_NA_RAIZ = new Set(['transparencia', 'canais-oficiais'])
+// 'acoes' é a página "Nossas ações" (lib/site/acoes.ts), que a vitrine regrava a cada publicação.
+const PASTAS_PERMITIDAS_NA_RAIZ = new Set(['transparencia', 'canais-oficiais', 'acoes'])
 
 /**
  * Grava a index.html de uma pasta fixa na raiz do site (ex.: /transparencia/).

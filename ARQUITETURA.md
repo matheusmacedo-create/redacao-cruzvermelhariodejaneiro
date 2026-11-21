@@ -678,6 +678,27 @@ que caia sempre em “Rio de Janeiro” pede uma palavra a mais nas regras; conf
 `npx tsx scripts/conferir-indice-noticias.ts`. A página no ar só muda na próxima publicação ou em
 Configurações → site → regerar.
 
+**Nossas ações** (`/acoes/`, `lib/site/acoes.ts`, 21/11/2026). O histórico do que a filial já fez, para quem chega
+de fora (um patrocinador, um parceiro) ver tudo num lugar: um cartão por ação, com a foto, o dia, o local, o título e
+a linha fina, agrupados por ano, na ordem em que a ação **aconteceu** (não na da publicação). Não é outra fonte de
+conteúdo: cada cartão é uma matéria no ar e leva a ela. Entra na página a matéria cujo pacote foi marcado no quadro
+“Nossas ações” da tela do pacote (`components/app/hub/acao-da-filial.tsx`, `app/actions/acoes-do-site.ts`), com o dia
+e o local. A marca vive em `social_packages.mestre.acao` (`{ data: 'AAAA-MM-DD', local }`), **sem coluna nova**: o
+autosave do mestre preserva as chaves que não edita. O pacote que nasce de um envio da equipe (§7.14) já vem marcado
+com o dia e o local do envio; a pauta registrada como Ação ou Evento só preenche o quadro como sugestão. A vitrine
+(`atualizarVitrine`) lê as marcas (`marcasDeAcao`, pelo mesmo vínculo pacote → matéria da publicação), regrava
+`/acoes/index.html` na raiz do site (`enviarPastaFixaNaRaiz`, pasta `acoes` na lista fechada) a cada publicação e a
+cada regeração, e põe `/acoes/` no sitemap quando há ação. Sem ação nenhuma a página sai com um aviso curto e
+`noindex`, fora do mapa. Salvar a marca de uma matéria que já está no ar refaz a vitrine na hora. A matéria marcada
+ganha o chapéu “Nossas ações” e, no cabeçalho, “Ação realizada em … , em …” com o link de volta (só na próxima
+publicação ou regeração dela), e a barra de assuntos de `/noticias/` ganha o atalho. A página termina convidando a
+apoiar como empresa ou órgão público e a ser voluntário, sem convite a doar. O que falta: o item no menu do site e o
+botão na seção “A filial em ação” da home são do repositório do site, e as ações antigas, que só existem no Instagram,
+ainda precisam virar matéria. Para isso o arquivo de “Importar pacote” aceita, opcional, `mestre.acao`
+(`{ "data": "AAAA-MM-DD", "local": "…" }`, `lib/publicacao/importar-pacote.ts`): o rascunho já nasce marcado. A marca e
+a conferência dela ficam em `lib/site/marca-de-acao.ts`, à parte da página, para a tela do pacote não carregar o molde
+do site. Conferência: `npx tsx scripts/conferir-pagina-de-acoes.ts`.
+
 **Datas.** `site_published_at` é a primeira publicação e não muda mais; o
 `dateModified` e o `lastmod` do sitemap são a última edição do texto (`updated_at`,
 nunca antes da publicação). Republicar não mexe em nenhuma das duas — por isso a nova

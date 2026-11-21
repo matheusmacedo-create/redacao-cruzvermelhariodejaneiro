@@ -1,5 +1,6 @@
 import type { CaixaDeRecorte } from './recorte-tipos'
 import type { OrientacaoDoCerebro } from '@/lib/cerebro/orientacao'
+import type { AcaoDoMestre } from '@/lib/site/marca-de-acao'
 
 export type ArquivoDaBiblioteca = {
   id: string
@@ -57,6 +58,12 @@ export type PacoteRegistro = {
   agendarPara: string
   mestre: MestreRegistro
   fileIds: string[]
+  /**
+   * "Nossas ações" (lib/site/acoes.ts): a marca gravada no mestre e o dia e o
+   * local que a pauta já sabe. Tem botão próprio; o autosave não a envia (o
+   * servidor preserva a chave).
+   */
+  acao?: { marca: AcaoDoMestre | null; sugestao: AcaoDoMestre | null }
   /** Pedido vivo na fila da publicação agendada (o site com horário à frente). */
   naFila?: { quando: string; estado: 'agendada' | 'publicando' } | null
 }

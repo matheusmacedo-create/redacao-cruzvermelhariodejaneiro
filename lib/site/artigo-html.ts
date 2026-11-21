@@ -10,6 +10,7 @@ import { CSS_DA_CAIXA_DE_MATERIAL, SCRIPT_DA_CAIXA_DE_MATERIAL, caixaDaMateria, 
 import { CSS_DOS_CONVITES, conviteDaMateria, htmlDaCaixaDeNoticias, htmlDeComoAjudar, htmlDoConvite } from '@/lib/site/convites-da-materia'
 import { editoriaDaMateria } from '@/lib/site/editorias'
 export { escapar } from '@/lib/site/esqueleto'
+import { CAMINHO_DAS_ACOES, dataDaAcaoLegivel } from '@/lib/site/marca-de-acao'
 
 /**
  * Monta a página de uma matéria para o site institucional.
@@ -312,6 +313,11 @@ export type DadosDoArtigo = {
   arquivos?: Map<string, ArquivoLocal>
   /** A seção acima da manchete. Em branco, "Notícias". */
   kicker?: string
+  /**
+   * A matéria é o relato de uma ação da filial (lib/site/acoes.ts): o chapéu vira "Nossas ações" e o
+   * cabeçalho ganha o dia e o local em que aconteceu, com o caminho de volta ao histórico (/acoes/).
+   */
+  acao?: { data: string; local: string } | null
   /** As outras matérias publicadas — alimentam o rail e a faixa final. */
   relacionadas?: NoticiaRelacionada[]
   /**
@@ -485,7 +491,11 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
   }).format(publicadoEm).replace(/\. de /g, ' ').replace('.', '').toUpperCase()
   // Advertorial da escola sai identificado como divulgação de curso (promessa
   // da página "Como produzimos nosso conteúdo").
-  const kicker = dados.kicker?.trim() || (dados.rastreio ? 'Divulgação de curso' : editoria.nome)
+  const kicker = dados.kicker?.trim() || (dados.rastreio ? 'Divulgação de curso' : dados.acao ? 'Nossas ações' : editoria.nome)
+  // O dia em que a ação aconteceu costuma ser outro que o da publicação: a página diz os dois.
+  const linhaDaAcao = dados.acao
+    ? `<p class="acao-linha">Ação realizada em <time datetime="${escapar(dados.acao.data)}">${escapar(dataDaAcaoLegivel(dados.acao.data))}</time>${dados.acao.local ? `, em ${escapar(dados.acao.local)}` : ''}. <a href="${escapar(origem)}${CAMINHO_DAS_ACOES}">Ver todas as ações da filial</a></p>`
+    : ''
 
   // Os ícones de share saem das marcas oficiais embutidas (é o que garante o
   // X no lugar do pássaro, sem depender de biblioteca de ícones).
@@ -554,6 +564,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
               <p class="byline"><b>Por ${escapar(dados.autor?.trim() || assinatura)}</b><span class="dot">·</span><time datetime="${publicado}">${dataLegivel}</time>${atualizada}<span class="dot">·</span><span>${minutos} min de leitura</span></p>
               ${share}
             </div>
+            ${linhaDaAcao}
           </header>
           ${ouca}
           ${htmlDaCapa}

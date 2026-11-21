@@ -2,8 +2,10 @@ import 'server-only'
 import type { Client } from 'basic-ftp'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
-  baixarTexto, enviarArquivo, enviarNaRaizDoSite, type FtpConfig,
+  baixarTexto, enviarArquivo, enviarNaRaizDoSite, enviarPastaFixaNaRaiz, type FtpConfig,
 } from '@/lib/publicacao/ftp'
+import { todasAsLinhas } from '@/lib/supabase/paginar'
+import { acoesDoSite, lerAcao, paginaDeAcoes, CAMINHO_DAS_ACOES, type AcaoDoMestre, type AcaoNoSite } from '@/lib/site/acoes'
 import { candidatosDeIndex } from '@/lib/site/formulario-newsletter'
 import { temAnalytics } from '@/lib/site/analytics'
 import { paginaDeNoticias, versoesDaCapa, type NoticiaDoIndice } from '@/lib/site/indice-noticias'
@@ -27,6 +29,8 @@ import { entradasDoAcervoNoMapa } from '@/lib/acervo/paginas'
 
 export type ResultadoDaVitrine = {
   indice: boolean
+  /** A página "Nossas ações" (/acoes/) subiu. */
+  acoes: boolean
   sitemap: boolean
   robots: boolean
   noticias: number
@@ -89,6 +93,54 @@ export async function noticiasPublicadas(workspaceId: string): Promise<NoticiaPu
     })
   }
   return saida
+}
+
+/**
+ * As matérias marcadas como ação da filial: o id da matéria e a marca do pacote
+ * (lib/site/acoes.ts). O vínculo do pacote com a matéria é o mesmo da
+ * publicação: `content_id`, a origem (pacote que nasceu de uma matéria) ou o
+ * `contentId` guardado no destino do site. Pacote arquivado não conta.
+ * Se a leitura falhar, LANÇA: marca nenhuma por erro de banco esvaziaria a página.
+ */
+export async function marcasDeAcao(workspaceId: string): Promise<Map<string, AcaoDoMestre>> {
+  const supabase = createAdminClient()
+  const { data, error } = await todasAsLinhas<Record<string, unknown>>((de, ate) => supabase
+    .from('social_packages')
+    .select('id,content_id,origem_tipo,origem_id,mestre,updated_at')
+    .eq('workspace_id', workspaceId).neq('status', 'arquivado')
+    .not('mestre->acao', 'is', null)
+    .order('updated_at', { ascending: true }).order('id', { ascending: true })
+    .range(de, ate))
+  if (error) throw new Error('Não foi possível ler as ações marcadas.')
+  const marcas = new Map<string, AcaoDoMestre>()
+  const semVinculo = new Map<string, AcaoDoMestre>()
+  for (const p of data) {
+    const acao = lerAcao(p.mestre)
+    if (!acao) continue
+    const contentId = (p.content_id as string | null) ?? (p.origem_tipo === 'materia' ? (p.origem_id as string | null) : null)
+    // Dois pacotes da mesma matéria: vale o que foi mexido por último (a ordem da leitura).
+    if (contentId) marcas.set(contentId, acao)
+    else semVinculo.set(String(p.id), acao)
+  }
+  // O pacote escrito do zero só conhece a matéria pelo destino do site, que guarda o vínculo na primeira publicação.
+  if (semVinculo.size) {
+    const { data: destinos, error: erroDestinos } = await supabase
+      .from('package_destinations').select('package_id,extras')
+      .eq('workspace_id', workspaceId).eq('canal', 'site_web')
+      .in('package_id', [...semVinculo.keys()].slice(0, 500))
+    if (erroDestinos) throw new Error('Não foi possível ler as ações marcadas.')
+    for (const d of destinos ?? []) {
+      const contentId = String((d.extras as Record<string, unknown> | null)?.contentId ?? '')
+      const acao = semVinculo.get(String(d.package_id))
+      if (contentId && acao && !marcas.has(contentId)) marcas.set(contentId, acao)
+    }
+  }
+  return marcas
+}
+
+/** As ações no ar, na ordem em que aconteceram: as matérias publicadas que têm a marca. */
+export async function acoesPublicadas(workspaceId: string, noticias: NoticiaPublicada[]): Promise<AcaoNoSite[]> {
+  return acoesDoSite(noticias, await marcasDeAcao(workspaceId))
 }
 
 /**
@@ -275,7 +327,7 @@ export async function atualizarVitrine(
    */
   recemPublicada?: NoticiaPublicada,
 ): Promise<ResultadoDaVitrine> {
-  const resultado: ResultadoDaVitrine = { indice: false, sitemap: false, robots: false, noticias: 0 }
+  const resultado: ResultadoDaVitrine = { indice: false, acoes: false, sitemap: false, robots: false, noticias: 0 }
   const problemas: string[] = []
   const chat = await prepararChatDoSite()
 
@@ -291,6 +343,7 @@ export async function atualizarVitrine(
     noticias = [recemPublicada, ...noticias.filter((n) => n.url !== recemPublicada.url)]
   }
   resultado.noticias = noticias?.length ?? 0
+  let acoes: AcaoNoSite[] | null = null
 
   if (noticias) {
     // A linha do tempo dos outros canais entra no mesmo jornal.
@@ -301,9 +354,17 @@ export async function atualizarVitrine(
     // matéria mais nova) leva as medidas, e os cartões, o srcset.
     noticias = await prepararCapasDoIndice(noticias)
 
+    // As ações: lidas uma vez, para o atalho do índice, a página e o mapa. Sem a
+    // leitura, a página fica como estava (regerar com lista vazia apagaria o histórico).
+    try {
+      acoes = await acoesPublicadas(workspaceId, noticias)
+    } catch {
+      problemas.push('não consegui ler as ações marcadas — a página “Nossas ações” ficou como estava')
+    }
+
     // O índice mora na própria pasta de notícias (FTP_BASE_DIR).
     try {
-      await enviarArquivo(client, config, 'index.html', Buffer.from(paginaDeNoticias(noticias, agora, linhaDoTempo, chat), 'utf8'))
+      await enviarArquivo(client, config, 'index.html', Buffer.from(paginaDeNoticias(noticias, agora, linhaDoTempo, chat, acoes?.length ?? 0), 'utf8'))
       resultado.indice = true
     } catch {
       problemas.push('o índice de notícias não subiu')
@@ -319,12 +380,25 @@ export async function atualizarVitrine(
     problemas.push('as regras de cache (.htaccess) não subiram')
   }
 
-  // Sitemap e robots moram na raiz do site.
+  // "Nossas ações", o sitemap e o robots moram na raiz do site.
   if (noticias) {
+    let raiz: string | null = null
+    try { raiz = await descobrirRaizDoSite(client, config) } catch { raiz = null }
+
+    if (acoes && raiz) {
+      try {
+        await enviarPastaFixaNaRaiz(client, raiz, 'acoes', paginaDeAcoes(acoes, agora, chat))
+        resultado.acoes = true
+      } catch {
+        problemas.push('a página “Nossas ações” não subiu')
+      }
+    } else if (acoes) {
+      problemas.push('a página “Nossas ações” não subiu (a pasta do site não respondeu)')
+    }
+
     try {
-      const raiz = await descobrirRaizDoSite(client, config)
       if (!raiz) throw new Error('raiz não encontrada')
-      await regerarMapaDoSite(client, raiz, workspaceId, noticias)
+      await regerarMapaDoSite(client, raiz, workspaceId, noticias, acoes ?? undefined)
       resultado.sitemap = true
       resultado.robots = true
     } catch {
@@ -350,13 +424,21 @@ export async function regerarMapaDoSite(
   raiz: string,
   workspaceId: string,
   noticias?: NoticiaPublicada[],
+  /** As ações já lidas pela vitrine; sem isto, são lidas aqui (a publicação do acervo não as tem). */
+  acoes?: AcaoNoSite[],
 ): Promise<void> {
   // Sem a lista de matérias, o mapa sairia sem as notícias: melhor não mexer nele.
   const lista = noticias ?? await noticiasPublicadas(workspaceId)
+  // /acoes/ só entra no mapa com ação publicada: vazia, a página sai com noindex.
+  let temAcoes = Boolean(acoes?.length)
+  if (!acoes) {
+    try { temAcoes = (await acoesPublicadas(workspaceId, lista)).length > 0 } catch { temAcoes = false }
+  }
   let acervo: EntradaDoMapa[] = []
   try { acervo = entradasDoAcervoNoMapa(await itensPublicosDoAcervo(workspaceId)) } catch { /* o mapa sai sem o acervo desta vez */ }
   const entradas: EntradaDoMapa[] = [
     ...paginasFixas(),
+    ...(temAcoes ? [{ url: `${ORIGEM_DO_SITE}${CAMINHO_DAS_ACOES}` }] : []),
     ...lista.map((n) => ({ url: n.url, modificadaEm: n.atualizadaEm })),
     ...acervo,
   ]
