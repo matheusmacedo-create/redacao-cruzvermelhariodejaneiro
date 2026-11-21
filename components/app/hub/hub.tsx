@@ -37,6 +37,8 @@ import { tamanhoParaProporcao, medidaComoTexto } from '@/lib/ia/tamanho'
 import { montarPaginaDoArtigo } from '@/lib/site/artigo-html'
 import { corpoComMidias } from '@/lib/publicacao/legendas'
 import { gerarSlug } from '@/lib/site/slug'
+import { AcaoDaFilial } from './acao-da-filial'
+import type { AcaoDoMestre } from '@/lib/site/marca-de-acao'
 import { mediaToken, normalizarQuebras, parseContentBlocks, parseMediaLine } from '@/lib/content-blocks'
 import { janelaDeRecorte, type CaixaDeRecorte } from '@/lib/publicacao/janela-de-recorte'
 import { arrumarTexto, textoDaColagem } from '@/lib/colagem'
@@ -635,6 +637,8 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
         <Card data-ajuda="publicacoes.editor" className="min-w-0 p-5">
           {!destinoAtivo || baseAtiva ? (
             <EditorDaNoticia
+              pacoteId={inicial.id}
+              acao={inicial.acao}
               base={destinoAtivo}
               mestre={mestre}
               onMudar={(m) => setMestre(m)}
@@ -1089,7 +1093,10 @@ function colagemNoFormato(
  * para o pacote inteiro — cada destino escolhe entre as mídias e pode ter o
  * seu horário, mas o conjunto é um só.
  */
-function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca, agendarPara, onAgendarPara, onPronta, onReprocessar, onAtualizarSite, atualizandoSite, onAlternarSaida, quantasRedes, encerrado, workspaceId, melhoria, onNovaMidia, onAutorizarMidia, onLiberarMidia, onRecarregarBiblioteca }: {
+function EditorDaNoticia({ pacoteId, acao, base, mestre, onMudar, fileIds, onFileIds, biblioteca, agendarPara, onAgendarPara, onPronta, onReprocessar, onAtualizarSite, atualizandoSite, onAlternarSaida, quantasRedes, encerrado, workspaceId, melhoria, onNovaMidia, onAutorizarMidia, onLiberarMidia, onRecarregarBiblioteca }: {
+  pacoteId: string
+  /** A marca "Nossas ações" gravada e o que a pauta sugere (lib/site/acoes.ts). */
+  acao?: { marca: AcaoDoMestre | null; sugestao: AcaoDoMestre | null }
   /** A página do site. Nula só no instante entre criar o pacote e a base existir. */
   base: DestinoRegistro | null
   mestre: MestreRegistro
@@ -1418,6 +1425,10 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
           </div>
         )}
       </div>
+
+      {/* Fica à vista, fora do "mais opções": é o que alimenta a página
+          "Nossas ações" do site, e recolhido ninguém lembraria de marcar. */}
+      <AcaoDaFilial pacoteId={pacoteId} inicial={acao?.marca ?? null} sugestao={acao?.sugestao ?? null} encerrado={encerrado} />
 
       {/* O que quase ninguém mexe fica recolhido: o endereço nasce do título,
           o agendamento é opcional e o link externo é exceção. Deixar os três

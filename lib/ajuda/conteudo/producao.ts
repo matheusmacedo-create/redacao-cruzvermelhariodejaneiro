@@ -100,6 +100,12 @@ const PUBLICACOES: GuiaDaArea = {
           seAusente: 'pular',
         },
         {
+          alvo: 'publicacoes.nossas-acoes',
+          titulo: 'Nossas ações',
+          texto: 'O site tem a página “Nossas ações”, com o histórico do que a filial já fez. Marque “Esta notícia conta uma ação que a filial realizou”, informe o dia e o local e toque em “Salvar em Nossas ações”.',
+          seAusente: 'pular',
+        },
+        {
           alvo: 'publicacoes.previa',
           titulo: 'Prévia e validação',
           texto: 'A prévia mostra como o destino aberto vai sair, e a “Validação” lista o que falta corrigir. Com erro, o destino não pode ser marcado como pronto.',
@@ -137,6 +143,20 @@ const PUBLICACOES: GuiaDaArea = {
         'Toque em “Criar pacote de publicação”.',
         'O pacote abre com o título, a linha fina e o texto da matéria. Confira e siga para os destinos.',
       ],
+    },
+    {
+      id: 'nossas-acoes',
+      titulo: 'Pôr a notícia na página “Nossas ações” do site',
+      exemplo: 'A Carla escreveu a notícia do mutirão de pintura na Maré. Ela marca a ação, informa o dia 8 de março e o local, e a notícia passa a aparecer no histórico de ações do site.',
+      passos: [
+        'Abra o pacote e deixe “A notícia” escolhida no trilho.',
+        'Desça até o quadro “Nossas ações”, abaixo das fotos.',
+        'Marque “Esta notícia conta uma ação que a filial realizou”.',
+        'Em “Dia da ação”, informe o dia em que a ação aconteceu, não o dia da publicação. Em “Local”, escreva o lugar e o bairro ou a cidade.',
+        'Toque em “Salvar em Nossas ações” e espere a resposta aparecer no quadro.',
+        'Publique a notícia no site, se ainda não publicou. A ação entra na página com a primeira foto da notícia, o título e a linha fina.',
+      ],
+      dica: 'A página mostra as ações pela data em que aconteceram, da mais recente para a mais antiga. Notícia que já está no ar entra na página logo depois de salvar. Para tirar, desmarque a caixa e toque em “Tirar de Nossas ações”. O que chega pelo link de envio da equipe já vem marcado, com o dia e o local informados por quem enviou.',
     },
     {
       id: 'adicionar-rede',

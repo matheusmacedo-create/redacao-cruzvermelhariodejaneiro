@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { gerarSlug } from '@/lib/site/slug'
 import type { LegendaDaMidia, PosicaoDaMidia } from '@/lib/publicacao/legendas'
+import { validarAcao, type AcaoDoMestre } from '@/lib/site/marca-de-acao'
 
 /**
  * Importação de pacote por arquivo JSON: valida o arquivo ANTES de gravar.
@@ -41,7 +42,11 @@ export type MidiaImportada = {
 
 export type PacoteImportado = {
   tituloInterno: string
-  mestre: { titulo: string; subtitulo: string; slug: string; corpo: string; notas: string }
+  mestre: {
+    titulo: string; subtitulo: string; slug: string; corpo: string; notas: string
+    /** A marca "Nossas ações" (lib/site/marca-de-acao.ts), quando o arquivo traz o dia e o local da ação. */
+    acao?: AcaoDoMestre
+  }
   midias: MidiaImportada[]
 }
 
@@ -109,6 +114,20 @@ export function validarImportacao(conteudo: string): { pacote?: PacoteImportado;
       slug: slug || (titulo ? gerarSlug(titulo) : ''),
       corpo: texto(m, 'corpo', 'mestre.corpo', { max: LIMITES.corpo, obrigatorio: true }, problemas),
       notas: texto(m, 'notas', 'mestre.notas', { max: 5_000 }, problemas),
+    }
+    // Opcional: o relato de uma ação da filial já chega marcado para "Nossas ações", com o dia e o local.
+    if (m.acao !== undefined && m.acao !== null) {
+      if (!eObjeto(m.acao)) {
+        problemas.push({ campo: 'mestre.acao', mensagem: 'deve ser um objeto com "data" (AAAA-MM-DD) e, se quiser, "local".' })
+      } else if (m.acao.local !== undefined && m.acao.local !== null && !eTexto(m.acao.local)) {
+        problemas.push({ campo: 'mestre.acao.local', mensagem: 'deve ser um texto.' })
+      } else if (eTexto(m.acao.local) && m.acao.local.trim().length > 120) {
+        problemas.push({ campo: 'mestre.acao.local', mensagem: `passa do limite de 120 caracteres (recebi ${m.acao.local.trim().length}).` })
+      } else {
+        const conferida = validarAcao({ data: m.acao.data, local: m.acao.local })
+        if ('erro' in conferida) problemas.push({ campo: 'mestre.acao.data', mensagem: conferida.erro })
+        else mestre.acao = conferida.acao
+      }
     }
   }
 

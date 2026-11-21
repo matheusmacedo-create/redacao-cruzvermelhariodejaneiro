@@ -9,6 +9,7 @@ import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { lerObjeto } from '@/lib/armazenamento/r2'
 import { transcreverAudio, TAMANHO_MAXIMO_DE_AUDIO, iaConfigurada } from '@/lib/ia/openai'
 import { garantirBaseNoSite } from '@/app/actions/pacotes'
+import { validarAcao } from '@/lib/site/marca-de-acao'
 import { armazenamento, avaliaEnvios } from '@/lib/envios/servidor'
 import { copiarParaBiblioteca, type ArquivoDoEnvio } from '@/lib/envios/avaliacao'
 import { descricaoDaPauta, linkDoWhatsapp, mensagemDePublicacao, type Autorizacao } from '@/lib/envios/regras'
@@ -128,10 +129,15 @@ export async function virarPauta(envioId: string, arquivoIds: string[], criarMat
       }).select('id').single()
       if (erroPeca || !peca) throw new Error('A pauta foi criada, mas não a matéria.')
       // O crédito de cada foto já vem preenchido: quem mandou é quem fotografou.
+      const conferida = validarAcao({ data: String(envio.data_da_acao ?? '').slice(0, 10), local: envio.local })
+      const acaoDoEnvio = 'acao' in conferida ? conferida.acao : null
       const legendas = Object.fromEntries(fileIds.map((id) => [id, { legenda: '', credito: `${envio.nome}/CVB-RJ` }]))
       const { data: pacote, error: erroPacote } = await supabase.from('social_packages').insert({
         workspace_id: ws, titulo_interno: envio.titulo.slice(0, 200), origem_tipo: 'materia', origem_id: peca.id,
-        mestre: { corpo, titulo: envio.titulo, subtitulo: '', legendas }, mestre_file_ids: fileIds, created_by: context.user.id,
+        // O envio é o relato de uma ação: o pacote já nasce marcado para "Nossas ações" (lib/site/acoes.ts),
+        // com o dia e o local que a equipe informou. Só entra na página quando a notícia for publicada.
+        mestre: { corpo, titulo: envio.titulo, subtitulo: '', legendas, ...(acaoDoEnvio ? { acao: acaoDoEnvio } : {}) },
+        mestre_file_ids: fileIds, created_by: context.user.id,
       }).select('id').single()
       if (erroPacote || !pacote) throw new Error('A pauta e a matéria foram criadas, mas não o pacote de publicação.')
       pacoteId = pacote.id as string

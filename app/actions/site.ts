@@ -205,6 +205,7 @@ export async function publicarPaginasDoSite(): Promise<ResultadoDasPaginas> {
       const agora = new Date()
       const vitrine = await atualizarVitrine(client, config, context.workspace.id, agora)
       if (vitrine.indice) detalhes.push(`/noticias/ atualizada (${vitrine.noticias} matéria(s))`)
+      if (vitrine.acoes) detalhes.push('/acoes/ (Nossas ações) atualizada')
       if (vitrine.sitemap) detalhes.push('sitemap.xml no ar')
       if (vitrine.robots) detalhes.push('robots.txt no ar')
       if (vitrine.aviso) detalhes.push(`atenção: ${vitrine.aviso}`)

@@ -14,7 +14,8 @@ import { conteudoCanonicoDaMateria } from '@/lib/site/trilha-da-materia'
 import { withFtp, enviarArquivo, removerNarracoesAntigas, removerPastaDeMateria, FtpConfigError } from '@/lib/publicacao/ftp'
 import { narracaoDaMateria, type PedidoDeNarracao } from '@/lib/voz/narracao'
 import { vozPara } from '@/lib/voz/elevenlabs'
-import { atualizarVitrine, noticiasPublicadas } from '@/lib/site/vitrine'
+import { atualizarVitrine, marcasDeAcao, noticiasPublicadas } from '@/lib/site/vitrine'
+import type { AcaoDoMestre } from '@/lib/site/marca-de-acao'
 import { relacionadasPorTema, type MateriaAtual } from '@/lib/site/relacionadas'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { urlBase } from '@/lib/newsletter/contexto'
@@ -217,6 +218,8 @@ export async function gerarPaginaDaMateria(a: {
   chat?: string
   /** A voz da instituição, ligada para as matérias (vozPara): a página ganha o "Ouça esta matéria". */
   narracao?: PedidoDeNarracao | null
+  /** A marca "Nossas ações" da matéria (marcasDeAcao), quando ela é o relato de uma ação da filial. */
+  acao?: AcaoDoMestre | null
 }): Promise<PaginaDaMateria> {
   const registro: string[] = []
   const { arquivos, paraSubir, imagens } = await prepararMidias(a.lerArquivo, a.peca, registro)
@@ -241,6 +244,7 @@ export async function gerarPaginaDaMateria(a: {
     arquivos,
     relacionadas: a.relacionadas,
     rastreio: a.rastreio,
+    acao: a.acao,
     registro,
     chat: a.chat,
     audio: narracao.audio,
@@ -392,15 +396,18 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
     const modificadoEm = primeiraPublicacao || editadoEm.getTime() < publicadoEm.getTime() ? publicadoEm : editadoEm
 
     const chat = await prepararChatDoSite()
-    const [relacionadas, rastreio, voz] = await Promise.all([
+    const [relacionadas, rastreio, voz, marcas] = await Promise.all([
       relacionadasDaMateria(pedido.workspaceId, { url, titulo: peca.title, descricao: peca.subtitle, corpo: peca.body }),
       rastreioDaMateria(pedido.workspaceId, pedido.contentId),
       vozPara(pedido.workspaceId, 'materias'),
+      // Sem a leitura, a matéria sai sem a linha da ação: não é motivo para não publicar.
+      marcasDeAcao(pedido.workspaceId).catch(() => null),
     ])
 
     const pagina = await gerarPaginaDaMateria({
       lerArquivo: leitorDaBiblioteca(supabase, pedido.workspaceId), peca, slug, base, publicadoEm, modificadoEm, relacionadas, rastreio, chat,
       narracao: voz ? { voz, gerar: true } : null,
+      acao: marcas?.get(pedido.contentId) ?? null,
     })
 
     let vitrine: Awaited<ReturnType<typeof atualizarVitrine>> | undefined

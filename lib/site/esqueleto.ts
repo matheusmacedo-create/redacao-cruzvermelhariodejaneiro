@@ -408,6 +408,8 @@ footer{background:var(--stone);border-top:3px solid var(--red);color:var(--muted
 .news-grid{display:grid;grid-template-columns:minmax(0,1fr) var(--col-rail);gap:var(--gutter);align-items:start;padding-top:26px}
 .news-article{max-width:760px;min-width:0}
 .news-article .kicker{color:var(--brand);font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;margin:0 0 8px}
+.news-article .acao-linha{font-family:var(--sans);font-size:16px;line-height:1.5;color:var(--ink-2);margin:14px 0 18px;padding:12px 14px 6px;background:var(--box);border-left:4px solid var(--brand)}
+.news-article .acao-linha a{color:var(--brand);font-weight:700;text-decoration:underline;display:inline-block;padding:10px 0}
 .news-article h1{font-family:var(--serif);font-weight:800;font-size:48px;line-height:1.12;letter-spacing:-.02em;color:var(--news-ink);margin:0;overflow-wrap:break-word}
 .news-article .deck{font-family:var(--serif);font-size:21px;line-height:1.35;color:var(--news-muted);margin:12px 0 18px;font-weight:400}
 .meta-bar{display:flex;justify-content:space-between;align-items:center;gap:10px 16px;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--news-line);margin-bottom:26px}

@@ -316,6 +316,8 @@ export function paginaDeNoticias(
   linhaDoTempo: ItemDaLinha[] = [],
   /** As tags do chat do site (prepararChatDoSite). */
   chat?: string,
+  /** Quantas ações há em "Nossas ações" (/acoes/): com alguma, a barra de assuntos ganha o atalho para lá. */
+  acoes = 0,
 ): string {
   const ordenadas = [...noticias].sort((a, b) => b.publicadaEm.getTime() - a.publicadaEm.getTime())
   const { manchete, secundarias, ultimas, cadernos, arquivo } = montarEdicao(ordenadas)
@@ -454,9 +456,12 @@ export function paginaDeNoticias(
     ...cadernos.map((c) => ({ id: c.editoria.id, nome: c.editoria.nome })),
     ...(arquivo.length && cadernos.length ? [{ id: 'mais', nome: 'Mais notícias' }] : []),
   ]
-  const barra = atalhos.length > 1
+  // "Nossas ações" é outra página (o histórico do que a filial fez, lib/site/acoes.ts): entra por último na barra.
+  const atalhoDasAcoes = acoes > 0 ? '<li><a href="/acoes/">Nossas ações</a></li>' : ''
+  const barra = atalhos.length > 1 || atalhoDasAcoes
     ? `<nav class="cadernos-nav" aria-label="Assuntos"><ul>
           ${atalhos.map((a) => `<li><a href="#${a.id}">${escapar(a.nome)}</a></li>`).join('\n          ')}
+          ${atalhoDasAcoes}
         </ul></nav>`
     : ''
 
