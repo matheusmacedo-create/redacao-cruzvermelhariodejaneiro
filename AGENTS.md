@@ -20,6 +20,11 @@ banco, integrações, convenções (§9), armadilhas já pagas (§10) e o roteir
 agentes (§12). Como conectar o seu Claude Code está em
 [`docs/COLABORAR-COM-CLAUDE-CODE.md`](./docs/COLABORAR-COM-CLAUDE-CODE.md).
 
+**Vai mexer em algo que conversa com outro projeto** (o site institucional, o
+Cérebro, os sites das filiais, a cópia de Petrópolis, a intranet)? Leia antes
+[`docs/ECOSSISTEMA.md`](./docs/ECOSSISTEMA.md): o que cada repositório é, os
+contratos entre eles e o que quebra do outro lado.
+
 ## O projeto em uma linha
 
 Next.js 16 (App Router, `proxy.ts`, server actions) + React 19 + Supabase (Auth,
