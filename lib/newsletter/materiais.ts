@@ -593,12 +593,40 @@ export const QUEIMADURAS: Material = {
   },
 }
 
+/**
+ * O guia do El Niño (24/11/2026, não publicado): página /el-nino/ do site, no padrão dos guias gratuitos. É pedido só na
+ * página dele; as matérias de El Niño ganham a caixa quando forem ao ar (lib/site/caixa-de-material.ts).
+ */
+export const EL_NINO: Material = {
+  id: 'el-nino',
+  nome: 'o guia El Niño: como se preparar',
+  arquivo: `${SITE}/el-nino/el-nino-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/el-nino/#baixar`,
+  rotuloDoGuia: 'guia do El Niño',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o guia El Niño: como se preparar e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O guia vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o guia em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O guia também está no guia do El Niño, no nosso site.',
+  evento: 'elnino_pedir',
+  email: {
+    assunto: 'Seu guia El Niño: como se preparar (PDF)',
+    chamada: 'Toque no botão para baixar o checklist da casa pronta para o calor e a chuva forte.',
+    titulo: 'Seu guia El Niño: como se preparar',
+    descricao: 'São três folhas em PDF: duas para imprimir, com o checklist da casa pronta e o que fazer no calor forte, na chuva forte e na fumaça, e uma com todas as fontes.',
+    botao: 'Baixar o guia em PDF',
+    objeto: 'o guia',
+    convite: 'Quer ver o que os órgãos oficiais preveem?',
+  },
+}
+
 const MATERIAIS: readonly Material[] = [
   KIT_DE_EMERGENCIA, MANUAL_DE_IDENTIDADE, KIT_DE_PRIMEIROS_SOCORROS, KIT_LEI_LUCAS, ROTEIRO_PLANO_DE_CONTINGENCIA,
   MOCHILA_DE_EMERGENCIA, QUANDO_LIGAR_192, VERAO_SEGURO, PLANO_FAMILIAR,
   GUIA_DO_CUIDADOR, ACIDENTES_EM_CASA, CARTAZ_DA_CRUZ_VERMELHA, CHECKLIST_DENGUE,
   GUIA_DO_BOMBEIRO_CIVIL, GUIA_DOS_CURSOS, ONDE_BUSCAR_AJUDA, RCP_E_HEIMLICH, INTOXICACAO_ALIMENTAR, FEBRE_EM_CRIANCA,
-  PRESSAO_ALTA_E_BAIXA, QUEIMADURAS,
+  PRESSAO_ALTA_E_BAIXA, QUEIMADURAS, EL_NINO,
 ]
 
 /** O id vai em endereço e em atributo de HTML: nada além disto. */
