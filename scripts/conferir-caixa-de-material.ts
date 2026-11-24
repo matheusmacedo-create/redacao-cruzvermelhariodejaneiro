@@ -21,7 +21,7 @@ import {
 } from '../lib/site/caixa-de-material'
 import {
   ACIDENTES_EM_CASA, CARTAZ_DA_CRUZ_VERMELHA, CHECKLIST_DENGUE, FEBRE_EM_CRIANCA, GUIA_DO_BOMBEIRO_CIVIL, GUIA_DO_CUIDADOR, GUIA_DOS_CURSOS,
-  INTOXICACAO_ALIMENTAR, ONDE_BUSCAR_AJUDA, PRESSAO_ALTA_E_BAIXA, QUEIMADURAS, RCP_E_HEIMLICH,
+  EL_NINO, INTOXICACAO_ALIMENTAR, ONDE_BUSCAR_AJUDA, PRESSAO_ALTA_E_BAIXA, QUEIMADURAS, RCP_E_HEIMLICH,
   KIT_DE_EMERGENCIA, KIT_DE_PRIMEIROS_SOCORROS, KIT_LEI_LUCAS, MANUAL_DE_IDENTIDADE, MOCHILA_DE_EMERGENCIA, PLANO_FAMILIAR, QUANDO_LIGAR_192,
   ROTEIRO_PLANO_DE_CONTINGENCIA, VERAO_SEGURO, materialPorId,
   todosOsMateriais,
@@ -128,7 +128,7 @@ ok(leiLucas.includes('Receba o kit Lei Lucas para escolas no seu e\u2011mail') &
   && leiLucas.includes('<button type="submit">Enviar o kit para o meu e-mail</button>') && leiLucas.includes('href="/lei-lucas-para-escolas/#baixar"'),
   'lei-lucas: a matéria de Lei Lucas pede o kit para escolas (material, evento, botão e guia dele)')
 // Os cinco guias das buscas (12/11/2026) são pedidos só na página deles: nenhuma matéria ganha a caixa.
-for (const m of [RCP_E_HEIMLICH, INTOXICACAO_ALIMENTAR, FEBRE_EM_CRIANCA, PRESSAO_ALTA_E_BAIXA, QUEIMADURAS]) {
+for (const m of [RCP_E_HEIMLICH, INTOXICACAO_ALIMENTAR, FEBRE_EM_CRIANCA, PRESSAO_ALTA_E_BAIXA, QUEIMADURAS, EL_NINO]) {
   ok(materialPorId(m.id) === m && todas.every((s) => caixaDaMateria(s)?.material !== m), `${m.id}: o id acha o material e nenhuma matéria ganha a caixa dele`)
   ok(m.arquivo === `https://cruzvermelhariodejaneiro.org/${m.id}/${m.id}-cruz-vermelha-rj.pdf`, `${m.id}: o arquivo segue o nome do padrão dos guias, na pasta da página`)
   const mensagem = emailDoMaterial({ material: m, urlBaixar: `https://palacio.cruzvermelhariodejaneiro.org/newsletter/confirmar?t=${'a'.repeat(48)}&m=${m.id}`, urlDeSaida: 'https://palacio.cruzvermelhariodejaneiro.org/newsletter/sair?t=' + 'b'.repeat(48) })
