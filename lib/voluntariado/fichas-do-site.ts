@@ -118,8 +118,10 @@ export async function buscarFichasDoSite(workspaceId: string, prazo = Date.now()
     ultima_execucao: new Date().toISOString(), ultimo_erro: r.erro ?? null, updated_at: new Date().toISOString(),
   })
   if (r.importadas > 0) {
+    // Só sino e e-mail: cada ficha virava uma mensagem paga de WhatsApp por gerente (26/11/2026).
+    const gerentes = await gerentesDoVoluntariado(workspaceId)
     await notificar(admin, {
-      workspaceId, para: await gerentesDoVoluntariado(workspaceId), atorId: null, categoria: 'aprovacoes',
+      workspaceId, para: gerentes, semWhatsapp: gerentes, atorId: null, categoria: 'aprovacoes',
       titulo: r.importadas === 1 ? 'Nova ficha de voluntário do site' : `${r.importadas} fichas de voluntário do site`,
       mensagem: r.importadas === 1 ? `${nomes[0].slice(0, 120)} se cadastrou pelo site.` : `Chegaram ${r.importadas} fichas do cadastro do site.`,
       link: '/voluntariado?aba=inscricoes', botao: 'Ver inscrições', nota: 'Aprove ou recuse em Voluntários → Inscrições pendentes.',
