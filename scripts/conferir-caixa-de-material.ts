@@ -69,6 +69,11 @@ const semCaixa = montarPaginaDoArtigo({ ...base, slug: 'lei-do-voluntariado-o-qu
 const escapado = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 ok(comCaixa.includes('class="news-material"') && comCaixa.includes('Receba a lista do kit de emergência no seu e\u2011mail'), 'a matéria de emergência sai com a caixa e o título dela')
+// O atalho do alto (27/11/2026): um link antes do texto que leva à caixa do fim; só onde há caixa de material.
+ok(comCaixa.includes('<p class="news-material-atalho"><a href="#receber-material">') && comCaixa.includes('id="receber-material"'), 'a matéria com caixa tem o atalho do alto, e ele aponta para a caixa')
+ok(comCaixa.indexOf('news-material-atalho"><a') < comCaixa.indexOf('<div class="news-body">') && comCaixa.indexOf('<div class="news-body">') < comCaixa.indexOf('<aside class="news-material"'), 'o atalho vem antes do texto, e a caixa, depois')
+ok((comCaixa.match(/id="news-material-email"/g) ?? []).length === 1, 'o atalho não repete o formulário: um campo de e-mail só')
+ok(!semCaixa.includes('<p class="news-material-atalho">'), 'matéria sem caixa de material não leva o atalho')
 ok(comCaixa.includes(`action="${ROTA_DE_INSCRICAO_PADRAO}" method="post"`) && ROTA_DE_INSCRICAO_PADRAO === 'https://palacio.cruzvermelhariodejaneiro.org/api/newsletter/inscrever',
   'sem rota informada, o formulário manda para a rota de inscrição do Palácio')
 ok(comCaixa.includes('<input type="hidden" name="material" value="kit-de-emergencia">'), 'o formulário leva o id do material')
