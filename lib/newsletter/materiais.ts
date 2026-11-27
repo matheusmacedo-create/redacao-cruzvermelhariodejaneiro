@@ -621,12 +621,186 @@ export const EL_NINO: Material = {
   },
 }
 
+/**
+ * Sete guias de profissão e curso (27/11/2026, não publicados), no padrão dos guias gratuitos do site: nasceram das buscas
+ * por curso no Google (Brasil) e são as páginas de destino dos anúncios do Ad Grants. São pedidos só na página de cada um.
+ */
+export const CURSO_DE_PRIMEIROS_SOCORROS: Material = {
+  id: 'curso-de-primeiros-socorros',
+  nome: 'o guia para escolher um curso de primeiros socorros',
+  arquivo: `${SITE}/curso-de-primeiros-socorros/curso-de-primeiros-socorros-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/curso-de-primeiros-socorros/#baixar`,
+  rotuloDoGuia: 'guia do curso de primeiros socorros',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o guia para escolher um curso de primeiros socorros e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O guia vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o guia em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O guia também está no guia do curso de primeiros socorros, no nosso site.',
+  evento: 'cursosocorros_pedir',
+  email: {
+    assunto: 'Seu guia para escolher o curso (PDF)',
+    chamada: 'Toque no botão para baixar as perguntas para fazer antes de se matricular.',
+    titulo: 'Seu guia para escolher um curso de primeiros socorros',
+    descricao: 'São três folhas em PDF: duas para imprimir, com o que um curso de primeiros socorros deve ensinar e as perguntas para fazer antes de se matricular, e uma com todas as fontes.',
+    botao: 'Baixar o guia em PDF',
+    objeto: 'o guia',
+    convite: 'Quer ver cada ponto explicado?',
+  },
+}
+
+export const CURSO_DE_CUIDADOR_DE_IDOSOS: Material = {
+  id: 'curso-de-cuidador-de-idosos',
+  nome: 'o guia para escolher um curso de cuidador de idosos',
+  arquivo: `${SITE}/curso-de-cuidador-de-idosos/curso-de-cuidador-de-idosos-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/curso-de-cuidador-de-idosos/#baixar`,
+  rotuloDoGuia: 'guia do curso de cuidador de idosos',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o guia para escolher um curso de cuidador de idosos e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O guia vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o guia em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O guia também está no guia do curso de cuidador de idosos, no nosso site.',
+  evento: 'cursocuidador_pedir',
+  email: {
+    assunto: 'Seu guia do curso de cuidador de idosos (PDF)',
+    chamada: 'Toque no botão para baixar as perguntas para fazer antes de se matricular.',
+    titulo: 'Seu guia para escolher um curso de cuidador de idosos',
+    descricao: 'São três folhas em PDF: duas para imprimir, com o que um curso de cuidador de idosos deve ensinar e as perguntas para fazer antes de se matricular, e uma com todas as fontes.',
+    botao: 'Baixar o guia em PDF',
+    objeto: 'o guia',
+    convite: 'Quer ver cada ponto explicado?',
+  },
+}
+
+export const PROFISSAO_CUIDADOR_DE_IDOSOS: Material = {
+  id: 'profissao-cuidador-de-idosos',
+  nome: 'o guia da profissão de cuidador de idosos',
+  arquivo: `${SITE}/profissao-cuidador-de-idosos/profissao-cuidador-de-idosos-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/profissao-cuidador-de-idosos/#baixar`,
+  rotuloDoGuia: 'guia da profissão de cuidador de idosos',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o guia da profissão de cuidador de idosos e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O guia vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o guia em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O guia também está no guia da profissão de cuidador de idosos, no nosso site.',
+  evento: 'profcuidador_pedir',
+  email: {
+    assunto: 'Seu guia da profissão de cuidador (PDF)',
+    chamada: 'Toque no botão para baixar a ficha de combinados e a lista dos direitos.',
+    titulo: 'Seu guia da profissão de cuidador de idosos',
+    descricao: 'São três folhas em PDF: duas para imprimir, com o que o cuidador de idosos faz, os direitos de quem trabalha em residência e uma ficha de combinados com a família, e uma com todas as fontes.',
+    botao: 'Baixar o guia em PDF',
+    objeto: 'o guia',
+    convite: 'Quer ver cada direito explicado?',
+  },
+}
+
+export const CURSO_DE_BOMBEIRO_CIVIL: Material = {
+  id: 'curso-de-bombeiro-civil',
+  nome: 'o guia da profissão de bombeiro civil',
+  arquivo: `${SITE}/curso-de-bombeiro-civil/curso-de-bombeiro-civil-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/curso-de-bombeiro-civil/#baixar`,
+  rotuloDoGuia: 'guia da profissão de bombeiro civil',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o guia da profissão de bombeiro civil e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O guia vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o guia em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O guia também está no guia da profissão de bombeiro civil, no nosso site.',
+  evento: 'cursobombeiro_pedir',
+  email: {
+    assunto: 'Seu guia da profissão de bombeiro civil (PDF)',
+    chamada: 'Toque no botão para baixar os direitos da profissão e as perguntas do curso.',
+    titulo: 'Seu guia da profissão de bombeiro civil',
+    descricao: 'São três folhas em PDF: duas para imprimir, com o que a lei garante ao bombeiro civil, o caminho da formação e as perguntas para fazer antes de pagar a matrícula, e uma com todas as fontes.',
+    botao: 'Baixar o guia em PDF',
+    objeto: 'o guia',
+    convite: 'Quer ver cada etapa explicada?',
+  },
+}
+
+export const BRIGADA_DE_INCENDIO: Material = {
+  id: 'brigada-de-incendio',
+  nome: 'o guia da brigada de incêndio',
+  arquivo: `${SITE}/brigada-de-incendio/brigada-de-incendio-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/brigada-de-incendio/#baixar`,
+  rotuloDoGuia: 'guia da brigada de incêndio',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o guia da brigada de incêndio e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O guia vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o guia em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O guia também está no guia da brigada de incêndio, no nosso site.',
+  evento: 'brigada_pedir',
+  email: {
+    assunto: 'Seu guia da brigada de incêndio (PDF)',
+    chamada: 'Toque no botão para baixar o checklist de quem precisa montar a brigada.',
+    titulo: 'Seu guia da brigada de incêndio',
+    descricao: 'São três folhas em PDF: duas para imprimir, com o checklist de quem precisa montar a brigada de incêndio e uma ficha dos brigadistas para preencher, e uma com todas as fontes.',
+    botao: 'Baixar o guia em PDF',
+    objeto: 'o guia',
+    convite: 'Quer ver cada passo explicado?',
+  },
+}
+
+export const COMO_SER_SOCORRISTA: Material = {
+  id: 'como-ser-socorrista',
+  nome: 'o guia Como ser socorrista',
+  arquivo: `${SITE}/como-ser-socorrista/como-ser-socorrista-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/como-ser-socorrista/#baixar`,
+  rotuloDoGuia: 'guia Como ser socorrista',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o guia Como ser socorrista e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O guia vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o guia em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O guia também está no guia Como ser socorrista, no nosso site.',
+  evento: 'socorrista_pedir',
+  email: {
+    assunto: 'Seu guia Como ser socorrista (PDF)',
+    chamada: 'Toque no botão para baixar os caminhos para trabalhar com socorro e resgate.',
+    titulo: 'Seu guia Como ser socorrista',
+    descricao: 'São três folhas em PDF: duas para imprimir, com os caminhos para trabalhar com atendimento de emergência, o que cada um pede e as perguntas para fazer antes de pagar um curso, e uma com todas as fontes.',
+    botao: 'Baixar o guia em PDF',
+    objeto: 'o guia',
+    convite: 'Quer ver cada caminho explicado?',
+  },
+}
+
+export const CURSO_DE_BABA: Material = {
+  id: 'curso-de-baba',
+  nome: 'o guia da babá e do cuidador infantil',
+  arquivo: `${SITE}/curso-de-baba/curso-de-baba-cruz-vermelha-rj.pdf`,
+  guia: `${SITE}/curso-de-baba/#baixar`,
+  rotuloDoGuia: 'guia da babá e do cuidador infantil',
+  consentimento:
+    'Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail o guia da babá e do cuidador infantil e, depois, '
+    + 'notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link '
+    + 'presente em todas as mensagens.',
+  recado: 'Pronto! O guia vai para o seu e-mail em instantes. Abra a mensagem e toque em “Baixar o guia em PDF”. Confira também a caixa de spam.',
+  recadoSemEnvio: 'Recebemos o seu pedido, mas o nosso envio de e-mail está fora do ar agora. O guia também está no guia da babá e do cuidador infantil, no nosso site.',
+  evento: 'baba_pedir',
+  email: {
+    assunto: 'Seu guia da babá e do cuidador infantil (PDF)',
+    chamada: 'Toque no botão para baixar a ficha da criança e a lista da casa segura.',
+    titulo: 'Seu guia da babá e do cuidador infantil',
+    descricao: 'São três folhas em PDF: duas para imprimir, com a ficha da criança para deixar com quem cuida, a lista da casa segura e o que um curso deve ensinar, e uma com todas as fontes.',
+    botao: 'Baixar o guia em PDF',
+    objeto: 'o guia',
+    convite: 'Quer ver cada cuidado explicado?',
+  },
+}
+
 const MATERIAIS: readonly Material[] = [
   KIT_DE_EMERGENCIA, MANUAL_DE_IDENTIDADE, KIT_DE_PRIMEIROS_SOCORROS, KIT_LEI_LUCAS, ROTEIRO_PLANO_DE_CONTINGENCIA,
   MOCHILA_DE_EMERGENCIA, QUANDO_LIGAR_192, VERAO_SEGURO, PLANO_FAMILIAR,
   GUIA_DO_CUIDADOR, ACIDENTES_EM_CASA, CARTAZ_DA_CRUZ_VERMELHA, CHECKLIST_DENGUE,
   GUIA_DO_BOMBEIRO_CIVIL, GUIA_DOS_CURSOS, ONDE_BUSCAR_AJUDA, RCP_E_HEIMLICH, INTOXICACAO_ALIMENTAR, FEBRE_EM_CRIANCA,
   PRESSAO_ALTA_E_BAIXA, QUEIMADURAS, EL_NINO,
+  CURSO_DE_PRIMEIROS_SOCORROS, CURSO_DE_CUIDADOR_DE_IDOSOS, PROFISSAO_CUIDADOR_DE_IDOSOS, CURSO_DE_BOMBEIRO_CIVIL,
+  BRIGADA_DE_INCENDIO, COMO_SER_SOCORRISTA, CURSO_DE_BABA,
 ]
 
 /** O id vai em endereço e em atributo de HTML: nada além disto. */
