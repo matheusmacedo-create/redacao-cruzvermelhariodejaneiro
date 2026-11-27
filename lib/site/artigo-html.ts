@@ -6,7 +6,7 @@ import {
 import { svgDaMarca } from '@/lib/marcas'
 import { alternativasDaPagina } from '@/lib/site/traducoes'
 import { ehAudioDeNarracao } from '@/lib/voz/regras'
-import { CSS_DA_CAIXA_DE_MATERIAL, SCRIPT_DA_CAIXA_DE_MATERIAL, caixaDaMateria, htmlDaCaixaDeMaterial } from '@/lib/site/caixa-de-material'
+import { CSS_DA_CAIXA_DE_MATERIAL, SCRIPT_DA_CAIXA_DE_MATERIAL, caixaDaMateria, htmlDaCaixaDeMaterial, htmlDoAtalhoDoMaterial } from '@/lib/site/caixa-de-material'
 import { CSS_DOS_CONVITES, conviteDaMateria, htmlDaCaixaDeNoticias, htmlDeComoAjudar, htmlDoConvite } from '@/lib/site/convites-da-materia'
 import { editoriaDaMateria } from '@/lib/site/editorias'
 export { escapar } from '@/lib/site/esqueleto'
@@ -568,6 +568,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
           </header>
           ${ouca}
           ${htmlDaCapa}
+          ${caixa ? htmlDoAtalhoDoMaterial(caixa) : ''}
           <div class="news-body">
       ${htmlDoCorpo}
           </div>
